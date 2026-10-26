@@ -1,0 +1,2389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SP Campaign Restructure Console</title>
+<style>
+:root{
+  /* surfaces */
+  --paper:#F5F6F7;--panel:#FFFFFF;--sunken:#FAFBFB;--ink:#16211E;--ink2:#1E2C28;--ink3:#294038;
+  --line:#E0E4E4;--line2:#EDF0F0;--text:#131A18;--muted:#5D6B67;--faint:#8A9793;
+  /* signal */
+  --accent:#1D6A54;--accent2:#175946;--accentSoft:#E6F1EC;--accentLine:#BEDBCF;
+  --copper:#8F5A15;--copperSoft:#FBF1E3;--copperLine:#E8D4B4;
+  --brick:#A33226;--brickSoft:#FBEBE8;--brickLine:#EDC7C0;
+  --amber:#8A6100;--amberSoft:#FCF3DE;--amberLine:#E9D9A6;
+  --ok:#1D6A54;--okSoft:#E6F1EC;--warn:#8A6100;--warnSoft:#FCF3DE;--bad:#A33226;--badSoft:#FBEBE8;
+  --bar:#DDE8E3;
+  --focus:#1D6A54;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --r:10px;--r2:7px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#0E1513;--panel:#151E1B;--sunken:#111A17;--ink:#0B120F;--ink2:#152019;--ink3:#24382F;
+    --line:#26332E;--line2:#1E2B26;--text:#E4EAE7;--muted:#96A5A0;--faint:#6E7D78;
+    --accent:#4FB292;--accent2:#63C5A5;--accentSoft:#152C25;--accentLine:#27564A;
+    --copper:#D4995A;--copperSoft:#2B2115;--copperLine:#4E3B22;
+    --brick:#E58275;--brickSoft:#2E1A17;--brickLine:#55302B;
+    --amber:#D9B45E;--amberSoft:#2A2415;--amberLine:#4C4226;
+    --ok:#4FB292;--okSoft:#152C25;--warn:#D9B45E;--warnSoft:#2A2415;--bad:#E58275;--badSoft:#2E1A17;
+    --bar:#20332C;--focus:#4FB292;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--paper);color:var(--text);font-family:var(--sans);font-size:13.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px;border-radius:4px}
+.mono,.tbl .mono{font-family:var(--mono)}
+.num,.stat b,.campMeta b{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.app{display:grid;grid-template-columns:246px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--ink);color:#B9C7C1;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+.brand{padding:24px 20px 20px}
+.brand h1{font-size:15px;font-weight:600;letter-spacing:-.01em;color:#F2F6F4;margin:0 0 6px}
+.brand p{margin:0;color:#7F918B;font-size:12px;line-height:1.5;max-width:26ch}
+.nav{padding:8px 10px;display:grid;gap:2px;position:relative}
+.nav button{border:0;background:transparent;color:#A3B3AD;border-radius:var(--r2);text-align:left;padding:10px 11px;display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;transition:background .12s,color .12s}
+.nav button:hover{background:#1B2723;color:#DDE7E3}
+.nav button.on{background:var(--ink3);color:#fff}
+.nav .n{width:19px;height:19px;border-radius:50%;border:1px solid #3B4F47;color:#7E918A;font:500 10.5px var(--mono);display:grid;place-items:center;margin-top:1px}
+.nav button.on .n{border-color:#6FA893;color:#CFE6DC}
+.nav button.done .n{background:var(--accent);border-color:var(--accent);color:#06130F}
+.nav small{display:block;color:#75857F;margin-top:2px;font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+.nav button.on small{color:#9FB6AD}
+.railfoot{margin-top:auto;padding:16px 20px;border-top:1px solid #1F2C27;color:#677872;font-size:11px}
+.privacy{display:flex;gap:7px;align-items:center}
+.dot{width:6px;height:6px;border-radius:50%;background:#4FB292}
+.work{padding:30px 34px 96px;min-width:0}
+.panel{display:none}.panel.on{display:block}
+
+/* ---------- page furniture ---------- */
+.pagehead{display:flex;gap:20px;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.pagehead h2{margin:0 0 6px;font-size:21px;font-weight:600;letter-spacing:-.02em}
+.sub{margin:0;color:var(--muted);max-width:72ch;font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-bottom:14px}
+.card h3{margin:0 0 3px;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.hint{font-size:12px;color:var(--muted);margin:0 0 12px;max-width:80ch}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.grow{flex:1;min-width:180px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+label.f{display:block;font-size:11.5px;color:var(--muted);margin:0 0 4px}
+input[type=text],input[type=number],select,textarea{width:100%;border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:7px 9px;transition:border-color .12s}
+input[type=text]:hover,input[type=number]:hover,select:hover{border-color:#C6CFCB}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--focus);outline-offset:-1px;border-color:var(--focus)}
+input::placeholder{color:var(--faint)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:var(--r2);padding:7px 13px;font-size:13px;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--sunken);border-color:#C6CFCB}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn.danger{border-color:var(--brickLine);color:var(--brick);background:var(--panel)}
+.btn.danger:hover{background:var(--brickSoft)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--accent)}
+.btn.ghost:hover{background:var(--accentSoft)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.note{border-left:2px solid var(--accent);background:var(--accentSoft);border-radius:0 var(--r2) var(--r2) 0;padding:10px 13px;font-size:12.5px;color:var(--text)}
+.note.warn{border-left-color:var(--amber);background:var(--amberSoft)}
+.note.bad{border-left-color:var(--brick);background:var(--brickSoft)}
+.note.ok{border-left-color:var(--accent);background:var(--accentSoft)}
+.empty{padding:34px 18px;text-align:center;color:var(--muted)}
+.mini{font-size:11.5px;color:var(--muted)}
+
+/* ---------- upload ---------- */
+.drop{border:1.5px dashed var(--line);border-radius:var(--r);background:var(--sunken);text-align:center;padding:46px 24px;transition:border-color .15s,background .15s}
+.drop:hover{border-color:var(--accentLine)}
+.drop.hot{border-color:var(--accent);background:var(--accentSoft)}
+.drop strong{display:block;font-size:15px;font-weight:600;margin-bottom:4px}
+.drop span{color:var(--muted);font-size:12.5px}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:var(--r2);overflow:hidden}
+.stat{background:var(--panel);padding:11px 13px}
+.stat b{display:block;font:600 17px/1.25 var(--mono);letter-spacing:-.02em}
+.stat span{font-size:11px;color:var(--muted)}
+
+/* ---------- campaign browser ---------- */
+.split{display:grid;grid-template-columns:minmax(270px,340px) minmax(0,1fr);gap:16px;align-items:start}
+.campaigns{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;position:sticky;top:18px}
+.campToolbar{padding:12px;border-bottom:1px solid var(--line2);display:grid;gap:9px}
+.campList{max-height:calc(100vh - 300px);overflow:auto}
+.campItem{padding:11px 12px;border-bottom:1px solid var(--line2);cursor:pointer;border-left:2px solid transparent}
+.campItem:hover{background:var(--sunken)}
+.campItem.on{background:var(--accentSoft);border-left-color:var(--accent)}
+.campItem .name{font:12px/1.45 var(--mono);overflow-wrap:anywhere}
+.campMeta{display:flex;gap:8px;flex-wrap:wrap;margin-top:7px;color:var(--muted);font-size:11px}
+.campMeta b{font-family:var(--mono);color:var(--text);font-weight:500}
+.detailEmpty{padding:64px 24px;text-align:center;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.detailTitle{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.detailTitle h3{font:600 13.5px/1.45 var(--mono);margin:0;overflow-wrap:anywhere}
+.settingsLine{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 12px}
+.tab{border:0;background:transparent;padding:8px 2px;margin-right:14px;border-bottom:2px solid transparent;color:var(--muted)}
+.tab:hover{color:var(--text)}
+.tab.on{border-bottom-color:var(--accent);color:var(--text);font-weight:600}
+
+/* ---------- badges ---------- */
+.badge{display:inline-block;border:1px solid var(--line);background:var(--sunken);color:var(--muted);border-radius:5px;padding:2px 6px;font:11px/1.5 var(--mono);white-space:nowrap}
+.badge.ok{background:var(--okSoft);border-color:var(--accentLine);color:var(--ok)}
+.badge.warn{background:var(--warnSoft);border-color:var(--amberLine);color:var(--warn)}
+.badge.bad{background:var(--badSoft);border-color:var(--brickLine);color:var(--bad)}
+.badge.purple{background:var(--accentSoft);border-color:var(--accentLine);color:var(--accent)}
+
+/* ---------- tables ---------- */
+.scroll{overflow:auto;border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);max-height:60vh}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{position:sticky;top:0;background:var(--panel);z-index:2;text-align:left;color:var(--muted);font-size:11.5px;font-weight:500;padding:9px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th[data-sort]{cursor:pointer;user-select:none}
+.tbl th[data-sort]:hover{color:var(--text)}
+.tbl th.sortOn{color:var(--accent);font-weight:600}
+.tbl th[data-dir=desc]::after{content:" ↓"}
+.tbl th[data-dir=asc]::after{content:" ↑"}
+.tbl td{padding:7px 9px;border-bottom:1px solid var(--line2);vertical-align:middle}
+.tbl tbody tr:last-child td{border-bottom:0}
+.tbl tbody tr:hover{background:var(--sunken)}
+.tbl .num{text-align:right;font-family:var(--mono);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbl input[type=number]{width:74px;padding:4px 6px;font-family:var(--mono);font-size:11.5px}
+.tbl input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent)}
+.tbl select.rowAction,.tbl select.rowDest{min-width:140px;padding:5px 7px;font-size:11.5px}
+.barCell{position:relative}
+.barFill{position:absolute;left:0;top:5px;bottom:5px;background:var(--bar);border-radius:2px;z-index:0}
+.barVal{position:relative;z-index:1}
+.rowDirty td:first-child{box-shadow:inset 2px 0 var(--accent)}
+.rowPaused td:first-child{box-shadow:inset 2px 0 var(--brick)}
+.rowPaused{color:var(--muted)}
+.actionKeep{color:var(--muted)}
+.actionMove{color:var(--accent);font-weight:600}
+.actionCopy{color:var(--copper);font-weight:600}
+.actionPause{color:var(--brick);font-weight:600}
+
+/* ---------- restructure ---------- */
+.restructHead{display:flex;align-items:flex-start;gap:14px;justify-content:space-between;flex-wrap:wrap}
+.restructToolbar{padding:11px 12px;background:var(--sunken);border:1px solid var(--line);border-radius:var(--r2);margin:12px 0;display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.restructToolbar select{width:auto;min-width:150px}
+.filterBar{display:grid;grid-template-columns:repeat(auto-fit,minmax(102px,1fr));gap:9px;padding:12px;background:var(--sunken);border:1px solid var(--line);border-radius:var(--r2);margin:12px 0}
+.filterBar.tight{padding:0;margin:0;border:0;background:none;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:7px}
+.filterBar input,.filterBar select{padding:6px 8px;font-size:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--muted);transition:.12s}
+.chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accentSoft)}
+.decisionSummary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 2px;align-items:center}
+.decisionSummary .sum{display:flex;gap:7px;align-items:baseline;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 11px;font-size:11.5px;color:var(--muted)}
+.decisionSummary .sum b{font:600 12px var(--mono);color:var(--text)}
+.batchMsg{font-size:11.5px;color:var(--accent);flex:1;min-width:120px}
+.planList{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.planList .badge{cursor:pointer}
+.planList .badge:hover{border-color:var(--accent)}
+.inlineCheck{display:flex;gap:10px;align-items:flex-start;font-size:13px}
+.inlineCheck input{margin-top:2px;width:15px;height:15px;accent-color:var(--accent)}
+.inlineCheck small{font-size:12px}
+
+/* ---------- destinations ---------- */
+.destScroll{max-height:680px;overflow:auto}
+.destGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px;margin:12px 2px}
+.dest{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);overflow:hidden}
+.dest.existing{border-color:var(--copperLine);background:var(--panel)}
+.destHead{padding:9px 11px;border-bottom:1px solid var(--line2);display:flex;gap:8px;align-items:center;background:var(--sunken)}
+.destHead input{font-weight:600;background:transparent}
+.destHead .badge{flex-shrink:0}
+.destBody{padding:12px}
+.destName{font:12px/1.5 var(--mono);background:var(--accentSoft);border:1px solid var(--accentLine);border-radius:var(--r2);padding:8px 9px;overflow-wrap:anywhere;margin:6px 0 0}
+.destName.bad{background:var(--brickSoft);border-color:var(--brickLine);color:var(--bad)}
+.destStat{font:600 14px var(--mono);padding:7px 9px;border:1px solid var(--line);border-radius:var(--r2);background:var(--sunken)}
+.miniStats{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+
+/* ---------- review ---------- */
+.previewColumns{display:grid;grid-template-columns:1fr 34px 1fr;gap:10px;align-items:start}
+.structureBox{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);overflow:hidden}
+.structureBox h4{margin:0;padding:10px 12px;background:var(--sunken);border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600}
+.structureRow{padding:9px 12px;border-bottom:1px solid var(--line2)}
+.structureRow:last-child{border-bottom:0}
+.structureRow .nm{font:12px/1.5 var(--mono);overflow-wrap:anywhere}
+.structureRow .subm{font-size:11.5px;color:var(--muted);margin-top:3px}
+.arrow{font-size:20px;text-align:center;color:var(--faint);padding-top:52px}
+.validationList{margin:0;padding-left:17px}
+.validationList li{margin:5px 0}
+.exportBtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+
+/* ---------- status bar ---------- */
+.statusbar{position:fixed;left:246px;right:0;bottom:0;z-index:30;display:flex;gap:12px;align-items:center;padding:10px 34px;background:var(--panel);border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.statusbar[hidden]{display:none}
+.sbLive{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.sbActions{margin-left:auto;display:flex;gap:8px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media(max-width:1050px){
+  .app{grid-template-columns:1fr}
+  .rail{position:static;height:auto}
+  .nav{display:flex;overflow:auto;padding:8px}
+  .nav button{min-width:160px}
+  .railfoot{display:none}
+  .work{padding:20px 14px 90px}
+  .split{grid-template-columns:1fr}
+  .campaigns{position:static}
+  .campList{max-height:340px}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .previewColumns{grid-template-columns:1fr}
+  .arrow{transform:rotate(90deg);padding:0}
+  .statusbar{left:0;padding:10px 14px}
+}
+/* ---------- plan layout ---------- */
+.planGrid{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:18px;align-items:start}
+.picker{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;position:sticky;top:18px}
+.pickerHead{padding:12px;border-bottom:1px solid var(--line2);display:grid;gap:9px}
+.pickerActions{display:flex;gap:8px}
+.pickerActions .btn{flex:1}
+.btn.subtle{background:var(--sunken);border-color:var(--line);color:var(--muted);padding:6px 10px;font-size:12.5px}
+.btn.subtle:hover{color:var(--text);border-color:#C6CFCB}
+.btn .cnt{display:inline-grid;place-items:center;min-width:17px;height:17px;margin-left:6px;border-radius:9px;background:var(--accent);color:#fff;font:600 10.5px var(--mono);padding:0 4px}
+.campList{max-height:calc(100vh - 330px);overflow:auto}
+.campItem{display:grid;grid-template-columns:18px 1fr;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line2);cursor:pointer;border-left:2px solid transparent;align-items:start}
+.campItem:hover{background:var(--sunken)}
+.campItem.on{background:var(--accentSoft);border-left-color:var(--accent)}
+.campItem input{width:15px;height:15px;margin-top:2px;accent-color:var(--accent)}
+.campBody{min-width:0}
+.campItem .name{display:block;font:11.5px/1.45 var(--mono);overflow-wrap:anywhere}
+.selectionBar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.selectionBar:empty{display:none}
+.selChip{display:inline-flex;gap:7px;align-items:center;background:var(--accentSoft);border:1px solid var(--accentLine);color:var(--accent);border-radius:999px;padding:4px 6px 4px 11px;font:11.5px var(--mono)}
+.selChip b{font-weight:600}
+.selChip button{border:0;background:transparent;color:inherit;font-size:14px;line-height:1;padding:0 4px;border-radius:50%}
+.selChip button:hover{background:var(--accentLine)}
+.splitOpts{display:flex;gap:18px;flex-wrap:wrap;margin-top:4px}
+.splitOpts .inlineCheck{font-size:12.5px;color:var(--muted)}
+.sizeQuick{display:flex;gap:5px;align-self:end;padding-bottom:1px}
+.sizeQuick .chip{padding:6px 10px}
+.previewLine{margin-top:12px;padding:10px 12px;background:var(--accentSoft);border:1px solid var(--accentLine);border-radius:var(--r2);font-size:12.5px}
+.previewLine .muted{color:var(--muted)}
+.scroll.tall{max-height:66vh}
+.campCell{font:11px/1.4 var(--mono);color:var(--muted);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tgtCell{min-width:180px}
+.rowTags{display:inline-flex;gap:5px;margin-left:8px;vertical-align:middle}
+.rowCopy td:first-child{box-shadow:inset 2px 0 var(--copper)}
+.rowCounts{display:flex;gap:8px;flex-wrap:wrap}
+.rowCounts .sum{display:flex;gap:8px;align-items:baseline;border:1px solid var(--line);background:var(--sunken);border-radius:var(--r2);padding:6px 11px;font-size:12px;color:var(--muted)}
+.rowCounts .sum b{font:600 13px var(--mono);color:var(--text)}
+
+/* ---------- ASIN checklist ---------- */
+.asinBox{border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;background:var(--sunken)}
+.asinBox .asinSearch{border:0;border-bottom:1px solid var(--line);border-radius:0;background:var(--panel);font-size:12px}
+.asinList{max-height:168px;overflow:auto}
+.asinRow{display:grid;grid-template-columns:130px 1fr auto;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line2)}
+.asinRow:last-child{border-bottom:0}
+.asinPick{display:flex;gap:7px;align-items:center;font-size:11.5px;cursor:pointer}
+.asinPick input{width:14px;height:14px;accent-color:var(--accent)}
+.asinDesc{font-size:11.5px;padding:4px 7px;background:var(--panel)}
+.asinDesc.needed{border-color:var(--brickLine);background:var(--brickSoft)}
+
+/* ---------- build preview ---------- */
+.previewGrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start}
+.previewCol{min-width:0}
+.previewColHead{display:flex;align-items:baseline;gap:10px;justify-content:space-between;padding:0 2px 10px;position:sticky;top:0;background:var(--paper);z-index:3}
+.previewColHead h3{margin:0;font-size:14px;font-weight:600}
+.pvBlock{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.pvBlock.touched{border-color:var(--accentLine)}
+.pvBlock.fresh{border-color:var(--accentLine);box-shadow:inset 3px 0 var(--accent)}
+.pvBlock.into{border-color:var(--copperLine);box-shadow:inset 3px 0 var(--copper)}
+.pvBlock.remain{background:var(--sunken)}
+.pvHead{padding:11px 13px;border-bottom:1px solid var(--line2);cursor:pointer}
+.pvTitle{font:12px/1.5 var(--mono);overflow-wrap:anywhere}
+.pvTags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.pvBody{max-height:224px;overflow:auto}
+.expanded .pvBody{max-height:none}
+.pvNone{padding:14px;color:var(--muted);font-size:12px}
+.pvKw{display:grid;grid-template-columns:1fr 62px 54px 62px 56px;gap:8px;padding:6px 13px;border-bottom:1px solid var(--line2);font-size:12px;align-items:center;cursor:pointer}
+.pvKw:last-child{border-bottom:0}
+.pvKw:hover,.pvKw.lit{background:var(--accentSoft)}
+.pvKw.lit{box-shadow:inset 2px 0 var(--accent)}
+.pvName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pvMeta{color:var(--muted);font-size:11px;font-family:var(--mono)}
+.pvKw.kwMove .pvName{text-decoration:line-through;color:var(--muted)}
+.pvBlock.fresh .pvKw.kwMove .pvName,.pvBlock.into .pvKw.kwMove .pvName{text-decoration:none;color:var(--text)}
+.pvKw.kwPause .pvName{color:var(--brick)}
+.pvKw.kwCopy .pvName{color:var(--copper)}
+.pvGroup{border:1px solid var(--line);border-radius:var(--r);padding:10px;margin-bottom:12px;background:var(--sunken)}
+.pvGroupHead{font-size:12px;color:var(--muted);margin-bottom:9px;font-family:var(--mono);overflow-wrap:anywhere}
+.pvDivider{font-size:12px;color:var(--muted);margin:18px 0 10px;padding-top:12px;border-top:1px solid var(--line)}
+
+@media print{
+  .rail,.statusbar,.pagehead .row,.nav{display:none!important}
+  .work{padding:0}
+  .app{display:block}
+  .pvBody{max-height:none}
+  .previewGrid{gap:10px}
+  .pvBlock{break-inside:avoid;border-color:#bbb}
+  body{background:#fff;font-size:11px}
+}
+@media(max-width:1200px){
+  .planGrid{grid-template-columns:1fr}
+  .picker{position:static}
+  .campList{max-height:320px}
+  .previewGrid{grid-template-columns:1fr}
+}
+
+/* ---------- v5 simplified plan ---------- */
+.kpiRow{display:flex;flex-wrap:wrap;gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:var(--r2);overflow:hidden;margin-bottom:14px}
+.kpi{background:var(--panel);padding:10px 16px;flex:1 1 auto;min-width:96px}
+.kpi b{display:block;font:600 16px/1.3 var(--mono);letter-spacing:-.02em}
+.kpi span{font-size:11px;color:var(--muted)}
+.foldout{padding:0}
+.foldout>summary{padding:14px 20px;cursor:pointer;font-size:13.5px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+.foldout>summary::-webkit-details-marker{display:none}
+.foldout>summary::before{content:"▸";color:var(--muted);font-size:11px}
+.foldout[open]>summary::before{content:"▾"}
+.foldout>summary:hover{background:var(--sunken)}
+.foldout[open]>summary{border-bottom:1px solid var(--line2)}
+.foldout>*:not(summary){margin:0 20px 18px}
+.foldout .restructToolbar{margin:14px 20px 18px}
+#destOptions{border:1px solid var(--line);border-radius:var(--r2);margin-top:12px}
+#destOptions>summary{padding:10px 13px;font-size:12.5px;font-weight:500;color:var(--muted)}
+
+.destList{display:grid;gap:6px;margin-top:4px}
+.destItem{border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;background:var(--panel)}
+.destItem.problem{border-color:var(--brickLine)}
+.destItem.open{box-shadow:inset 3px 0 var(--accent)}
+.destRow{display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer}
+.destRow:hover{background:var(--sunken)}
+.destCaret{color:var(--muted);font-size:10px;width:10px}
+.destNm{flex:1;font:11.5px/1.45 var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.destRow .btn.ghost{opacity:0;transition:opacity .12s}
+.destRow:hover .btn.ghost,.destItem.open .btn.ghost{opacity:1}
+.destPanel{border-top:1px solid var(--line2);background:var(--sunken);padding:12px}
+.destPanel .dest{border:0;background:transparent}
+.destPanel .destBody{padding:0}
+
+.actionBar{position:fixed;left:266px;right:20px;bottom:56px;z-index:40;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+ padding:12px 16px;background:var(--panel);border:1px solid var(--accentLine);border-radius:12px;box-shadow:0 8px 28px rgba(12,30,24,.16)}
+.actionBar[hidden]{display:none}
+.abCount{font-size:13px;white-space:nowrap}
+.abCount b{font-family:var(--mono)}
+.abGroup{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.abLabel{font-size:12.5px;color:var(--muted)}
+.abNum{width:62px;text-align:center;font-family:var(--mono)}
+.abGroup select{width:auto;min-width:130px}
+.abRight{margin-left:auto;display:flex;gap:8px}
+.abMsg{position:fixed;left:266px;bottom:128px;z-index:40;font-size:12px;color:var(--accent)}
+.abMsg:empty{display:none}
+body.hasBar .work{padding-bottom:150px}
+.tableHint .sum,#tableHint .sum{display:inline-flex;gap:6px;align-items:baseline;border:1px solid var(--line);border-radius:999px;padding:1px 9px;margin-left:6px;font-size:11px}
+#tableHint .sum b{font-family:var(--mono);color:var(--text)}
+@media(max-width:1200px){.actionBar,.abMsg{left:14px;right:14px}}
+
+/* ---------- v6 queue ---------- */
+.chooseBar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.campList.wide{max-height:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:var(--r2);overflow:hidden}
+.campList.wide .campItem{border-bottom:0;background:var(--panel)}
+.startBar{position:sticky;bottom:14px;z-index:20;display:flex;align-items:center;gap:14px;justify-content:space-between;
+ padding:12px 18px;background:var(--panel);border:1px solid var(--accentLine);border-radius:12px;box-shadow:0 8px 28px rgba(12,30,24,.14);margin-top:14px}
+.startBar[hidden]{display:none}
+
+.queueStrip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.queueStrip:empty{display:none}
+.qChip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:5px 12px 5px 6px;font-size:12px;color:var(--muted);max-width:280px}
+.qChip:hover{border-color:var(--accent)}
+.qMark{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--sunken);border:1px solid var(--line);font:600 10.5px var(--mono);flex:0 0 auto}
+.qName{font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qN{font:600 10.5px var(--mono);color:var(--accent)}
+.qChip.now{border-color:var(--accent);background:var(--accentSoft);color:var(--text)}
+.qChip.now .qMark{background:var(--accent);border-color:var(--accent);color:#fff}
+.qChip.done{color:var(--faint)}
+.qChip.done .qMark{background:var(--okSoft);border-color:var(--accentLine);color:var(--accent)}
+.qChip.done .qName{text-decoration:line-through}
+
+.currentCard{padding-bottom:14px}
+.curHead{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.curTitle{flex:1;min-width:0}
+.curTitle h3{margin:2px 0 0;font:600 14px/1.45 var(--mono);overflow-wrap:anywhere}
+.curTitle .mini{text-transform:none;color:var(--muted)}
+.curHead .btn{font-size:15px;line-height:1;padding:7px 13px}
+
+.doneBar{position:sticky;bottom:14px;z-index:20;display:flex;gap:10px;justify-content:flex-end;align-items:center;
+ padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(12,30,24,.12);margin-top:6px}
+.btn.big{padding:10px 20px;font-size:14px}
+body.hasBar .doneBar{margin-bottom:76px}
+
+/* ---------- v7 queue removal + name editor ---------- */
+.qChip{padding-right:4px}
+.qGo{border:0;background:transparent;display:inline-flex;align-items:center;gap:7px;color:inherit;font:inherit;padding:0;min-width:0}
+.qX{border:0;background:transparent;color:var(--faint);font-size:15px;line-height:1;padding:2px 6px;border-radius:50%;flex:0 0 auto}
+.qX:hover{background:var(--brickSoft);color:var(--brick)}
+.btn.subtle.danger{color:var(--brick);border-color:var(--brickLine);background:var(--panel)}
+.btn.subtle.danger:hover{background:var(--brickSoft)}
+.nameTools{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:9px}
+.partChips{display:flex;gap:5px;flex-wrap:wrap;flex:1}
+.partChip{border:1px solid var(--line);background:var(--panel);color:var(--faint);border-radius:999px;padding:3px 10px;font-size:11px;text-decoration:line-through}
+.partChip.on{border-color:var(--accentLine);background:var(--accentSoft);color:var(--accent);text-decoration:none}
+.partChip:hover{border-color:var(--accent)}
+.customName{flex:1;min-width:200px;font:12px var(--mono)}
+.nameLen{font:11px var(--mono);color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:9px}
+.nameLen.over{color:var(--brick)}
+.segList{display:grid;gap:5px}
+.segRow{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--panel)}
+.segRow.off{opacity:.45;background:var(--sunken)}
+.segGrip{width:20px;height:20px;display:grid;place-items:center;border-radius:5px;background:var(--sunken);border:1px solid var(--line);font:600 10.5px var(--mono);color:var(--muted)}
+.segKind{font:10px var(--mono);color:var(--faint);text-transform:uppercase;width:34px}
+.segName{font-size:12.5px}
+.segText{width:170px;font:12px var(--mono);padding:4px 7px}
+.segSpacer{flex:1}
+.segRow .btn{padding:3px 8px;font-size:12px;line-height:1.3}
+.namePreviewBox{padding:11px 13px;border:1px solid var(--accentLine);background:var(--accentSoft);border-radius:var(--r2);font-size:12px;overflow-wrap:anywhere}
+.negGroup{border:1px solid var(--line);border-radius:var(--r2);margin-bottom:10px;overflow:hidden}
+.negGroup.old{border-color:var(--copperLine)}
+.negHead{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--sunken);border-bottom:1px solid var(--line2)}
+.negTitle{flex:1;font:11.5px/1.45 var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.negRows{max-height:280px;overflow:auto}
+.negRow{display:flex;align-items:center;gap:9px;padding:6px 12px;border-bottom:1px solid var(--line2);font-size:12px;cursor:pointer}
+.negRow:last-child{border-bottom:0}
+.negRow:hover{background:var(--sunken)}
+.negRow.off{opacity:.42}
+.negRow.off .negText{text-decoration:line-through}
+.negRow input{width:15px;height:15px;accent-color:var(--accent)}
+.negText{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.negFrom{font:10.5px var(--mono);color:var(--faint);max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+
+<!-- PPC LAB THEME -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<script>/* PPC Lab theme: Plum & Rose */document.documentElement.setAttribute("data-board","b5");</script>
+<style id="ppc-lab-theme">
+/* PPC Lab uniform theme · colors, type and surfaces only. Original layout and behaviour untouched. */
+html[data-board="b5"]{--tb-nav:#221432;--tb-act:#7A3E9D;--tb-hi:#E8A598;--tb-bg:#F6F4F8;--tb-ink:#1E1529}
+html[data-board]{
+  --tb-nav2:color-mix(in srgb,var(--tb-nav) 86%,#fff);--tb-nav3:color-mix(in srgb,var(--tb-nav) 74%,#fff);
+  --tb-card:#fff;--tb-sunk:color-mix(in srgb,var(--tb-bg) 55%,#fff);
+  --tb-line:color-mix(in srgb,var(--tb-ink) 14%,#fff);--tb-line2:color-mix(in srgb,var(--tb-ink) 7%,#fff);
+  --tb-ink2:color-mix(in srgb,var(--tb-ink) 74%,#fff);--tb-ink3:color-mix(in srgb,var(--tb-ink) 52%,#fff);--tb-muted:color-mix(in srgb,var(--tb-ink) 62%,#fff);
+  --tb-act-soft:color-mix(in srgb,var(--tb-act) 10%,#fff);--tb-act-line:color-mix(in srgb,var(--tb-act) 32%,#fff);--tb-act-dk:color-mix(in srgb,var(--tb-act) 78%,#000);
+  --tb-hi-soft:color-mix(in srgb,var(--tb-hi) 16%,#fff);
+  --tb-sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --tb-mono:"JetBrains Mono","IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  accent-color:var(--tb-act);color-scheme:light}
+html[data-board]{--paper:var(--tb-bg);--panel:var(--tb-card);--sunken:var(--tb-sunk);--ink:var(--tb-nav);--ink2:var(--tb-nav2);--ink3:var(--tb-nav3);--line:var(--tb-line);--line2:var(--tb-line2);--text:var(--tb-ink);--muted:var(--tb-muted);--faint:var(--tb-ink3);--accent:var(--tb-act);--accent2:var(--tb-act-dk);--accentSoft:var(--tb-act-soft);--accentLine:var(--tb-act-line);--focus:var(--tb-act);--sans:var(--tb-sans);--mono:var(--tb-mono);
+  --copper:#8F5A15;--copperSoft:#FBF1E3;--copperLine:#E8D4B4;--brick:#A33226;--brickSoft:#FBEBE8;--brickLine:#EDC7C0;--amber:#8A6100;--amberSoft:#FCF3DE;--amberLine:#E9D9A6;
+  --ok:#1D6A54;--okSoft:#E6F1EC;--warn:#8A6100;--warnSoft:#FCF3DE;--bad:#A33226;--badSoft:#FBEBE8;--bar:color-mix(in srgb,var(--tb-act) 16%,#fff)}
+html[data-board] .nav button.on{box-shadow:inset 3px 0 var(--tb-hi)}
+html[data-board] body{font-family:var(--tb-sans);-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01","tnum"}
+html[data-board] ::selection{background:var(--tb-hi-soft)}
+html[data-board] *{scrollbar-color:color-mix(in srgb,var(--tb-ink) 24%,transparent) transparent}
+html[data-board] :focus-visible{outline-color:var(--tb-act)}
+</style>
+<body>
+<div class="app">
+<aside class="rail">
+  <div class="brand"><h1>Campaign Restructure</h1><p>Pull Sponsored Products campaigns apart, rebuild them, and export the bulk file Amazon accepts.</p></div>
+  <div class="nav">
+    <button class="on" data-panel="upload"><span class="n">1</span><span>Load bulk<small id="navUpload">No file loaded</small></span></button>
+    <button data-panel="choose"><span class="n">2</span><span>Choose campaigns<small id="navChoose">None ticked</small></span></button>
+    <button data-panel="restructure"><span class="n">3</span><span>Restructure<small id="navPlan">Nothing planned</small></span></button>
+    <button data-panel="preview"><span class="n">4</span><span>Build preview<small>Before and after</small></span></button>
+    <button data-panel="review"><span class="n">5</span><span>Review<small>What Amazon would reject</small></span></button>
+    <button data-panel="export"><span class="n">6</span><span>Export bulk<small>Create and update rows</small></span></button>
+  </div>
+  <div class="railfoot"><div class="privacy"><span class="dot"></span><span>Runs locally in your browser</span></div><div style="margin-top:6px">Standard naming basis, July 2026</div></div>
+</aside>
+<main class="work">
+<section class="panel on" id="p-upload">
+  <div class="pagehead"><div><h2>Load Sponsored Products bulk file</h2><p class="sub">Everything runs in this browser. Nothing is uploaded anywhere. Load the Amazon bulk export that contains the campaigns you want to restructure.</p></div></div>
+  <div class="card">
+    <div class="row" style="margin-bottom:14px">
+      <div class="grow"><label class="f">Marketplace</label><select id="marketplace"><option value="us">amazon.com · US</option><option value="ca">amazon.ca · CA</option><option value="mx">amazon.com.mx · MX</option><option value="br">amazon.com.br · BR</option><option value="uk">amazon.co.uk · UK</option><option value="de" selected>amazon.de · DE</option><option value="fr">amazon.fr · FR</option><option value="it">amazon.it · IT</option><option value="es">amazon.es · ES</option><option value="nl">amazon.nl · NL</option><option value="se">amazon.se · SE</option><option value="pl">amazon.pl · PL</option><option value="be">amazon.com.be · BE</option><option value="tr">amazon.com.tr · TR</option><option value="ae">amazon.ae · AE</option><option value="sa">amazon.sa · SA</option><option value="in">amazon.in · IN</option><option value="jp">amazon.co.jp · JP</option><option value="sg">amazon.sg · SG</option><option value="au">amazon.com.au · AU</option></select></div>
+      <div class="grow"><label class="f">Account type</label><select id="accountType"><option value="seller">Seller Central</option><option value="vendor">Vendor Central</option></select></div>
+      <div class="grow"><label class="f">ACOS goal % <span style="color:var(--faint)">used for the performance labels</span></label><input id="acosGoal" type="number" min="0" step="0.1" value="30"></div>
+    </div>
+    <div class="drop" id="drop" tabindex="0"><strong>Drop Amazon bulk .xlsx here</strong><span>or click to choose a file from Amazon Ads → Bulk operations</span></div>
+    <input type="file" id="fileInput" accept=".xlsx,.xlsm,.csv,.tsv,.txt" hidden>
+    <div id="fileStatus" style="margin-top:12px"></div>
+  </div>
+  <div id="loadSummary" class="card" style="display:none"><h3>Account loaded</h3><p class="hint">Only Sponsored Products campaigns are included in this console.</p><div class="stats" id="loadStats"></div><div class="note" id="loadNote" style="margin-top:12px"></div><div class="row" style="margin-top:14px"><button class="btn primary" id="goPlan">Start planning</button><button class="btn" id="openPlan">Reopen a saved plan</button><input type="file" id="planInput" accept=".json" hidden></div></div>
+</section>
+
+<section class="panel" id="p-choose">
+  <div class="pagehead">
+    <div><h2>Choose campaigns</h2><p class="sub">Tick everything you want to restructure in this session. You will work through them one at a time, and they all end up in the same export.</p></div>
+    <div class="row" style="gap:8px"><button class="btn" id="openPlan2">Reopen a saved plan</button></div>
+  </div>
+
+  <div class="card">
+    <div class="chooseBar">
+      <input type="text" id="campaignSearch" placeholder="Search campaign, ASIN or ID" style="min-width:240px;flex:2">
+      <select id="campaignState" style="flex:1;min-width:130px"><option value="">All states</option><option value="enabled">Enabled</option><option value="paused">Paused</option><option value="archived">Archived</option></select>
+      <select id="campaignSort" style="flex:1;min-width:130px"><option value="spend">Spend</option><option value="sales">Sales</option><option value="orders">Orders</option><option value="units">Units</option><option value="acos">ACOS</option><option value="roas">ROAS</option><option value="targets">Targets</option><option value="name">Name</option></select>
+      <button class="btn subtle" id="toggleCampFilters">Filters<span class="cnt" id="campFilterCount" hidden></span></button>
+      <button class="btn subtle" id="selectAllCamps">Tick all shown</button>
+      <button class="btn subtle" id="clearCamps">Untick all</button>
+    </div>
+    <div class="filterBar" id="campFilterBox" hidden>
+      <div><label class="f">Spend ≥</label><input type="number" id="cfSpendMin" step="1" placeholder="—"></div>
+      <div><label class="f">ACOS ≥ %</label><input type="number" id="cfAcosMin" step="1" placeholder="—"></div>
+      <div><label class="f">ACOS ≤ %</label><input type="number" id="cfAcosMax" step="1" placeholder="—"></div>
+      <div><label class="f">ROAS ≥</label><input type="number" id="cfRoasMin" step="0.1" placeholder="—"></div>
+      <div><label class="f">ROAS ≤</label><input type="number" id="cfRoasMax" step="0.1" placeholder="—"></div>
+      <div><label class="f">Orders ≥</label><input type="number" id="cfOrdersMin" step="1" placeholder="—"></div>
+      <div><label class="f">Units ≥</label><input type="number" id="cfUnitsMin" step="1" placeholder="—"></div>
+      <div><label class="f">Targets ≥</label><input type="number" id="cfTargetsMin" step="1" placeholder="—"></div>
+      <div style="grid-column:1/-1"><button class="btn ghost" id="resetCampFilters">Reset</button></div>
+    </div>
+    <div class="mini" id="campCount" style="margin:10px 2px"></div>
+    <div class="campList wide" id="campaignList"></div>
+  </div>
+  <div class="startBar" id="startBar" hidden><span id="startText"></span><button class="btn primary" id="startQueue">Start restructuring</button></div>
+</section>
+
+<section class="panel" id="p-restructure">
+  <div class="pagehead">
+    <div><h2>Restructure</h2><p class="sub" id="queueSub"></p></div>
+    <div class="row" style="gap:8px"><button class="btn subtle" id="addMoreCamps">Add campaigns</button><button class="btn" id="undoBtn" disabled>Undo</button><button class="btn" id="savePlan">Save</button><button class="btn danger" id="clearPlan">Clear</button></div>
+  </div>
+
+  <div id="queueStrip" class="queueStrip"></div>
+
+  <div id="restructEmpty" class="detailEmpty"><b>No campaigns in the queue.</b><div class="mini" style="margin-top:6px">Go back to Choose campaigns and tick the ones you want to work on.</div></div>
+
+  <div id="restructBody" style="display:none">
+    <div class="card currentCard">
+      <div class="curHead">
+        <button class="btn subtle" id="prevCamp">←</button>
+        <div class="curTitle"><span class="mini" id="curPos"></span><h3 id="curName"></h3><div class="settingsLine" id="curTags"></div></div>
+        <button class="btn subtle danger" id="dropCamp" title="Take this campaign out of the queue">Remove</button><button class="btn subtle" id="nextCamp">→</button>
+      </div>
+      <div class="kpiRow" id="selStats"></div>
+    </div>
+
+    <div class="card">
+      <div class="restructHead">
+        <div><h3>Keywords and product targets</h3><p class="hint" id="tableHint"></p></div>
+        <div class="row" style="gap:8px">
+          <button class="btn subtle" id="toggleTargetFilters">Filters<span class="cnt" id="targetFilterCount" hidden></span></button>
+          <button class="btn subtle" id="toggleMetrics">More metrics</button>
+          <button class="btn subtle" id="selectAllTargets">Tick all shown</button>
+          <button class="btn subtle" id="clearTargets">Untick all</button>
+        </div>
+      </div>
+
+      <div class="filterBar" id="targetFilterBox" hidden>
+        <div style="grid-column:span 2"><label class="f">Search</label><input type="text" id="fQ" placeholder="keyword or ASIN"></div>
+        <div><label class="f">Type</label><select id="fType"><option value="">All</option><option value="kw">Keyword</option><option value="pt">Product target</option></select></div>
+        <div><label class="f">Match</label><select id="fMatch"><option value="">All</option><option value="Exact">Exact</option><option value="Phrase">Phrase</option><option value="Broad">Broad</option></select></div>
+        <div><label class="f">Row state</label><select id="fState"><option value="">All</option><option value="enabled">enabled</option><option value="paused">paused</option><option value="archived">archived</option></select></div>
+        <div><label class="f">Decision</label><select id="fDecision"><option value="">All</option><option value="keep">Keep</option><option value="move">Move</option><option value="pause">Pause</option><option value="changed">Anything but keep</option></select></div>
+        <div><label class="f">ACOS ≥ %</label><input type="number" id="fAcosMin" step="1" placeholder="—"></div>
+        <div><label class="f">ACOS ≤ %</label><input type="number" id="fAcosMax" step="1" placeholder="—"></div>
+        <div><label class="f">ROAS ≥</label><input type="number" id="fRoasMin" step="0.1" placeholder="—"></div>
+        <div><label class="f">ROAS ≤</label><input type="number" id="fRoasMax" step="0.1" placeholder="—"></div>
+        <div><label class="f">Impr. ≥</label><input type="number" id="fImprMin" step="1" placeholder="—"></div>
+        <div><label class="f">Impr. ≤</label><input type="number" id="fImprMax" step="1" placeholder="—"></div>
+        <div><label class="f">Clicks ≥</label><input type="number" id="fClicksMin" step="1" placeholder="—"></div>
+        <div><label class="f">Orders ≥</label><input type="number" id="fOrdersMin" step="1" placeholder="—"></div>
+        <div><label class="f">Units ≥</label><input type="number" id="fUnitsMin" step="1" placeholder="—"></div>
+        <div><label class="f">Spend ≥</label><input type="number" id="fSpendMin" step="1" placeholder="—"></div>
+        <div><label class="f">Spend ≤</label><input type="number" id="fSpendMax" step="1" placeholder="—"></div>
+        <div><label class="f">Only</label><select id="fDupes"><option value="">All rows</option><option value="dupe">Also in other campaigns</option></select></div>
+      </div>
+
+      <div class="chips">
+        <button class="chip" data-preset="wasted">No orders, 10+ clicks</button>
+        <button class="chip" data-preset="overgoal">ACOS above goal</button>
+        <button class="chip" data-preset="dupes">Also in other campaigns</button>
+        <button class="chip" data-preset="clear">Clear filters</button>
+      </div>
+
+      <div class="scroll tall"><table class="tbl" id="targetTable"><thead><tr id="targetHead"></tr></thead><tbody id="targetBody"></tbody></table></div>
+      <div class="row" style="margin-top:10px;justify-content:space-between"><span class="mini" id="targetCount"></span><button class="btn subtle" id="showMoreRows" hidden>Show more rows</button></div>
+    </div>
+
+    <div class="card">
+      <div class="restructHead"><div><h3>New campaigns from this one</h3><p class="hint" id="destHint">Click one to edit its name, budget, products and placements.</p></div><div class="row" style="gap:8px"><select id="reuseDest" style="min-width:210px"></select><button class="btn subtle" id="addExisting">Send into an existing campaign</button></div></div>
+      <div id="destinations" class="destList"></div>
+      <details class="foldout" id="destOptions">
+        <summary>Settings for all new campaigns</summary>
+        <div class="restructToolbar" id="globalDestBar">
+          <div><label class="f">Goal</label><input type="text" id="gGoal" list="goalList" placeholder="unchanged" style="width:110px"></div>
+          <div><label class="f">Intent</label><select id="gIntent" style="min-width:104px"><option value="">unchanged</option><option>Generic</option><option>SELF</option><option>COMP</option></select></div>
+          <div><label class="f">Niche</label><input type="text" id="gNiche" placeholder="unchanged" style="width:100px"></div>
+          <div><label class="f">Budget</label><input type="number" id="gBudget" min="1" step="0.01" placeholder="—" style="width:86px"></div>
+          <div><label class="f">TOS %</label><input type="number" id="gTos" min="0" max="900" placeholder="—" style="width:76px"></div>
+          <div><label class="f">ROS %</label><input type="number" id="gRos" min="0" max="900" placeholder="—" style="width:76px"></div>
+          <div><label class="f">PP %</label><input type="number" id="gPp" min="0" max="900" placeholder="—" style="width:76px"></div>
+          <div><label class="f">Strategy</label><select id="gStrategy" style="min-width:130px"><option value="">unchanged</option><option>Dynamic bids - down only</option><option>Dynamic bids - up and down</option><option>Fixed bid</option></select></div>
+          <div><label class="f">State</label><select id="gState" style="min-width:100px"><option value="">unchanged</option><option value="enabled">enabled</option><option value="paused">paused</option></select></div>
+          <button class="btn" id="applyAllSettings">Apply to all</button>
+          <button class="btn" id="fixNames">Fix duplicate names</button>
+          <button class="btn" id="applyPartsAll">Copy name parts to all</button>
+        </div>
+      </details>
+    </div>
+
+
+
+    <details class="card foldout" id="negFold" open>
+      <summary>Negatives preview · <span id="negCount" class="mini"></span></summary>
+      <p class="hint" style="margin:0 20px 10px">Everything that will be written as a negative because of this campaign. Untick anything you do not want. Choices are remembered and saved with the plan.</p>
+      <div id="negPreview" style="margin:0 20px 18px"></div>
+    </details>
+    <details class="card foldout" id="nameFold">
+      <summary>Campaign naming · what each new campaign is called</summary>
+      <p class="hint" style="margin:0 20px 10px">Build the name from the elements below. Drop the ones you do not use, add your own fixed text, and reorder with the arrows. This applies to every new campaign; a single campaign can still override it.</p>
+      <div class="restructToolbar" style="margin:0 20px 12px">
+        <div><label class="f">Editing</label><select id="specKind" style="min-width:190px"><option value="kw">Keyword campaigns</option><option value="pt">Product targeting campaigns</option></select></div>
+        <div><label class="f">Separator</label><input type="text" id="nameSep" value=" - " style="width:70px"></div>
+        <label class="inlineCheck" style="align-self:center"><input type="checkbox" id="showEmptyPH" checked><span>Show () where an optional field is empty</span></label>
+        <button class="btn subtle" id="resetSpec">Back to the standard convention</button>
+      </div>
+      <div id="nameEditor" class="segList" style="margin:0 20px"></div>
+      <div class="restructToolbar" style="margin:12px 20px">
+        <div><label class="f">Add</label><select id="addSeg" style="min-width:200px"></select></div>
+        <button class="btn" id="applyNameAll">Rebuild every campaign name</button>
+      </div>
+      <div class="namePreviewBox" id="namePreview" style="margin:0 20px 18px"></div>
+    </details>
+    <details class="card foldout" id="bidFold">
+      <summary>Bids</summary>
+      <div class="restructToolbar">
+        <div><label class="f">For</label><select id="bidScope"><option value="selected">Ticked rows</option><option value="planned">Everything being moved, all campaigns</option><option value="filtered">All rows shown</option></select></div>
+        <div><label class="f">Rule</label><select id="bidMode"><option value="fixed">Fixed bid</option><option value="pct">Change current bid by %</option><option value="cpc">Share of actual CPC</option><option value="acos">Break-even bid at target ACOS</option><option value="default">Ad group default bid</option></select></div>
+        <div><label class="f" id="bidValueLabel">Bid</label><input type="number" id="bidValue" step="0.01" value="0.5" style="width:92px"></div>
+        <div><label class="f">Floor</label><input type="number" id="bidMin" step="0.01" placeholder="0.02" style="width:84px"></div>
+        <div><label class="f">Ceiling</label><input type="number" id="bidMax" step="0.01" placeholder="none" style="width:84px"></div>
+        <button class="btn" id="applyBids">Set bids</button>
+        <span class="batchMsg" id="bidMessage"></span>
+      </div>
+    </details>
+
+    <details class="card foldout" id="exportFold">
+      <summary>Negatives and clean-up · applies to the whole export</summary>
+      <label class="inlineCheck"><input type="checkbox" id="carryNegatives" checked><span><b>Copy the source campaign into the new ones</b><small>Each new campaign is a duplicate of the one it came from — budget, placements, bidding strategy, portfolio, products and every negative keyword and negative ASIN. Only the keywords inside differ. A negative that would block one of the keywords you moved is left out.</small></span></label>
+      <div style="height:14px"></div>
+      <label class="inlineCheck"><input type="checkbox" id="protectExact"><span><b>Protect exact campaigns</b><small>New phrase and broad campaigns get a negative exact for every active exact keyword running on the same products.</small></span></label>
+      <div class="row" style="margin:10px 0 18px 26px">
+        <div><label class="f">Look for those exacts in</label><select id="protectScope" style="min-width:210px"><option value="account">The whole account</option><option value="selected">Only the campaigns in the queue</option></select></div>
+        <label class="inlineCheck" style="align-self:center"><input type="checkbox" id="protectPhrase"><span>Broad campaigns also block active phrase keywords</span></label>
+      </div>
+      <label class="inlineCheck"><input type="checkbox" id="addNegatives"><span><b>Block moved keywords in their old campaign</b><small>A negative for every keyword you move out, so the old campaign stops bidding on it.</small></span></label>
+      <div class="row" style="margin:10px 0 18px 26px">
+        <div><label class="f">Add it to</label><select id="negScope" style="min-width:180px"><option value="adgroup">The ad group it came from</option><option value="campaign">The whole source campaign</option></select></div>
+        <div><label class="f">Match type</label><select id="negMatch" style="min-width:140px"><option value="exact">Negative exact</option><option value="phrase">Negative phrase</option></select></div>
+      </div>
+      <label class="inlineCheck"><input type="checkbox" id="pauseEmptyCampaign" checked><span><b>Pause source campaigns left with nothing running</b></span></label>
+      <label class="inlineCheck" style="margin-top:12px"><input type="checkbox" id="splitAsin" checked><span><b>Never mix products in one new campaign</b></span></label>
+    </details>
+
+    <div class="doneBar">
+      <button class="btn subtle" id="skipCamp">Skip this one</button>
+      <button class="btn primary big" id="doneCamp">Done — next campaign →</button>
+    </div>
+  </div>
+
+  <div class="actionBar" id="actionBar" hidden>
+    <span class="abCount" id="abCount"></span>
+    <div class="abGroup">
+      <span class="abLabel">Split into new campaigns of</span>
+      <input type="number" id="autoSize" min="1" step="1" value="1" class="abNum">
+      <span class="abLabel">keywords</span>
+      <div class="sizeQuick"><button class="chip" data-size="1">1</button><button class="chip" data-size="2">2</button><button class="chip" data-size="5">5</button><button class="chip" data-size="all">all</button></div>
+      <button class="btn primary" id="runAutoBuild">Build</button>
+    </div>
+    <div class="abGroup">
+      <span class="abLabel">or</span>
+      <select id="batchAction"><option value="move">Move into</option><option value="pause">Pause in place</option><option value="keep">Leave alone</option></select>
+      <select id="batchDest"></select>
+      <button class="btn" id="applyBatch">Apply</button>
+    </div>
+    <div class="abRight"><button class="btn subtle" id="openBids">Bids</button><button class="btn subtle" id="abClear">Untick</button></div>
+  </div>
+  <div class="abMsg" id="batchMessage"></div>
+</section>
+
+<section class="panel" id="p-preview">
+  <div class="pagehead">
+    <div><h2>Build preview</h2><p class="sub">The campaigns you are taking apart on the left, the structure you are building on the right. Hover a keyword to find it on the other side, click anything to jump back to its row in the plan.</p></div>
+    <div class="row" style="gap:8px">
+      <label class="inlineCheck" style="margin-right:4px"><input type="checkbox" id="groupBySource"><span>Group by source campaign</span></label>
+      <button class="btn" id="expandAll">Expand all</button>
+      <button class="btn" id="printPreview">Print</button>
+    </div>
+  </div>
+  <div id="previewEmpty" class="detailEmpty">Nothing planned yet. Make some decisions on the plan screen first.</div>
+  <div id="previewBody" style="display:none">
+    <div class="stats" id="previewStats"></div>
+    <div class="previewGrid">
+      <div class="previewCol">
+        <div class="previewColHead"><h3>Today</h3><span class="mini" id="beforeCount"></span></div>
+        <div id="beforeCol"></div>
+      </div>
+      <div class="previewCol">
+        <div class="previewColHead"><h3>After the upload</h3><span class="mini" id="afterCount"></span></div>
+        <div id="afterCol"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="p-review">
+  <div class="pagehead"><div><h2>Review and validate</h2><p class="sub">Everything Amazon would reject, and everything worth a second look, before you export.</p></div><button class="btn" id="refreshReview">Refresh</button></div>
+  <div id="reviewEmpty" class="detailEmpty">No plan yet.</div>
+  <div id="reviewBody" style="display:none">
+    <div class="stats" id="reviewStats"></div>
+    <div class="card"><h3>Validation</h3><div id="validation"></div></div>
+    <div class="card"><h3>Row by row</h3><p class="hint">Exactly what the workbook will contain.</p><div id="rowPlan"></div></div>
+  </div>
+</section>
+
+<section class="panel" id="p-export">
+  <div class="pagehead"><div><h2>Export bulk</h2><p class="sub">One workbook with every create and update row, ready for Amazon Ads → Bulk operations.</p></div></div>
+  <div id="exportEmpty" class="detailEmpty">Build a plan first.</div>
+  <div id="exportBody" style="display:none">
+    <div class="card"><div class="stats" id="exportStats"></div><div id="exportMessage" style="margin-top:12px"></div><div class="exportBtns"><button class="btn primary" id="downloadBulk">Download Amazon upload bulk (.xlsx)</button><button class="btn" id="downloadPlan">Download plan (.csv)</button><button class="btn" id="savePlan2">Save plan (.json)</button></div></div>
+    <div class="note">Upload the workbook under Bulk operations. New campaigns are created with temporary IDs that Amazon replaces with real ones, and the original keywords are updated in place using their existing IDs.</div>
+  </div>
+</section>
+</main>
+</div>
+<div class="statusbar" id="statusbar" hidden>
+  <span class="sbLive"></span>
+  <span id="sbText">Plan empty</span>
+  <span class="mini" id="sbSave"></span>
+  <div class="sbActions"><button class="btn subtle" id="sbPreview">Preview</button><button class="btn subtle" id="sbReview">Review</button><button class="btn primary" id="sbExport">Export bulk</button></div>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num=v=>{let s=String(v==null?"":v).trim();if(!s)return 0;s=s.replace(/\s/g,"");if(/^[-+]?\d{1,3}(\.\d{3})*,\d+$/.test(s))s=s.replace(/\./g,"").replace(",",".");else if(/^[-+]?\d+,\d+$/.test(s))s=s.replace(",",".");else s=s.replace(/[^0-9.\-]/g,"");const n=parseFloat(s);return isFinite(n)?n:0};
+const fmt=n=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:2});
+const money=n=>Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=n=>isFinite(n)?Number(n).toFixed(1)+"%":"—";
+const normH=h=>String(h||"").toLowerCase().replace(/\(informational only\)/g,"").replace(/[^a-z0-9]/g,"");
+const cap=s=>s?String(s).charAt(0).toUpperCase()+String(s).slice(1).toLowerCase():"";
+const ASIN_RE=/\bB0[A-Z0-9]{8}\b/i;
+const uid=()=>"D"+Math.random().toString(36).slice(2,8).toUpperCase();
+
+const BASIS={
+ sep:" - ",placeholder:"()",dropEmpty:false,
+ rules:{campLimit:128,agLimit:255,appendTos:true,singleKw:true,adGroupName:"asin_only"},
+ goals:["Ranking","STR","SQP","H10","STIS","POE"],
+ templates:{
+  sp_kw:"SP - {GOAL} - {KW} - {INTENT} - {MATCH} - {NICHE} - {TIER} - {DESC} - {ASIN} - {TOS} - {KWT} - {NUM}",
+  sp_asin:"SP - {GOAL} - ASIN - {INTENT} - {NICHE} - {DESC} - {ASIN} - {TOS} - {NUM}"
+ }
+};
+const PH_SLOTS=["GOAL","NICHE","TIER"];
+function buildName(tpl,tok){const segs=String(tpl||"").split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean),out=[];for(const seg0 of segs){let seg=seg0;const slots=seg.match(/\{[A-Z]+\}/g);if(slots)for(const sl of slots){const k=sl.slice(1,-1);let v=tok[k]==null?"":String(tok[k]).trim();if(v===""&&PH_SLOTS.includes(k)&&!BASIS.dropEmpty)v=BASIS.placeholder;seg=seg.split(sl).join(v)}seg=seg.replace(/\s+/g," ").trim();if(seg)out.push(seg)}return out.join(BASIS.sep).replace(/\s+/g," ").trim()}
+function launchCampaignName(tok,kind){if(kind==="pt")return buildName(BASIS.templates.sp_asin,tok);let tpl=BASIS.templates.sp_kw;if(tok.KW==="1KW"&&tok.TERM){let segs=tpl.split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean);segs=segs.filter(x=>!x.includes("{KWT}"));if(!segs.some(x=>x.includes("{TERM}"))){const mi=segs.findIndex(x=>x.includes("{MATCH}"));segs.splice(mi>=0?mi+1:Math.min(5,segs.length),0,"{TERM}")}tpl=segs.join(" - ")}return buildName(tpl,tok)}
+function goalFromName(name){const segs=String(name||"").split(/\s+-\s+/);for(const g of BASIS.goals)if(segs.some(x=>x.toLowerCase()===g.toLowerCase()))return g;return ""}
+function inferIntent(name){const s=String(name||"").toUpperCase();if(/(^|\s-\s)SELF(\s-\s|$)/.test(s))return "SELF";if(/(^|\s-\s)COMP(\s-\s|$)/.test(s))return "COMP";return "Generic"}
+const STOPSEG=new Set(["sp","kw","1kw","asin","cat","auto","generic","self","comp","broad","phrase","exact","various","banner","pt","ranking","str","sqp","h10","stis","poe","()","kw targeted"]);
+function looksLikeDesc(s){const t=String(s||"").trim();if(!t||STOPSEG.has(t.toLowerCase())||/^tos\d+$/i.test(t)||ASIN_RE.test(t)||/^\d+$/.test(t))return false;return true}
+function guessDesc(asin,names){for(const nm of names){const segs=String(nm||"").split(/\s+-\s+/).map(x=>x.trim());for(let i=0;i<segs.length;i++){if(segs[i].toUpperCase().includes(asin.toUpperCase())){if(i>0&&looksLikeDesc(segs[i-1]))return segs[i-1];if(i+1<segs.length&&looksLikeDesc(segs[i+1]))return segs[i+1]}}}return ""}
+
+/* XLSX reader / writer, self contained */
+function u16(d,o){return d.getUint16(o,true)}function u32(d,o){return d.getUint32(o,true)}
+async function inflateRaw(bytes){if(typeof DecompressionStream==="undefined")throw new Error("This browser cannot unzip .xlsx files. Use current Chrome, Edge, or Safari.");const s=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));return new Uint8Array(await new Response(s).arrayBuffer())}
+async function unzip(u8){const d=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);let eocd=-1;for(let i=u8.length-22;i>=Math.max(0,u8.length-66000);i--){if(u32(d,i)===0x06054b50){eocd=i;break}}if(eocd<0)throw new Error("Unreadable XLSX file.");let count=u16(d,eocd+10),cdOff=u32(d,eocd+16);const out={};let p=cdOff;for(let i=0;i<count&&p+46<=u8.length;i++){if(u32(d,p)!==0x02014b50)break;const method=u16(d,p+10),csize=u32(d,p+20),nameLen=u16(d,p+28),extraLen=u16(d,p+30),cmtLen=u16(d,p+32),lho=u32(d,p+42),name=new TextDecoder().decode(u8.subarray(p+46,p+46+nameLen));out[name]={method,lho,csize};p+=46+nameLen+extraLen+cmtLen}for(const k in out){const e=out[k],lnl=u16(d,e.lho+26),lel=u16(d,e.lho+28),start=e.lho+30+lnl+lel;e.raw=u8.subarray(start,start+e.csize)}return{read:async n=>{const e=out[n];if(!e)return null;return e.method===0?e.raw:await inflateRaw(e.raw)}}}
+const XENT={amp:"&",lt:"<",gt:">",quot:'"',apos:"'"};
+function unesc(s){return String(s||"").replace(/&(#x?[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g,(m,g)=>g[0]==="#"?String.fromCodePoint(g[1].toLowerCase()==="x"?parseInt(g.slice(2),16):parseInt(g.slice(1),10)):(XENT[g]||m))}
+function escXml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c])).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,"")}
+function colIdx(ref){let n=0;for(const ch of ref){const c=ch.charCodeAt(0);if(c<65||c>90)break;n=n*26+c-64}return n-1}function colName(i){let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=(i-m-1)/26}return s}
+function parseSharedStrings(xml){const out=[],re=/<(?:[A-Za-z0-9_]+:)?si\b[^>]*\/>|<(?:[A-Za-z0-9_]+:)?si\b[^>]*>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?si>/g;let m;while((m=re.exec(xml))){if(m[1]==null){out.push("");continue}let t="",tm,tre=/<(?:[A-Za-z0-9_]+:)?t\b[^>]*>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?t>/g;while((tm=tre.exec(m[1])))t+=unesc(tm[1]);out.push(t)}return out}
+function parseSheet(xml,sst){const rows=[],rowRe=/<(?:[A-Za-z0-9_]+:)?row\b([^>]*)(?:\/>|>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?row>)/g,cellRe=/<(?:[A-Za-z0-9_]+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?c>)/g;let rm;while((rm=rowRe.exec(xml))){const body=rm[2];if(!body){rows.push([]);continue}const cells=[];let cm;cellRe.lastIndex=0;while((cm=cellRe.exec(body))){const at=cm[1]||"",inner=cm[2]||"",rref=(at.match(/r="([A-Z]+\d+)"/)||[])[1],t=(at.match(/t="([^"]+)"/)||[])[1]||"n",idx=rref?colIdx(rref):cells.length;let val="",isNum=false;const vMatch=inner.match(/<(?:[A-Za-z0-9_]+:)?v>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?v>/),v=vMatch?vMatch[1]:null;if(t==="s"){val=sst[parseInt(v,10)]||""}else if(t==="inlineStr"){let tm,tre=/<(?:[A-Za-z0-9_]+:)?t\b[^>]*>([\s\S]*?)<\/(?:[A-Za-z0-9_]+:)?t>/g;while((tm=tre.exec(inner)))val+=unesc(tm[1])}else{val=v==null?"":unesc(v);isNum=t==="n"&&val!=="";if(t==="b")val=val==="1"?"TRUE":"FALSE"}cells[idx]={v:val,num:isNum}}rows.push(cells)}return rows}
+async function readWorkbook(file){if(/\.(csv|tsv|txt)$/i.test(file.name)){const txt=await file.text(),delim=file.name.toLowerCase().endsWith(".tsv")?"\t":(txt.includes("\t")?"\t":",");return[{name:file.name.replace(/\.[^.]+$/,"").slice(0,31),rows:parseDelimited(txt,delim)}]}const zip=await unzip(new Uint8Array(await file.arrayBuffer())),dec=new TextDecoder(),wbXml=dec.decode(await zip.read("xl/workbook.xml"));let relsXml="";const relsBuf=await zip.read("xl/_rels/workbook.xml.rels");if(relsBuf)relsXml=dec.decode(relsBuf);const rels={};let rm,rre=/<(?:[A-Za-z0-9_]+:)?Relationship\b([^>]*)\/>/g;while((rm=rre.exec(relsXml))){const id=(rm[1].match(/Id="([^"]+)"/)||[])[1];let tgt=(rm[1].match(/Target="([^"]+)"/)||[])[1]||"";tgt=tgt.replace(/^\//,"").replace(/^xl\//,"");if(id)rels[id]="xl/"+tgt}let sst=[];const sstBuf=await zip.read("xl/sharedStrings.xml");if(sstBuf)sst=parseSharedStrings(dec.decode(sstBuf));const sheets=[];let sm,sre=/<(?:[A-Za-z0-9_]+:)?sheet\b([^>]*)\/>/g;while((sm=sre.exec(wbXml))){const nm=unesc((sm[1].match(/name="([^"]*)"/)||[])[1]||"Sheet"),rid=(sm[1].match(/r:id="([^"]+)"/)||[])[1],path=rels[rid];if(!path)continue;const buf=await zip.read(path)||await zip.read(path.replace("xl/","xl/worksheets/"));if(buf)sheets.push({name:nm,rows:parseSheet(dec.decode(buf),sst)})}return sheets}
+function parseDelimited(txt,d){const rows=[];let row=[],cur="",q=false;for(let i=0;i<txt.length;i++){const c=txt[i];if(q){if(c==='"'){if(txt[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else if(c==='"')q=true;else if(c===d){row.push({v:cur,num:false});cur=""}else if(c==="\n"){row.push({v:cur.replace(/\r$/,"")});rows.push(row);row=[];cur=""}else cur+=c}if(cur!==""||row.length){row.push({v:cur});rows.push(row)}return rows}
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&0xFF]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+function zipStore(files){const enc=new TextEncoder(),parts=[],central=[];let offset=0;for(const f of files){const nameB=enc.encode(f.name),data=typeof f.data==="string"?enc.encode(f.data):f.data,crc=crc32(data),lh=new Uint8Array(30+nameB.length),dv=new DataView(lh.buffer);dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);dv.setUint16(6,0x0800,true);dv.setUint32(14,crc,true);dv.setUint32(18,data.length,true);dv.setUint32(22,data.length,true);dv.setUint16(26,nameB.length,true);lh.set(nameB,30);parts.push(lh,data);const cd=new Uint8Array(46+nameB.length),cv=new DataView(cd.buffer);cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x0800,true);cv.setUint32(16,crc,true);cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);cv.setUint16(28,nameB.length,true);cv.setUint32(42,offset,true);cd.set(nameB,46);central.push(cd);offset+=lh.length+data.length}let cdSize=central.reduce((s,c)=>s+c.length,0),end=new Uint8Array(22),ev=new DataView(end.buffer);ev.setUint32(0,0x06054b50,true);ev.setUint16(8,central.length,true);ev.setUint16(10,central.length,true);ev.setUint32(12,cdSize,true);ev.setUint32(16,offset,true);const all=parts.concat(central,[end]),total=all.reduce((s,a)=>s+a.length,0),out=new Uint8Array(total);let o=0;for(const a of all){out.set(a,o);o+=a.length}return new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
+function sheetXml(rows){const p=['<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'];rows.forEach((cells,ri)=>{p.push('<row r="'+(ri+1)+'">');cells.forEach((c,ci)=>{if(!c||c.v===""||c.v==null)return;const ref=colName(ci)+(ri+1);if(c.num&&/^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(String(c.v)))p.push('<c r="'+ref+'"><v>'+c.v+'</v></c>');else p.push('<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+escXml(c.v)+'</t></is></c>')});p.push('</row>')});p.push('</sheetData></worksheet>');return p.join("")}
+function makeXlsx(sheets){const files=[],safe=sheets.map((s,i)=>(s.name||"Sheet"+(i+1)).replace(/[\[\]:*?\/\\]/g," ").slice(0,31));files.push({name:"[Content_Types].xml",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+sheets.map((s,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("")+'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>'});files.push({name:"_rels/.rels",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'});files.push({name:"xl/workbook.xml",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+safe.map((n,i)=>'<sheet name="'+escXml(n)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join("")+'</sheets></workbook>'});files.push({name:"xl/_rels/workbook.xml.rels",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+safe.map((n,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join("")+'</Relationships>'});sheets.forEach((s,i)=>files.push({name:"xl/worksheets/sheet"+(i+1)+".xml",data:sheetXml(s.rows)}));return zipStore(files)}
+function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1200)}
+
+const STATE={fileName:"",sheets:[],spSheet:"",headers:[],headerRow:0,cols:null,campaigns:[],campaignByKey:{},selectedKey:null,destinations:[],decisions:{},asinInfo:{},review:null,batchMessage:""};
+function findCol(map,exact,loose){for(const e of exact)if(map[e]!=null)return map[e];if(loose)for(const k in map)if(k.includes(loose))return map[k];return -1}
+const cellv=(row,i)=>(i<0||!row||!row[i])?"":String(row[i].v==null?"":row[i].v).trim();
+function findHeaderRow(rows){for(let i=0;i<Math.min(rows.length,15);i++){const vals=(rows[i]||[]).map(c=>normH(c&&c.v));if(vals.includes("entity")&&(vals.includes("campaignid")||vals.includes("campaignname")))return i}return -1}
+function metric(){return{impr:0,clicks:0,spend:0,orders:0,sales:0,units:0}}
+function addMetric(a,b){for(const k of ["impr","clicks","spend","orders","sales","units"])a[k]+=num(b[k]);return a}
+const VOCAB={entity:{},match:{},placement:{},strategy:{},targeting:{}};
+const vkey=x=>String(x||"").toLowerCase().replace(/[\u2010-\u2015]/g,"-").replace(/\s+/g," ").trim();
+function recordVocab(ent,match,placement,strategy,ttype){
+ if(ent&&!VOCAB.entity[vkey(ent).replace(/\s+/g,"")])VOCAB.entity[vkey(ent).replace(/\s+/g,"")]=String(ent);
+ if(match&&!VOCAB.match[vkey(match)])VOCAB.match[vkey(match)]=String(match);
+ if(placement&&!VOCAB.placement[vkey(placement)])VOCAB.placement[vkey(placement)]=String(placement);
+ if(strategy&&!VOCAB.strategy[vkey(strategy)])VOCAB.strategy[vkey(strategy)]=String(strategy);
+ if(ttype&&!VOCAB.targeting[vkey(ttype)])VOCAB.targeting[vkey(ttype)]=String(ttype);
+}
+function outEntity(n){return VOCAB.entity[vkey(n).replace(/\s+/g,"")]||n}
+function outMatch(m){return VOCAB.match[vkey(m)]||String(m).toLowerCase()}
+function outNegMatch(kind){const k=kind==="phrase"?"phrase":"exact";return VOCAB.match["negative "+k]||VOCAB.match["negative"+k]||(k==="phrase"?"negativePhrase":"negativeExact")}
+function outPlacement(p){return VOCAB.placement[vkey(p)]||p}
+function outStrategy(s){return VOCAB.strategy[vkey(s)]||s}
+function outTargeting(t){return VOCAB.targeting[vkey(t)]||t}
+function parseBulk(sheets,fileName){STATE.fileName=fileName;
+ for(const k in VOCAB)VOCAB[k]={};STATE.sheets=sheets;STATE.campaigns=[];STATE.campaignByKey={};STATE.asinInfo={};let found=null;
+ for(const sh of sheets){const hi=findHeaderRow(sh.rows);if(hi<0)continue;const headers=(sh.rows[hi]||[]).map(c=>String(c&&c.v||"")),map={};headers.forEach((h,i)=>{const k=normH(h);if(k&&map[k]==null)map[k]=i});const ent=findCol(map,["entity"]),prod=findCol(map,["product"]);let spScore=/sponsored products|sponsoredproducts|product/i.test(sh.name)?2:0;for(let i=hi+1;i<Math.min(sh.rows.length,hi+150);i++){const p=cellv(sh.rows[i],prod).toLowerCase();if(p.includes("sponsored products"))spScore+=3;const e=cellv(sh.rows[i],ent).toLowerCase();if(e==="campaign")spScore++}if(!found||spScore>found.score)found={sh,hi,headers,map,score:spScore}}
+ if(!found)throw new Error("No Amazon bulk sheet with Entity and Campaign columns was found.");
+ const {sh,hi,headers,map}=found;STATE.spSheet=sh.name;STATE.headers=headers;STATE.headerRow=hi;
+ const C={entity:findCol(map,["entity"]),op:findCol(map,["operation"]),product:findCol(map,["product"]),cid:findCol(map,["campaignid"]),aid:findCol(map,["adgroupid"]),cname:findCol(map,["campaignname"]),aname:findCol(map,["adgroupname"]),ttype:findCol(map,["targetingtype"]),portfolio:findCol(map,["portfolioid"]),state:findCol(map,["state"]),cstate:findCol(map,["campaignstate"],"campaignstate"),astate:findCol(map,["adgroupstate"],"adgroupstate"),budget:findCol(map,["dailybudget","campaignbudget"],"dailybudget"),strategy:findCol(map,["biddingstrategy"],"biddingstrategy"),asin:findCol(map,["asin"]),sku:findCol(map,["sku"]),kw:findCol(map,["keywordtext"]),match:findCol(map,["matchtype"]),expr:findCol(map,["producttargetingexpression","resolvedproducttargetingexpression","targetingexpression"],"targetingexpression"),rexpr:findCol(map,["resolvedproducttargetingexpression"]),bid:findCol(map,["bid"]),defaultBid:findCol(map,["adgroupdefaultbid"]),place:findCol(map,["placement"]),pct:findCol(map,["percentage"]),impr:findCol(map,["impressions"],"impression"),clicks:findCol(map,["clicks"],"click"),spend:findCol(map,["spend"],"spend"),orders:findCol(map,["orders"],"order"),sales:findCol(map,["sales"],"sales"),units:findCol(map,["units"],"unit")};STATE.cols=C;
+ const camps={},ags={};
+ for(let i=hi+1;i<sh.rows.length;i++){const row=sh.rows[i];if(!row||!row.length)continue;const rawEntity=cellv(row,C.entity),product=cellv(row,C.product).toLowerCase();const entity=String(rawEntity).toLowerCase();recordVocab(rawEntity,cellv(row,C.match),cellv(row,C.place),cellv(row,C.strategy),cellv(row,C.ttype));if(product&&product.includes("sponsored brand"))continue;if(product&&product.includes("sponsored display"))continue;const cid=cellv(row,C.cid),aid=cellv(row,C.aid);if(!entity)continue;
+   if(entity==="campaign"){const cp={key:cid||("ROW"+i),id:cid,name:cellv(row,C.cname),state:(cellv(row,C.state)||cellv(row,C.cstate)||"enabled").toLowerCase(),targetingType:cellv(row,C.ttype),portfolio:cellv(row,C.portfolio),budget:num(cellv(row,C.budget)),strategy:cellv(row,C.strategy),rowIndex:i,cells:row,ags:[],targets:[],ads:[],placements:{tos:0,ros:0,pp:0},negs:new Set(),negList:[],m:metric()};camps[cp.key]=cp;continue}
+   const cp=camps[cid];if(!cp)continue;
+   if(entity==="ad group"||entity==="adgroup"){const ag={id:aid,name:cellv(row,C.aname),state:(cellv(row,C.state)||cellv(row,C.astate)||"enabled").toLowerCase(),defaultBid:num(cellv(row,C.defaultBid)),rowIndex:i,cells:row,ads:[],targets:[],negs:new Set(),negList:[]};ags[cid+"|"+aid]=ag;cp.ags.push(ag);continue}
+   recordVocab(rawEntity,cellv(row,C.match),cellv(row,C.place),cellv(row,C.strategy),cellv(row,C.ttype));
+   if(entity.includes("negative")){const isPt=entity.includes("targeting");const txt=isPt?(cellv(row,C.expr)||cellv(row,C.rexpr)):cellv(row,C.kw);if(txt){const rec={text:String(txt).trim(),match:cellv(row,C.match),type:isPt?"pt":"kw",state:(cellv(row,C.state)||"enabled").toLowerCase()};const key=rec.text.toLowerCase();const agn=ags[cid+"|"+aid];if(aid&&agn){agn.negs.add(key);(agn.negList||(agn.negList=[])).push(rec)}else{cp.negs.add(key);(cp.negList||(cp.negList=[])).push(rec)}}continue}
+   if(entity==="bidding adjustment"){const place=cellv(row,C.place).toLowerCase(),p=num(cellv(row,C.pct));if(place.includes("top"))cp.placements.tos=p;else if(place.includes("rest"))cp.placements.ros=p;else if(place.includes("product"))cp.placements.pp=p;continue}
+   const ag=ags[cid+"|"+aid];if(!ag)continue;const st=(cellv(row,C.state)||"enabled").toLowerCase(),m={impr:num(cellv(row,C.impr)),clicks:num(cellv(row,C.clicks)),spend:num(cellv(row,C.spend)),orders:num(cellv(row,C.orders)),sales:num(cellv(row,C.sales)),units:num(cellv(row,C.units))};
+   if(entity==="product ad"||entity==="product ads"||entity==="ad"){const asin=(cellv(row,C.asin).match(/B0[A-Z0-9]{8}/i)||[])[0]||"",sku=cellv(row,C.sku);const ad={asin:asin.toUpperCase(),sku,state:st,m,rowIndex:i,cells:row,ag};ag.ads.push(ad);cp.ads.push(ad);if(asin){const info=STATE.asinInfo[asin.toUpperCase()]||(STATE.asinInfo[asin.toUpperCase()]={asin:asin.toUpperCase(),sku:"",desc:""});if(!info.sku&&sku)info.sku=sku}continue}
+   if(entity==="keyword"){const text=cellv(row,C.kw);if(!text)continue;const t={id:"T"+i,type:"kw",text,match:cap(cellv(row,C.match)),state:st,bid:num(cellv(row,C.bid)),m,rowIndex:i,cells:row,ag};ag.targets.push(t);cp.targets.push(t);continue}
+   if(entity.includes("targeting")||entity==="product targeting"){const expr=cellv(row,C.rexpr)||cellv(row,C.expr);if(!expr)continue;const am=(expr.toUpperCase().match(/B0[A-Z0-9]{8}/)||[])[0];const t={id:"T"+i,type:"pt",text:am||expr,expr,match:"",state:st,bid:num(cellv(row,C.bid)),m,rowIndex:i,cells:row,ag};ag.targets.push(t);cp.targets.push(t);continue}
+ }
+ STATE.campaigns=Object.values(camps).filter(c=>c.ags.length||c.targets.length);STATE.campaigns.forEach(cp=>{let base=cp.targets.length?cp.targets:[];base.forEach(t=>addMetric(cp.m,t.m));if(!base.length)cp.ads.forEach(a=>addMetric(cp.m,a.m));const asins=[...new Set(cp.ads.map(a=>a.asin).filter(Boolean))];cp.asins=asins;for(const asin of asins){const info=STATE.asinInfo[asin];if(info&&!info.desc)info.desc=guessDesc(asin,[cp.name].concat(cp.ags.map(a=>a.name)))}cp.goal=goalFromName(cp.name);cp.intent=inferIntent(cp.name)});STATE.campaignByKey=Object.fromEntries(STATE.campaigns.map(c=>[c.key,c]));
+ const skuCount=Object.values(STATE.asinInfo).filter(x=>x.sku).length;if(Object.keys(STATE.asinInfo).length&&skuCount/Object.keys(STATE.asinInfo).length<.4)$("accountType").value="vendor";
+}
+function campaignKPIs(cp){const m=cp.m,acos=m.sales>0?m.spend/m.sales*100:Infinity,cvr=m.clicks>0?m.orders/m.clicks*100:0,ctr=m.impr>0?m.clicks/m.impr*100:0,cpc=m.clicks>0?m.spend/m.clicks:0;return{...m,acos,cvr,ctr,cpc}}
+function targetAcos(t){return t.m.sales>0?t.m.spend/t.m.sales*100:Infinity}
+function performanceBadge(t){const goal=num($("acosGoal").value),a=targetAcos(t);if(t.m.orders===0&&t.m.clicks>=20)return'<span class="badge bad">No orders</span>';if(isFinite(a)&&a<=goal)return'<span class="badge ok">Efficient</span>';if(isFinite(a)&&a>goal)return'<span class="badge warn">High ACOS</span>';return'<span class="badge">Low data</span>'}
+
+/* ================= plan state ================= */
+const DEFAULT_FILTERS={q:"",type:"",match:"",state:"",decision:"",dupes:"",acosMin:"",acosMax:"",roasMin:"",roasMax:"",imprMin:"",imprMax:"",clicksMin:"",ordersMin:"",unitsMin:"",spendMin:"",spendMax:""};
+const DEFAULT_CAMP_FILTERS={spendMin:"",acosMin:"",acosMax:"",roasMin:"",roasMax:"",ordersMin:"",unitsMin:"",targetsMin:""};
+Object.assign(STATE,{allTargets:[],selected:new Set(),rev:0,batchMessage:"",bidMessage:"",autoMessage:"",campMessage:"",
+ sort:{by:"spend",dir:-1},openDest:null,negOff:[],nameSpec:null,nameShowEmpty:true,queue:[],qIndex:0,done:new Set(),rowLimit:400,showMetrics:false,lastRowIdx:null,undo:null,dupes:{},saveNote:"",
+ filters:{...DEFAULT_FILTERS},campFilters:{...DEFAULT_CAMP_FILTERS}});
+function bump(){STATE.rev++;scheduleAutoSave()}
+const dec=t=>STATE.decisions[t.id];
+const hasNum=v=>v!==""&&v!=null&&isFinite(Number(v));
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+
+function targetRoas(t){return t.m.spend>0?t.m.sales/t.m.spend:(t.m.sales>0?Infinity:0)}
+function roasOf(m){return m.spend>0?m.sales/m.spend:(m.sales>0?Infinity:0)}
+const roasTxt=r=>isFinite(r)?Number(r).toFixed(2):(r===Infinity?"∞":"—");
+function targetCpc(t){return t.m.clicks>0?t.m.spend/t.m.clicks:0}
+function targetAov(t){return t.m.orders>0?t.m.sales/t.m.orders:0}
+function targetCvr(t){return t.m.clicks>0?t.m.orders/t.m.clicks:0}
+
+function postProcess(){
+ STATE.allTargets=[];
+ STATE.campaigns.forEach(cp=>cp.targets.forEach(t=>{
+  t.campKey=cp.key;t.campName=cp.name;t.intent=cp.intent||"Generic";
+  const agAsins=[...new Set(((t.ag&&t.ag.ads)||[]).map(a=>a.asin).filter(Boolean))];
+  t.asins=agAsins.length?agAsins:(cp.asins||[]).slice();
+  STATE.allTargets.push(t);
+ }));
+ STATE.decisions={};
+ STATE.allTargets.forEach(t=>{STATE.decisions[t.id]={action:"keep",dest:"",bid:num(t.bid)||num(t.ag&&t.ag.defaultBid)||0,selected:false}});
+ STATE.selected=new Set();STATE.destinations=[];STATE.undo=null;STATE.queue=[];STATE.qIndex=0;STATE.done=new Set();
+ buildDupeIndex();bump();
+}
+function buildDupeIndex(){
+ const map={};
+ for(const t of STATE.allTargets){
+  if(t.type!=="kw")continue;
+  const k=String(t.text).toLowerCase()+"|"+String(t.match).toLowerCase();
+  (map[k]||(map[k]=new Set())).add(t.campKey);
+ }
+ STATE.dupes={};for(const k in map)if(map[k].size>1)STATE.dupes[k]=map[k].size;
+}
+function dupeCount(t){return t.type==="kw"?(STATE.dupes[String(t.text).toLowerCase()+"|"+String(t.match).toLowerCase()]||0):0}
+
+/* destination index */
+let _idxRev=-1,_destIdx={};
+function destIndex(){if(_idxRev!==STATE.rev){_destIdx={};for(const t of STATE.allTargets){const x=dec(t);if(x&&(x.action==="move"||x.action==="copy")&&x.dest)(_destIdx[x.dest]||(_destIdx[x.dest]=[])).push(t)}_idxRev=STATE.rev}return _destIdx}
+function assignedTargets(did){return destIndex()[did]||[]}
+function activeDestinations(){return STATE.destinations.filter(d=>assignedTargets(d.id).length)}
+function touchedCampaigns(){const ids=new Set();for(const t of STATE.allTargets){const x=dec(t);if(x&&x.action!=="keep")ids.add(t.campKey)}return STATE.campaigns.filter(c=>ids.has(c.key))}
+function campChangeCount(cp){let n=0;for(const t of cp.targets){const x=dec(t);if(x&&x.action!=="keep")n++}return n}
+function remainingEnabled(cp){return cp.targets.filter(t=>t.state==="enabled"&&!["move","pause"].includes((dec(t)||{}).action)).length}
+function receivingCampaigns(){const s=new Set();for(const d of activeDestinations())if(d.mode==="existing"&&d.existCamp)s.add(d.existCamp);return s}
+function campaignsToPause(){const recv=receivingCampaigns();return touchedCampaigns().filter(c=>c.state==="enabled"&&remainingEnabled(c)===0&&!recv.has(c.key))}
+function selectedCampaigns(){return STATE.campaigns.filter(c=>STATE.selected.has(c.key))}
+function queueCampaigns(){return STATE.queue.map(k=>STATE.campaignByKey[k]).filter(Boolean)}
+function currentCampaign(){return STATE.campaignByKey[STATE.queue[STATE.qIndex]]||null}
+function workingCampaigns(){const q=queueCampaigns();if(q.length)return q;const s=selectedCampaigns();if(s.length)return s;return touchedCampaigns()}
+function workingTargets(){const c=currentCampaign();return c?c.targets:[]}
+function startQueue(){
+ const add=selectedCampaigns().map(c=>c.key).filter(k=>!STATE.queue.includes(k));
+ STATE.queue=STATE.queue.concat(add);
+ const firstOpen=STATE.queue.findIndex(k=>!STATE.done.has(k));
+ STATE.qIndex=firstOpen<0?0:firstOpen;
+ showPanel("restructure");
+}
+function gotoCampaign(i){
+ if(!STATE.queue.length)return;
+ STATE.qIndex=Math.max(0,Math.min(STATE.queue.length-1,i));
+ STATE.allTargets.forEach(t=>{const x=dec(t);if(x)x.selected=false});
+ STATE.lastRowIdx=null;Object.assign(STATE.filters,DEFAULT_FILTERS);
+ renderRestructure();window.scrollTo({top:0,behavior:"instant"});
+}
+function removeFromQueue(key){
+ const cp=STATE.campaignByKey[key];if(!cp)return;
+ const n=campChangeCount(cp);
+ if(n&&!confirm((cp.name||"This campaign")+" has "+n+" planned change"+(n===1?"":"s")+". Remove it from the queue and undo them?"))return;
+ snapshot();
+ cp.targets.forEach(t=>Object.assign(dec(t),{action:"keep",dest:"",selected:false}));
+ STATE.destinations=STATE.destinations.filter(d=>d.mode==="existing"||assignedTargets(d.id).length);
+ const i=STATE.queue.indexOf(key);
+ STATE.queue=STATE.queue.filter(k=>k!==key);
+ STATE.done.delete(key);STATE.selected.delete(key);
+ if(STATE.qIndex>=STATE.queue.length)STATE.qIndex=Math.max(0,STATE.queue.length-1);
+ else if(i>=0&&i<STATE.qIndex)STATE.qIndex--;
+ STATE.batchMessage=(cp.name||"Campaign")+" removed from the queue.";
+ bump();renderRestructure();
+}
+function markDone(key,on){if(on)STATE.done.add(key);else STATE.done.delete(key);bump()}
+function nextOpenIndex(from){
+ for(let i=from+1;i<STATE.queue.length;i++)if(!STATE.done.has(STATE.queue[i]))return i;
+ for(let i=0;i<STATE.queue.length;i++)if(!STATE.done.has(STATE.queue[i]))return i;
+ return -1;
+}
+
+/* ================= undo ================= */
+function snapshot(){
+ STATE.undo={decisions:Object.fromEntries(Object.entries(STATE.decisions).map(([k,v])=>[k,{action:v.action,dest:v.dest,bid:v.bid,selected:v.selected}])),
+  destinations:JSON.parse(JSON.stringify(STATE.destinations))};
+ const b=$("undoBtn");if(b)b.disabled=false;
+}
+function undo(){
+ if(!STATE.undo)return;
+ const u=STATE.undo;STATE.undo=null;
+ for(const k in u.decisions)if(STATE.decisions[k])Object.assign(STATE.decisions[k],u.decisions[k]);
+ STATE.destinations=u.destinations;
+ $("undoBtn").disabled=true;STATE.batchMessage="Last change undone.";bump();renderRestructure();
+}
+
+/* ================= destinations ================= */
+function defaultDestination(cp,n){return{id:uid(),mode:"new",drop:[],customName:"",label:"Campaign "+n,goal:(cp&&cp.goal)||"",intent:(cp&&cp.intent)||"Generic",niche:"",budget:(cp&&cp.budget)||10,strategy:(cp&&cp.strategy)||"Dynamic bids - down only",tos:(cp&&cp.placements.tos)||0,ros:(cp&&cp.placements.ros)||0,pp:(cp&&cp.placements.pp)||0,state:(cp&&cp.state==="archived")?"paused":((cp&&cp.state)||"enabled"),num:"",portfolio:(cp&&cp.portfolio)||"",defaultBid:(cp&&cp.ags&&cp.ags[0]&&num(cp.ags[0].defaultBid))||0,asins:cp?cp.asins.slice():[],existCamp:"",existAg:""}}
+function existingDestination(n){const cp=currentCampaign()||workingCampaigns()[0];return Object.assign(defaultDestination(cp,n),{mode:"existing",label:"Existing campaign "+n})}
+function ensureDestination(){}
+function groupMeta(d){const ts=assignedTargets(d.id),types=[...new Set(ts.map(t=>t.type))],matches=[...new Set(ts.filter(t=>t.type==="kw").map(t=>t.match))],srcs=[...new Set(ts.map(t=>t.campKey))];return{ts,types,matches,srcs,kind:types.length===1?types[0]:types.length?"mixed":"",match:matches.length===1?matches[0]:matches.length?"Mixed":""}}
+function kindLabel(m){return m.kind==="kw"?"Keywords":m.kind==="pt"?"Product targets":m.kind==="mixed"?"Mixed types":"Nothing assigned"}
+function groupAsinRecords(d){return(d.asins||[]).map(a=>STATE.asinInfo[a]).filter(Boolean)}
+function destCampaign(d){return d.mode==="existing"?STATE.campaignByKey[d.existCamp]:null}
+function destAdGroup(d){const c=destCampaign(d);return c?c.ags.find(a=>a.id===d.existAg)||null:null}
+const TOKEN_LABELS={GOAL:"Goal",KW:"KW / 1KW",INTENT:"Intent",MATCH:"Match type",TERM:"Keyword",NICHE:"Niche",TIER:"Tier",DESC:"Product name",ASIN:"ASIN",TOS:"TOS",NUM:"Number",SRC:"Source campaign",DATE:"Today"};
+const ALL_TOKENS=Object.keys(TOKEN_LABELS);
+function parseSpec(tpl){
+ return String(tpl||"").split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean).map((seg,i)=>{
+  const m=seg.match(/^\{([A-Z]+)\}$/);
+  if(m){const k=m[1]==="KWT"?"TERM":m[1];return{id:"s"+i+k,kind:"token",v:k,on:true}}
+  if(/\{[A-Z]+\}/.test(seg))return{id:"s"+i+"raw",kind:"raw",v:seg,on:true};
+  return{id:"s"+i+"t",kind:"text",v:seg,on:true};
+ });
+}
+function defaultSpec(){return{kw:parseSpec(BASIS.templates.sp_kw),pt:parseSpec(BASIS.templates.sp_asin)}}
+function specFor(kind){if(!STATE.nameSpec)STATE.nameSpec=defaultSpec();return STATE.nameSpec[kind==="pt"?"pt":"kw"]}
+function nameTokens(d){
+ const m=groupMeta(d),as=groupAsinRecords(d),lead=as[0]||{},one=m.kind==="kw"&&BASIS.rules.singleKw&&m.ts.length===1;
+ const asinToken=as.length===1?lead.asin:(as.length>1?(lead.asin+BASIS.sep+"Various"):"");
+ const src=m.srcs.length===1?((STATE.campaignByKey[m.srcs[0]]||{}).name||""):"";
+ const dt=new Date(),ds=""+dt.getFullYear()+String(dt.getMonth()+1).padStart(2,"0")+String(dt.getDate()).padStart(2,"0");
+ return{kind:m.kind==="pt"?"pt":"kw",tok:{GOAL:d.goal||"",NICHE:d.niche||"",TIER:d.tier||"",KW:one?"1KW":"KW",TERM:one?m.ts[0].text:"",KWT:"",INTENT:d.intent||"Generic",MATCH:m.match||"",DESC:lead.desc||"",ASIN:asinToken,TOS:BASIS.rules.appendTos&&num(d.tos)>0?"TOS"+Math.round(num(d.tos)):"",NUM:d.num?String(d.num).trim():"",SRC:src,DATE:ds}};
+}
+function segValue(seg,tok){
+ if(seg.kind==="text")return seg.v;
+ if(seg.kind==="token"){
+  let v=tok[seg.v]==null?"":String(tok[seg.v]).trim();
+  if(v===""&&PH_SLOTS.includes(seg.v)&&BASIS.dropEmpty!==true&&STATE.nameShowEmpty!==false)v=BASIS.placeholder;
+  return v;
+ }
+ let s=seg.v;
+ (s.match(/\{[A-Z]+\}/g)||[]).forEach(sl=>{
+  const k=sl.slice(1,-1);let v=tok[k]==null?"":String(tok[k]).trim();
+  if(v===""&&PH_SLOTS.includes(k)&&BASIS.dropEmpty!==true&&STATE.nameShowEmpty!==false)v=BASIS.placeholder;
+  s=s.split(sl).join(v);
+ });
+ return s.replace(/\s+/g," ").trim();
+}
+function buildFromSpec(spec,tok,drop){
+ const out=[];
+ for(const seg of spec){
+  if(seg.on===false)continue;
+  if(seg.kind==="token"&&drop&&drop.has(seg.v))continue;
+  const v=segValue(seg,tok);
+  if(v)out.push(v);
+ }
+ return out.join(BASIS.sep);
+}
+function usedTokens(kind){return specFor(kind).filter(s=>s.kind==="token").map(s=>s.v)}
+function generatedName(d){const{kind,tok}=nameTokens(d);return buildFromSpec(specFor(kind),tok,new Set(d.drop||[]))}
+function shortenName(d){
+ const lim=BASIS.rules.campLimit,base=nameTokens(d);
+ const tok=Object.assign({},base.tok),drop=new Set(d.drop||[]),spec=specFor(base.kind);
+ const build=()=>buildFromSpec(spec,tok,drop);
+ let n=build();
+ if(n.length<=lim)return{name:"",drop:[...drop]};
+ ["TIER","NICHE","GOAL"].forEach(k=>{if(!String(tok[k]||"").trim())drop.add(k)});
+ n=build();
+ if(n.length<=lim)return{name:"",drop:[...drop]};
+ if(tok.TERM){
+  let w=String(tok.TERM).split(/\s+/);
+  while(w.length>1&&build().length>lim){w.pop();tok.TERM=w.join(" ")}
+  n=build();
+  if(n.length>lim){const cut=n.length-lim;tok.TERM=String(tok.TERM).slice(0,Math.max(8,String(tok.TERM).length-cut));n=build()}
+ }
+ if(n.length>lim&&tok.DESC){const cut=n.length-lim;tok.DESC=String(tok.DESC).slice(0,Math.max(6,String(tok.DESC).length-cut)).trim();n=build()}
+ if(n.length>lim)n=n.slice(0,lim).trim();
+ return{name:n,drop:[...drop]};
+}
+function ensureUniqueName(d){
+ const lim=BASIS.rules.campLimit;
+ const used=new Set(STATE.campaigns.map(c=>String(c.name||"").trim().toLowerCase()));
+ STATE.destinations.forEach(o=>{if(o!==d&&o.mode!=="existing"&&assignedTargets(o.id).length)used.add(String(destinationName(o)||"").toLowerCase())});
+ const n=destinationName(d);
+ if(!n||!used.has(n.toLowerCase()))return;
+ for(let i=2;i<=299;i++){
+  const suffix=BASIS.sep+i;
+  let base=n;
+  if(base.length+suffix.length>lim)base=base.slice(0,lim-suffix.length).trim();
+  const cand=base+suffix;
+  if(!used.has(cand.toLowerCase())){d.customName=cand;return}
+ }
+}
+function applyShorten(d){
+ const r=shortenName(d);
+ d.drop=r.drop;
+ if(r.name)d.customName=r.name;
+ ensureUniqueName(d);
+ return destinationName(d);
+}
+function generatedName(d){const{kind,tok}=nameTokens(d);return buildFromSpec(specFor(kind),tok,new Set(d.drop||[]))}
+function destinationName(d){
+ if(d.mode==="existing"){const c=destCampaign(d);return c?c.name:""}
+ if(d.customName&&d.customName.trim())return d.customName.trim();
+ return generatedName(d);
+}
+function dedupeDestinationNames(){
+ const used=new Set(STATE.campaigns.map(c=>String(c.name||"").trim().toLowerCase()));
+ for(const d of STATE.destinations){
+  if(d.mode==="existing"||!assignedTargets(d.id).length||(d.customName&&d.customName.trim()))continue;
+  d.num="";let n=destinationName(d).toLowerCase();
+  if(n&&!used.has(n)){used.add(n);continue}
+  for(let i=2;i<=299;i++){d.num=String(i);n=destinationName(d).toLowerCase();if(!used.has(n)){used.add(n);break}}
+ }
+}
+function asinPool(d){
+ const order=[],seen=new Set(),pool=[];
+ groupMeta(d).ts.forEach(t=>t.asins.forEach(a=>order.push(a)));
+ (d.asins||[]).forEach(a=>order.push(a));
+ (currentCampaign()?[currentCampaign()]:workingCampaigns()).forEach(c=>c.asins.forEach(a=>order.push(a)));
+ Object.keys(STATE.asinInfo).sort().forEach(a=>order.push(a));
+ for(const a of order)if(a&&!seen.has(a)){seen.add(a);pool.push(a)}
+ return pool;
+}
+
+/* ================= filters ================= */
+const capK=k=>"f"+k.charAt(0).toUpperCase()+k.slice(1);
+function readFilters(){for(const k in DEFAULT_FILTERS){const el=$(capK(k));if(el)STATE.filters[k]=el.value}}
+function writeFilters(){for(const k in DEFAULT_FILTERS){const el=$(capK(k));if(el)el.value=STATE.filters[k]}}
+function activeFilterCount(o,def){let n=0;for(const k in def)if(String(o[k]||"")!=="")n++;return n}
+function filteredTargets(){
+ const f=STATE.filters,q=String(f.q||"").toLowerCase();
+ return workingTargets().filter(t=>{
+  const x=dec(t)||{},a=targetAcos(t),r=targetRoas(t),m=t.m;
+  if(q&&!(t.text+" "+(t.expr||"")+" "+(t.ag?t.ag.name:"")+" "+t.campName).toLowerCase().includes(q))return false;
+  if(f.type&&t.type!==f.type)return false;
+  if(f.match&&String(t.match)!==f.match)return false;
+  if(f.state&&t.state!==f.state)return false;
+  if(f.dupes==="dupe"&&dupeCount(t)<2)return false;
+  if(f.decision==="changed"){if(x.action==="keep")return false}else if(f.decision&&x.action!==f.decision)return false;
+  if(hasNum(f.acosMin)&&!(a>=Number(f.acosMin)))return false;
+  if(hasNum(f.acosMax)&&!(a<=Number(f.acosMax)))return false;
+  if(hasNum(f.roasMin)&&!(r>=Number(f.roasMin)))return false;
+  if(hasNum(f.roasMax)&&!(r<=Number(f.roasMax)))return false;
+  if(hasNum(f.imprMin)&&!(m.impr>=Number(f.imprMin)))return false;
+  if(hasNum(f.imprMax)&&!(m.impr<=Number(f.imprMax)))return false;
+  if(hasNum(f.clicksMin)&&!(m.clicks>=Number(f.clicksMin)))return false;
+  if(hasNum(f.ordersMin)&&!(m.orders>=Number(f.ordersMin)))return false;
+  if(hasNum(f.unitsMin)&&!(m.units>=Number(f.unitsMin)))return false;
+  if(hasNum(f.spendMin)&&!(m.spend>=Number(f.spendMin)))return false;
+  if(hasNum(f.spendMax)&&!(m.spend<=Number(f.spendMax)))return false;
+  return true;
+ });
+}
+function applyPreset(p){
+ const f=STATE.filters;Object.assign(f,DEFAULT_FILTERS);
+ if(p==="wasted"){f.clicksMin="10";f.roasMax="0"}
+ if(p==="overgoal"){f.acosMin=String(num($("acosGoal").value)||30);f.ordersMin="1"}
+ if(p==="winners"){f.roasMin="3";f.ordersMin="1"}
+ if(p==="scale")f.unitsMin="5";
+ if(p==="zero")f.imprMax="0";
+ if(p==="dupes")f.dupes="dupe";
+ writeFilters();renderTargets();updateFilterCounts();
+}
+function updateFilterCounts(){
+ const n=activeFilterCount(STATE.filters,DEFAULT_FILTERS),c=activeFilterCount(STATE.campFilters,DEFAULT_CAMP_FILTERS);
+ const a=$("targetFilterCount"),b=$("campFilterCount");
+ if(a){a.textContent=n;a.hidden=!n}
+ if(b){b.textContent=c;b.hidden=!c}
+}
+const CAMPF={spendMin:"cfSpendMin",acosMin:"cfAcosMin",acosMax:"cfAcosMax",roasMin:"cfRoasMin",roasMax:"cfRoasMax",ordersMin:"cfOrdersMin",unitsMin:"cfUnitsMin",targetsMin:"cfTargetsMin"};
+function readCampFilters(){for(const k in CAMPF)if($(CAMPF[k]))STATE.campFilters[k]=$(CAMPF[k]).value}
+function writeCampFilters(){for(const k in CAMPF)if($(CAMPF[k]))$(CAMPF[k]).value=STATE.campFilters[k]}
+
+/* ================= bids ================= */
+function computeBid(t,mode,val,minB,maxB){
+ const cur=num(dec(t).bid)||num(t.bid)||0,cpc=targetCpc(t),aov=targetAov(t),cvr=targetCvr(t);
+ let b=cur;
+ if(mode==="fixed")b=val;
+ else if(mode==="pct")b=cur*(1+val/100);
+ else if(mode==="cpc")b=cpc>0?cpc*(val/100):cur;
+ else if(mode==="acos")b=(aov>0&&cvr>0)?aov*cvr*(val/100):cur;
+ else if(mode==="default")b=num(t.ag&&t.ag.defaultBid)||cur;
+ if(hasNum(minB))b=Math.max(b,Number(minB));
+ if(hasNum(maxB))b=Math.min(b,Number(maxB));
+ if(!isFinite(b)||b<=0)b=cur;
+ return clamp(Math.round(b*100)/100,0.02,1000);
+}
+function applyBidRule(){
+ const scope=$("bidScope").value,mode=$("bidMode").value,val=num($("bidValue").value),minB=$("bidMin").value,maxB=$("bidMax").value;
+ let list;
+ if(scope==="planned")list=STATE.allTargets.filter(t=>["move","copy"].includes(dec(t).action));
+ else{list=filteredTargets();if(scope==="selected")list=list.filter(t=>dec(t).selected)}
+ if(!list.length){STATE.bidMessage="No rows in that scope.";renderDecisionSummary();return}
+ snapshot();
+ let before=0,after=0,skipped=0;
+ list.forEach(t=>{
+  const x=dec(t),nb=computeBid(t,mode,val,minB,maxB);
+  if((mode==="acos"&&!(targetAov(t)>0&&targetCvr(t)>0))||(mode==="cpc"&&targetCpc(t)<=0))skipped++;
+  before+=num(x.bid);after+=nb;x.bid=nb;
+ });
+ STATE.bidMessage="Bids set on "+list.length+" row"+(list.length===1?"":"s")+". Average "+money(before/list.length)+" → "+money(after/list.length)+(skipped?", "+skipped+" kept the old bid for lack of data":"")+".";
+ bump();renderTargets();
+}
+
+/* ================= panels ================= */
+function showPanel(name){
+ document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("on",p.id==="p-"+name));
+ document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on",b.dataset.panel===name));
+ if(name==="choose")renderChoose();
+ if(name==="restructure")renderRestructure();
+ if(name==="preview")renderPreview();
+ if(name==="review")renderReview();
+ if(name==="export")renderExport();
+ window.scrollTo({top:0,behavior:"instant"});
+}
+function renderLoadSummary(){
+ const enabled=STATE.campaigns.filter(c=>c.state==="enabled").length,targets=STATE.campaigns.reduce((s,c)=>s+c.targets.length,0),ads=Object.keys(STATE.asinInfo).length;
+ $("loadStats").innerHTML=[["SP campaigns",STATE.campaigns.length],["Enabled",enabled],["Targets",targets],["Advertised ASINs",ads],["Duplicate keywords",Object.keys(STATE.dupes).length]].map(x=>'<div class="stat"><b>'+esc(x[1])+'</b><span>'+esc(x[0])+'</span></div>').join("");
+ $("loadNote").innerHTML='Read sheet <b>'+esc(STATE.spSheet)+'</b>. States, bids, budgets, placements and performance come straight from the file.'+(STATE.saveNote||"");
+ $("loadSummary").style.display="";
+ $("navUpload").textContent=STATE.campaigns.length+" campaigns loaded";
+ const rb=$("restoreSaved");if(rb)rb.onclick=restoreAutoSave;
+}
+
+/* ---- campaign picker ---- */
+function campaignRows(){
+ const q=$("campaignSearch").value.toLowerCase(),st=$("campaignState").value,sort=$("campaignSort").value,cf=STATE.campFilters;
+ let list=STATE.campaigns.filter(c=>{
+  if(st&&c.state!==st)return false;
+  if(q&&!(c.name+" "+c.id+" "+c.asins.join(" ")).toLowerCase().includes(q))return false;
+  const k=campaignKPIs(c),r=roasOf(c.m);
+  if(hasNum(cf.spendMin)&&!(k.spend>=Number(cf.spendMin)))return false;
+  if(hasNum(cf.acosMin)&&!(k.acos>=Number(cf.acosMin)))return false;
+  if(hasNum(cf.acosMax)&&!(k.acos<=Number(cf.acosMax)))return false;
+  if(hasNum(cf.roasMin)&&!(r>=Number(cf.roasMin)))return false;
+  if(hasNum(cf.roasMax)&&!(r<=Number(cf.roasMax)))return false;
+  if(hasNum(cf.ordersMin)&&!(k.orders>=Number(cf.ordersMin)))return false;
+  if(hasNum(cf.unitsMin)&&!(k.units>=Number(cf.unitsMin)))return false;
+  if(hasNum(cf.targetsMin)&&!(c.targets.length>=Number(cf.targetsMin)))return false;
+  return true;
+ });
+ list.sort((a,b)=>{const A=campaignKPIs(a),B=campaignKPIs(b);
+  if(sort==="name")return a.name.localeCompare(b.name);
+  if(sort==="sales")return B.sales-A.sales;
+  if(sort==="orders")return B.orders-A.orders;
+  if(sort==="units")return B.units-A.units;
+  if(sort==="targets")return b.targets.length-a.targets.length;
+  if(sort==="acos")return(isFinite(B.acos)?B.acos:-1)-(isFinite(A.acos)?A.acos:-1);
+  if(sort==="roas"){const ra=roasOf(a.m),rb=roasOf(b.m);return(isFinite(rb)?rb:-1)-(isFinite(ra)?ra:-1)}
+  return B.spend-A.spend});
+ return list;
+}
+function renderCampaignList(){
+ const all=campaignRows(),cap=300;
+ const ticked=all.filter(c=>STATE.selected.has(c.key)),rest=all.filter(c=>!STATE.selected.has(c.key));
+ const shown=ticked.concat(rest.slice(0,cap));
+ const list=all;
+ $("campCount").textContent=list.length+" of "+STATE.campaigns.length+" campaigns"+(list.length>cap?", showing first "+cap:"")+" · "+STATE.selected.size+" ticked";
+ const sb=$("startBar"),n=STATE.selected.size;
+ if(sb){sb.hidden=n===0;$("startText").innerHTML=n?("<b>"+n+"</b> campaign"+(n===1?"":"s")+" ticked"+(STATE.queue.length?" · "+STATE.queue.length+" already in the queue":"")):""}
+ $("campaignList").innerHTML=shown.length?shown.map(c=>{
+  const k=campaignKPIs(c),ch=campChangeCount(c),on=STATE.selected.has(c.key);
+  return'<label class="campItem'+(on?" on":"")+'"><input type="checkbox" class="campTick" data-key="'+esc(c.key)+'" '+(on?"checked":"")+'>'
+   +'<span class="campBody"><span class="name">'+esc(c.name||"(unnamed campaign)")+'</span>'
+   +'<span class="campMeta"><span class="badge '+(c.state==="enabled"?"ok":c.state==="paused"?"warn":"")+'">'+esc(c.state)+'</span>'
+   +(ch?'<span class="badge purple">'+ch+' planned</span>':'')
+   +'<span>'+c.targets.length+' targets</span><span>Spend <b>'+money(k.spend)+'</b></span><span>ACOS <b>'+(isFinite(k.acos)?pct(k.acos):"—")+'</b></span><span>ROAS <b>'+roasTxt(roasOf(c.m))+'</b></span><span>Units <b>'+fmt(k.units)+'</b></span></span></span></label>';
+ }).join(""):'<div class="empty">No campaigns match.</div>';
+ $("campaignList").querySelectorAll(".campTick").forEach(cb=>cb.onchange=()=>{
+  if(cb.checked)STATE.selected.add(cb.dataset.key);else STATE.selected.delete(cb.dataset.key);
+  renderChoose();
+ });
+}
+function renderSelStats(){
+ const cp=currentCampaign();if(!cp)return;
+ const cps=[cp],m=metric();
+ cps.forEach(c=>addMetric(m,c.m));
+ const acos=m.sales>0?m.spend/m.sales*100:Infinity,cpc=m.clicks>0?m.spend/m.clicks:0;
+ const tg=cps.reduce((s,c)=>s+c.targets.length,0);
+ $("selStats").innerHTML=[["Targets",tg],["Spend",money(m.spend)],["Sales",money(m.sales)],["Orders",fmt(m.orders)],["Units",fmt(m.units)],["ACOS",isFinite(acos)?pct(acos):"—"],["ROAS",roasTxt(roasOf(m))],["CPC",money(cpc)]].map(x=>'<div class="kpi"><b>'+esc(x[1])+'</b><span>'+esc(x[0])+'</span></div>').join("");
+}
+
+/* ---- destinations ---- */
+function destAccepts(d,ts){
+ if(d.mode==="existing")return true;
+ const m=groupMeta(d);
+ if(new Set(m.types.concat(ts.map(t=>t.type))).size>1)return false;
+ if(new Set(m.matches.concat(ts.filter(t=>t.type==="kw").map(t=>String(t.match)))).size>1)return false;
+ return true;
+}
+function destOptions(selected,t){
+ const list=STATE.destinations.filter(d=>d.id===selected||!t||destAccepts(d,[t]));
+ return '<option value="">Choose destination</option>'+list.map(d=>'<option value="'+d.id+'" '+(selected===d.id?"selected":"")+'>'+esc(destinationName(d)||d.label).slice(0,70)+'</option>').join("");
+}
+function destRowHtml(d){
+ const m=groupMeta(d),open=STATE.openDest===d.id,name=destinationName(d);
+ const problem=d.mode==="existing"?(!destCampaign(d)||!destAdGroup(d)):(!d.asins.length||!name||m.types.length>1||m.matches.length>1);
+ return'<div class="destItem'+(open?" open":"")+(problem?" problem":"")+'" data-d="'+d.id+'">'
+  +'<div class="destRow" data-row="'+d.id+'">'
+  +'<span class="destCaret">'+(open?"▾":"▸")+'</span>'
+  +'<span class="destNm">'+esc(name||d.label)+'</span>'
+  +'<span class="badge purple">'+m.ts.length+'</span>'
+  +(d.mode==="existing"?'<span class="badge">existing</span>':'<span class="badge">'+money(d.budget)+'/day</span>')
+  +(problem?'<span class="badge bad">needs attention</span>':'')
+  +'<button class="btn ghost delDest">Remove</button></div>'
+  +(open?'<div class="destPanel">'+(d.mode==="existing"?existingCardHtml(d):newCardHtml(d))+'</div>':'')
+  +'</div>';
+}
+function destsForCurrent(){
+ const cp=currentCampaign();if(!cp)return STATE.destinations;
+ return STATE.destinations.filter(d=>{const ts=assignedTargets(d.id);return ts.length===0||ts.some(t=>t.campKey===cp.key)});
+}
+function renderDestinations(){
+ const prevB=$("batchDest").value;
+ const ticked=STATE.allTargets.filter(t=>dec(t).selected);
+ const opts=STATE.destinations.filter(d=>!ticked.length||destAccepts(d,ticked)).map(d=>'<option value="'+d.id+'">'+esc(destinationName(d)||d.label).slice(0,60)+'</option>').join("");
+ $("batchDest").innerHTML=opts||'<option value="">None can take this mix</option>';
+ if(STATE.destinations.some(d=>d.id===prevB))$("batchDest").value=prevB;
+ const mine=destsForCurrent();
+ $("destinations").innerHTML=mine.length?mine.map(destRowHtml).join(""):'<div class="empty">None yet. Tick some keywords and press Build.</div>';
+ const others=STATE.destinations.filter(d=>!mine.includes(d));
+ const ru=$("reuseDest");
+ if(ru){
+  const ticked=STATE.allTargets.filter(t=>dec(t).selected);
+  const ok=others.filter(d=>!ticked.length||destAccepts(d,ticked));
+  ru.innerHTML='<option value="">Send the ticked rows into an earlier campaign…</option>'+ok.map(d=>'<option value="'+d.id+'">'+esc(destinationName(d)||d.label).slice(0,60)+'</option>').join("")
+   +(others.length>ok.length?'<option value="" disabled>'+(others.length-ok.length)+' hidden — different match type</option>':'');
+  ru.disabled=!ok.length;
+ }
+ $("destinations").querySelectorAll(".destRow").forEach(r=>r.onclick=ev=>{
+  if(ev.target.classList.contains("delDest"))return;
+  STATE.openDest=STATE.openDest===r.dataset.row?null:r.dataset.row;
+  renderDestinations();
+ });
+ $("destinations").querySelectorAll(".destPanel .dest").forEach(card=>{
+  const d=STATE.destinations.find(x=>x.id===card.dataset.d);if(!d)return;
+  card.querySelectorAll("[data-f]").forEach(el=>el.onchange=()=>{
+   const f=el.dataset.f;
+   if(["budget","tos","ros","pp"].includes(f))d[f]=num(el.value);else d[f]=el.value;
+   if(f==="existCamp")d.existAg="";
+   bump();requestAnimationFrame(()=>{renderDestinations();renderTargets()});
+  });
+  card.querySelectorAll(".asinTick").forEach(cb=>cb.onchange=()=>{
+   const a=cb.dataset.asin;
+   if(cb.checked){if(!d.asins.includes(a))d.asins.push(a)}else d.asins=d.asins.filter(x=>x!==a);
+   bump();requestAnimationFrame(()=>renderDestinations());
+  });
+  card.querySelectorAll(".asinDesc").forEach(inp=>inp.onchange=()=>{
+   const rec=STATE.asinInfo[inp.dataset.asin];if(rec)rec.desc=inp.value.trim();
+   bump();requestAnimationFrame(()=>renderDestinations());
+  });
+  card.querySelectorAll(".partChip").forEach(b=>b.onclick=()=>{
+   const k=b.dataset.part,dr=new Set(d.drop||[]);
+   if(dr.has(k))dr.delete(k);else dr.add(k);
+   d.drop=[...dr];bump();requestAnimationFrame(renderDestinations);
+  });
+  const sn=card.querySelector(".shortenName");
+  if(sn)sn.onclick=()=>{snapshot();applyShorten(d);bump();requestAnimationFrame(()=>{renderDestinations();renderTargets()})};
+  const en=card.querySelector(".editName");
+  if(en)en.onclick=()=>{d.customName=destinationName(d)||d.label;bump();requestAnimationFrame(renderDestinations)};
+  const ug=card.querySelector(".useGen");
+  if(ug)ug.onclick=()=>{d.customName="";bump();requestAnimationFrame(renderDestinations)};
+  const cn=card.querySelector(".customName");
+  if(cn)cn.onchange=()=>{d.customName=cn.value;bump();requestAnimationFrame(()=>{renderDestinations();renderTargets()})};
+  const srch=card.querySelector(".asinSearch");
+  if(srch)srch.oninput=()=>{const q=srch.value.toLowerCase();card.querySelectorAll(".asinRow").forEach(r=>{r.style.display=r.dataset.s.includes(q)?"":"none"})};
+  });
+ $("destinations").querySelectorAll(".delDest").forEach(del=>{
+  const d=STATE.destinations.find(x=>x.id===del.closest(".destItem").dataset.d);if(!d)return;
+  del.onclick=ev=>{
+   ev.stopPropagation();
+   snapshot();
+   STATE.destinations=STATE.destinations.filter(x=>x.id!==d.id);
+   STATE.allTargets.forEach(t=>{const x=dec(t);if(x.dest===d.id){x.action="keep";x.dest=""}});
+   if(STATE.openDest===d.id)STATE.openDest=null;
+   bump();renderRestructure();
+  };
+ });
+}
+function asinChecklist(d){
+ const pool=asinPool(d),seller=$("accountType").value==="seller";
+ return'<div class="asinBox">'+(pool.length>6?'<input type="text" class="asinSearch" placeholder="Filter ASINs">':'')
+ +'<div class="asinList">'+pool.map(a=>{
+  const inf=STATE.asinInfo[a]||{asin:a,sku:"",desc:""},on=d.asins.includes(a);
+  return'<div class="asinRow" data-s="'+esc((a+" "+(inf.desc||"")).toLowerCase())+'">'
+   +'<label class="asinPick"><input type="checkbox" class="asinTick" data-asin="'+esc(a)+'" '+(on?"checked":"")+'><span class="mono">'+esc(a)+'</span></label>'
+   +'<input type="text" class="asinDesc'+(on&&!inf.desc?" needed":"")+'" data-asin="'+esc(a)+'" value="'+esc(inf.desc||"")+'" placeholder="product name for the campaign name">'
+   +(seller&&on&&!inf.sku?'<span class="badge bad">no SKU</span>':'')+'</div>';
+ }).join("")+'</div></div>';
+}
+function newCardHtml(d){
+ const m=groupMeta(d),name=destinationName(d),srcNames=m.srcs.length;
+ const bad=(m.types.length>1||m.matches.length>1||!d.asins.length||!name);
+ const custom=!!(d.customName&&d.customName.trim());
+ const tk=nameTokens(d);
+ const chips=usedTokens(tk.kind).map(k=>'<button class="partChip'+((d.drop||[]).includes(k)?"":" on")+'" data-part="'+k+'">'+esc(TOKEN_LABELS[k]||k)+'</button>').join("");
+ return'<div class="dest" data-d="'+d.id+'"><div class="destBody">' 
+ +'<label class="f">Campaign name</label>' 
+ +'<div class="destName '+(bad?"bad":"")+'">'+esc(name||"Assign targets and tick an ASIN to generate the name")+'</div>'
+ +'<div class="nameLen'+(name.length>BASIS.rules.campLimit?" over":"")+'">'+name.length+' / '+BASIS.rules.campLimit+' characters'+(name.length>BASIS.rules.campLimit?' <button class="btn subtle shortenName">Shorten to fit</button>':'')+'</div>'
+ +'<div class="nameTools">'
+ +(custom?'<input type="text" class="customName" value="'+esc(d.customName)+'" placeholder="Type the campaign name"><button class="btn subtle useGen">Use the generated name</button>'
+         :'<div class="partChips">'+chips+'</div><button class="btn subtle editName">Write it myself</button>')
+ +'</div>'
+ +'<div class="miniStats"><span class="badge">'+esc(kindLabel(m))+'</span>'+(m.match?'<span class="badge">'+esc(m.match)+'</span>':'')+(srcNames>1?'<span class="badge warn">'+srcNames+' source campaigns</span>':'')+'</div>'
+ +'<div class="grid2" style="margin-top:11px"><div><label class="f">Goal</label><input type="text" data-f="goal" list="goalList" value="'+esc(d.goal)+'" placeholder="H10, Ranking, STR…"></div><div><label class="f">Intent</label><select data-f="intent"><option '+(d.intent==="Generic"?"selected":"")+'>Generic</option><option '+(d.intent==="SELF"?"selected":"")+'>SELF</option><option '+(d.intent==="COMP"?"selected":"")+'>COMP</option></select></div></div>'
+ +'<div class="grid2" style="margin-top:9px"><div><label class="f">Niche</label><input type="text" data-f="niche" value="'+esc(d.niche)+'" placeholder="optional"></div><div><label class="f">Number</label><input type="text" data-f="num" value="'+esc(d.num||"")+'" placeholder="blank"></div></div>'
+ +'<div class="grid2" style="margin-top:9px"><div><label class="f">Daily budget</label><input type="number" data-f="budget" min="1" step="0.01" value="'+esc(d.budget)+'"></div><div><label class="f">Campaign state</label><select data-f="state"><option value="enabled" '+(d.state==="enabled"?"selected":"")+'>enabled</option><option value="paused" '+(d.state==="paused"?"selected":"")+'>paused</option></select></div></div>'
+ +'<div class="grid3" style="margin-top:9px"><div><label class="f">TOS %</label><input type="number" data-f="tos" min="0" max="900" value="'+esc(d.tos)+'"></div><div><label class="f">ROS %</label><input type="number" data-f="ros" min="0" max="900" value="'+esc(d.ros)+'"></div><div><label class="f">PP %</label><input type="number" data-f="pp" min="0" max="900" value="'+esc(d.pp)+'"></div></div>'
+ +'<div style="margin-top:9px"><label class="f">Bidding strategy</label><select data-f="strategy"><option '+(/down only/i.test(d.strategy)?"selected":"")+'>Dynamic bids - down only</option><option '+(/up and down/i.test(d.strategy)?"selected":"")+'>Dynamic bids - up and down</option><option '+(/fixed/i.test(d.strategy)?"selected":"")+'>Fixed bid</option></select></div>'
+ +'<label class="f" style="margin-top:11px">Advertised products</label>'+asinChecklist(d)
+ +'</div></div>';
+}
+function existingCardHtml(d){
+ const m=groupMeta(d),c=destCampaign(d),ag=destAdGroup(d);
+ const camps=STATE.campaigns.slice().sort((a,b)=>a.name.localeCompare(b.name));
+ const agOpts=c?c.ags.map(a=>'<option value="'+esc(a.id)+'" '+(d.existAg===a.id?"selected":"")+'>'+esc(a.name||a.id)+' · '+a.targets.length+' targets · '+esc(a.state)+'</option>').join(""):"";
+ const agAsins=ag?[...new Set(ag.ads.map(a=>a.asin).filter(Boolean))]:[];
+ return'<div class="dest existing" data-d="'+d.id+'"><div class="destBody">' 
+ +'<div class="destName '+(!c||!ag?"bad":"")+'">'+esc(c?c.name:"Choose a campaign")+(ag?"  →  "+esc(ag.name||ag.id):"")+'</div>'
+ +'<div style="margin-top:11px"><label class="f">Campaign</label><select data-f="existCamp"><option value="">Choose a campaign from the file</option>'+camps.map(x=>'<option value="'+esc(x.key)+'" '+(d.existCamp===x.key?"selected":"")+'>'+esc(x.name||x.key)+' · '+esc(x.state)+'</option>').join("")+'</select></div>'
+ +'<div style="margin-top:9px"><label class="f">Ad group</label><select data-f="existAg" '+(c?"":"disabled")+'><option value="">'+(c?"Choose an ad group":"Choose a campaign first")+'</option>'+agOpts+'</select></div>'
+ +'<div class="miniStats"><span class="badge">'+esc(kindLabel(m))+'</span>'+(m.match?'<span class="badge">'+esc(m.match)+'</span>':'')+(c?'<span class="badge '+(c.state==="enabled"?"ok":"warn")+'">'+esc(c.state)+'</span>':'')+(agAsins.length?'<span class="badge">'+esc(agAsins.slice(0,3).join(", "))+'</span>':'')+'</div>'
+ +'<div class="note" style="margin-top:11px">Targets are created inside this ad group with the bids from the table. Budget, placements and naming stay as they are.</div>'
+ +'</div></div>';
+}
+
+/* ---- negatives preview ---- */
+function renderNegPreview(){
+ const box=$("negPreview");if(!box)return;
+ const cp=currentCampaign();
+ const ds=activeDestinations().filter(d=>d.mode!=="existing"&&(!cp||groupMeta(d).srcs.includes(cp.key)));
+ const srcNegs=negPlanForSources().filter(n=>!cp||n.cp.key===cp.key);
+ let html="";
+ if(!ds.length&&!srcNegs.length){box.innerHTML='<div class="empty">Nothing yet. Move some keywords and the negatives appear here.</div>';return}
+ for(const d of ds){
+  const plan=negPlanForDest(d),on=plan.filter(r=>r.on).length;
+  html+='<div class="negGroup"><div class="negHead"><span class="negTitle">'+esc(destinationName(d)||d.label)+'</span>'
+   +'<span class="badge purple">'+on+' of '+plan.length+'</span>'
+   +'<button class="btn subtle negAll" data-d="'+d.id+'">All</button><button class="btn subtle negNone" data-d="'+d.id+'">None</button></div>';
+  html+=plan.length?('<div class="negRows">'+plan.map(r=>'<label class="negRow'+(r.on?"":" off")+'"><input type="checkbox" class="negTick" data-k="'+esc(r.key)+'" '+(r.on?"checked":"")+'>'
+   +'<span class="negText">'+esc(r.text)+'</span>'
+   +'<span class="badge">'+esc(r.match)+'</span>'
+   +'<span class="badge '+(r.origin==="protect"?"purple":"")+'">'+(r.origin==="protect"?"protects exact":"from the old campaign")+'</span>'
+   +'<span class="negFrom">'+esc(r.from||"")+'</span>'
+   +'<span class="badge">'+(r.level==="campaign"?"campaign level":"ad group")+'</span></label>').join("")+'</div>'):'<div class="empty">No negatives for this one.</div>';
+  html+='</div>';
+ }
+ if(srcNegs.length){
+  const on=srcNegs.filter(r=>r.on).length;
+  html+='<div class="negGroup old"><div class="negHead"><span class="negTitle">Back into the old campaign'+(cp?": "+esc((cp.name||"").slice(0,44)):"")+'</span>'
+   +'<span class="badge purple">'+on+' of '+srcNegs.length+'</span>'
+   +'<button class="btn subtle negAll" data-d="src">All</button><button class="btn subtle negNone" data-d="src">None</button></div>'
+   +'<div class="negRows">'+srcNegs.map(r=>'<label class="negRow'+(r.on?"":" off")+'"><input type="checkbox" class="negTick" data-k="'+esc(r.key)+'" '+(r.on?"checked":"")+'>'
+    +'<span class="negText">'+esc(r.text)+'</span><span class="badge">'+esc(r.match)+'</span>'
+    +'<span class="badge">blocks the moved keyword</span><span class="negFrom">'+esc(r.ag?(r.ag.name||r.ag.id):"campaign level")+'</span></label>').join("")+'</div></div>';
+ }
+ box.innerHTML=html;
+ box.querySelectorAll(".negTick").forEach(cb=>cb.onchange=()=>{toggleNeg(cb.dataset.k,cb.checked);renderNegPreview();renderTargets()});
+ box.querySelectorAll(".negAll").forEach(btn=>btn.onclick=()=>{
+  const id=btn.dataset.d;
+  const plan=id==="src"?negPlanForSources().filter(n=>!cp||n.cp.key===cp.key):negPlanForDest(STATE.destinations.find(x=>x.id===id));
+  plan.forEach(r=>toggleNeg(r.key,true));renderNegPreview();renderTargets();
+ });
+ box.querySelectorAll(".negNone").forEach(btn=>btn.onclick=()=>{
+  const id=btn.dataset.d;
+  const plan=id==="src"?negPlanForSources().filter(n=>!cp||n.cp.key===cp.key):negPlanForDest(STATE.destinations.find(x=>x.id===id));
+  plan.forEach(r=>toggleNeg(r.key,false));renderNegPreview();renderTargets();
+ });
+ const t=$("negCount");
+ if(t){const all=ds.reduce((s,d)=>s+negPlanForDest(d).length,0)+srcNegs.length,onAll=ds.reduce((s,d)=>s+negPlanForDest(d).filter(r=>r.on).length,0)+srcNegs.filter(r=>r.on).length;
+  t.textContent=onAll+" of "+all+" will be written for this campaign";}
+}
+/* ---- naming editor ---- */
+function sampleDest(){return STATE.destinations.find(d=>d.id===STATE.openDest&&d.mode!=="existing")||STATE.destinations.find(d=>d.mode!=="existing"&&assignedTargets(d.id).length)||STATE.destinations.find(d=>d.mode!=="existing")||null}
+function renderNameEditor(){
+ const box=$("nameEditor");if(!box)return;
+ const kind=$("specKind").value,spec=specFor(kind);
+ const unused=ALL_TOKENS.filter(k=>!spec.some(s=>s.kind==="token"&&s.v===k));
+ box.innerHTML=spec.map((seg,i)=>{
+  const label=seg.kind==="token"?(TOKEN_LABELS[seg.v]||seg.v):(seg.kind==="text"?'"'+seg.v+'"':seg.v);
+  return'<div class="segRow'+(seg.on===false?" off":"")+'" data-i="'+i+'">'
+   +'<span class="segGrip">'+(i+1)+'</span>'
+   +'<span class="segKind">'+(seg.kind==="token"?"field":"text")+'</span>'
+   +(seg.kind==="text"?'<input type="text" class="segText" value="'+esc(seg.v)+'">':'<span class="segName">'+esc(label)+'</span>')
+   +'<span class="segSpacer"></span>'
+   +'<button class="btn subtle segUp" '+(i===0?"disabled":"")+'>↑</button>'
+   +'<button class="btn subtle segDown" '+(i===spec.length-1?"disabled":"")+'>↓</button>'
+   +'<button class="btn subtle segToggle">'+(seg.on===false?"off":"on")+'</button>'
+   +'<button class="btn ghost segDel">×</button></div>';
+ }).join("")||'<div class="empty">No elements. Add one below.</div>';
+ $("addSeg").innerHTML='<option value="">Add an element…</option>'+unused.map(k=>'<option value="tok:'+k+'">'+esc(TOKEN_LABELS[k])+'</option>').join("")+'<option value="text">Fixed text…</option>';
+ const d=sampleDest();
+ $("namePreview").innerHTML=d?('<span class="mono">'+esc(destinationName(d)||"(empty)")+'</span> <span class="mini">'+String(destinationName(d)||"").length+' characters</span>'):'<span class="mini">Build a campaign to see a live example.</span>';
+ box.querySelectorAll(".segRow").forEach(row=>{
+  const i=Number(row.dataset.i),sp=specFor($("specKind").value);
+  const upd=()=>{bump();renderNameEditor();renderDestinations();renderTargets()};
+  row.querySelector(".segUp").onclick=()=>{if(i>0){[sp[i-1],sp[i]]=[sp[i],sp[i-1]];upd()}};
+  row.querySelector(".segDown").onclick=()=>{if(i<sp.length-1){[sp[i+1],sp[i]]=[sp[i],sp[i+1]];upd()}};
+  row.querySelector(".segToggle").onclick=()=>{sp[i].on=sp[i].on===false;upd()};
+  row.querySelector(".segDel").onclick=()=>{sp.splice(i,1);upd()};
+  const ti=row.querySelector(".segText");
+  if(ti)ti.onchange=()=>{sp[i].v=ti.value;upd()};
+ });
+}
+/* ---- targets table ---- */
+const COLS=[
+ {k:"sel",h:""},
+ {k:"text",h:"Target",sort:"text"},
+ {k:"match",h:"Type / Match",sort:"match"},
+ {k:"state",h:"State",sort:"state"},
+ {k:"impr",h:"Impr.",num:1,extra:1,sort:"impr"},
+ {k:"clicks",h:"Clicks",num:1,sort:"clicks"},
+ {k:"orders",h:"Orders",num:1,sort:"orders"},
+ {k:"units",h:"Units",num:1,extra:1,sort:"units"},
+ {k:"spend",h:"Spend",num:1,sort:"spend"},
+ {k:"sales",h:"Sales",num:1,extra:1,sort:"sales"},
+ {k:"acos",h:"ACOS",num:1,sort:"acos"},
+ {k:"roas",h:"ROAS",num:1,sort:"roas"},
+ {k:"cpc",h:"CPC",num:1,extra:1,sort:"cpc"},
+ {k:"bid0",h:"Bid",num:1,extra:1,sort:"bid0"},
+ {k:"action",h:"Action",sort:"action"},
+ {k:"dest",h:"Destination"},
+ {k:"bid",h:"New bid",num:1,sort:"bid"}
+];
+function visibleCols(){return COLS.filter(c=>!c.extra||STATE.showMetrics)}
+const SORTERS={camp:t=>t.campName.toLowerCase(),text:t=>String(t.text).toLowerCase(),match:t=>String(t.match||"zz").toLowerCase(),state:t=>t.state,
+ impr:t=>t.m.impr,clicks:t=>t.m.clicks,orders:t=>t.m.orders,units:t=>t.m.units,spend:t=>t.m.spend,sales:t=>t.m.sales,
+ acos:t=>{const a=targetAcos(t);return isFinite(a)?a:-1},roas:t=>{const r=targetRoas(t);return isFinite(r)?r:-1},cpc:t=>targetCpc(t),
+ bid0:t=>num(t.bid),bid:t=>num(dec(t).bid),action:t=>dec(t).action};
+function sortTargets(list){
+ const by=STATE.sort.by;if(!by||!SORTERS[by])return list;
+ const f=SORTERS[by],dir=STATE.sort.dir;
+ return list.slice().sort((a,b)=>{const A=f(a),B=f(b);
+  if(typeof A==="string"||typeof B==="string")return String(A).localeCompare(String(B))*(dir<0?1:-1)*-1;
+  return(A-B)*(dir<0?-1:1)});
+}
+function actionOptions(action){return[["keep","Keep"],["move","Move"],["pause","Pause"]].concat(action==="copy"?[["copy","Copy"]]:[]).map(o=>'<option value="'+o[0]+'" '+(action===o[0]?"selected":"")+'>'+o[1]+'</option>').join("")}
+function cellFor(col,t,maxSpend){
+ const x=dec(t),needsDest=x.action==="move"||x.action==="copy";
+ switch(col.k){
+  case "sel":return'<td><input class="tSel" type="checkbox" data-id="'+t.id+'" '+(x.selected?"checked":"")+'></td>';
+  case "camp":return'<td class="campCell" title="'+esc(t.campName)+'">'+esc(String(t.campName||"").slice(0,34))+'</td>';
+  case "text":{const d=dupeCount(t);return'<td class="tgtCell">'+esc(t.text)+'<span class="rowTags">'+performanceBadge(t)+(d>1?'<span class="badge warn">in '+d+' campaigns</span>':"")+'</span></td>'}
+  case "match":return'<td>'+esc(t.type==="kw"?t.match:"Product target")+'</td>';
+  case "state":return'<td><span class="badge '+(t.state==="enabled"?"ok":"warn")+'">'+esc(t.state)+'</span></td>';
+  case "impr":return'<td class="num">'+fmt(t.m.impr)+'</td>';
+  case "clicks":return'<td class="num">'+fmt(t.m.clicks)+'</td>';
+  case "orders":return'<td class="num">'+fmt(t.m.orders)+'</td>';
+  case "units":return'<td class="num">'+fmt(t.m.units)+'</td>';
+  case "spend":{const w=maxSpend>0?Math.max(2,t.m.spend/maxSpend*100):0;return'<td class="num barCell"><span class="barFill" style="width:'+w.toFixed(1)+'%"></span><span class="barVal">'+money(t.m.spend)+'</span></td>'}
+  case "sales":return'<td class="num">'+money(t.m.sales)+'</td>';
+  case "acos":return'<td class="num">'+(isFinite(targetAcos(t))?pct(targetAcos(t)):"—")+'</td>';
+  case "roas":return'<td class="num">'+roasTxt(targetRoas(t))+'</td>';
+  case "cpc":return'<td class="num">'+money(targetCpc(t))+'</td>';
+  case "bid0":return'<td class="num">'+money(t.bid)+'</td>';
+  case "action":return'<td><select class="rowAction" data-id="'+t.id+'">'+actionOptions(x.action)+'</select></td>';
+  case "dest":return'<td><select class="rowDest" data-id="'+t.id+'" '+(needsDest?"":"disabled")+'>'+destOptions(x.dest,t)+'</select></td>';
+  case "bid":return'<td class="num"><input class="bidEdit" data-id="'+t.id+'" type="number" min="0.02" step="0.01" value="'+esc(x.bid||"")+'" '+(needsDest?"":"disabled")+'></td>';
+ }
+ return"<td></td>";
+}
+function renderTargets(){
+ const all=sortTargets(filteredTargets()),cols=visibleCols();
+ const rows=all.slice(0,STATE.rowLimit),maxSpend=rows.reduce((a,t)=>Math.max(a,t.m.spend),0);
+ STATE.visibleRows=rows;
+ $("targetHead").innerHTML=cols.map(c=>{
+  const on=STATE.sort.by===c.sort;
+  return'<th'+(c.num?' class="num'+(on?" sortOn":"")+'"':(on?' class="sortOn"':""))+(c.sort?' data-sort="'+c.sort+'" data-dir="'+(on?(STATE.sort.dir<0?"desc":"asc"):"")+'"':"")+'>'+esc(c.h)+'</th>';
+ }).join("");
+ $("targetBody").innerHTML=rows.length?rows.map((t,i)=>{
+  const x=dec(t),cls=x.action==="pause"?"rowPaused":x.action==="copy"?"rowCopy":x.action!=="keep"?"rowDirty":"";
+  return'<tr class="'+cls+'" data-i="'+i+'">'+cols.map(c=>cellFor(c,t,maxSpend)).join("")+'</tr>';
+ }).join(""):'<tr><td colspan="'+cols.length+'" class="empty">No rows match the filters.</td></tr>';
+ $("targetCount").textContent=all.length?("Showing "+rows.length+" of "+all.length+" rows in this campaign"):"No rows in this campaign.";
+ $("showMoreRows").hidden=all.length<=rows.length;
+ $("targetBody").querySelectorAll(".tSel").forEach(b=>b.onclick=ev=>{
+  const i=Number(b.closest("tr").dataset.i);
+  if(ev.shiftKey&&STATE.lastRowIdx!=null){
+   const a=Math.min(i,STATE.lastRowIdx),z=Math.max(i,STATE.lastRowIdx);
+   for(let j=a;j<=z;j++)dec(STATE.visibleRows[j]).selected=b.checked;
+   renderTargets();return;
+  }
+  STATE.decisions[b.dataset.id].selected=b.checked;STATE.lastRowIdx=i;
+  updateSelectedCount();renderDecisionSummary();
+ });
+ $("targetBody").querySelectorAll(".rowAction").forEach(sel=>sel.onchange=()=>{const id=sel.dataset.id,a=sel.value;requestAnimationFrame(()=>setRowAction(id,a))});
+ $("targetBody").querySelectorAll(".rowDest").forEach(sel=>sel.onchange=()=>{STATE.decisions[sel.dataset.id].dest=sel.value;bump();requestAnimationFrame(renderTargets)});
+ $("targetBody").querySelectorAll(".bidEdit").forEach(inp=>inp.onchange=()=>{STATE.decisions[inp.dataset.id].bid=num(inp.value);bump();requestAnimationFrame(()=>{renderDecisionSummary();renderDestinations()})});
+ $("targetHead").querySelectorAll("th[data-sort]").forEach(th=>th.onclick=()=>{
+  const k=th.dataset.sort;
+  if(STATE.sort.by===k)STATE.sort.dir=-STATE.sort.dir;else{STATE.sort.by=k;STATE.sort.dir=-1}
+  STATE.lastRowIdx=null;renderTargets();
+ });
+ updateSelectedCount();renderDecisionSummary();renderDestinations();updateAutoPreview();updatePlanBadges();
+ renderNameEditor();renderNegPreview();
+}
+function setRowAction(id,action){
+ const x=STATE.decisions[id];if(!x)return;
+ x.action=action;
+ if(!["move","copy"].includes(action))x.dest="";
+ else if(!x.dest&&STATE.destinations.length)x.dest=STATE.destinations[0].id;
+ bump();renderTargets();
+}
+function updateSelectedCount(){
+ const n=STATE.allTargets.filter(t=>dec(t).selected).length;
+ const bar=$("actionBar");
+ if(bar)bar.hidden=n===0;
+ document.body.classList.toggle("hasBar",n>0);
+ updateAutoPreview();
+}
+function decisionCounts(){const out={keep:0,move:0,copy:0,pause:0};workingTargets().forEach(t=>{const x=dec(t);if(x)out[x.action]=(out[x.action]||0)+1});return out}
+function renderDecisionSummary(){
+ const c=decisionCounts();
+ $("tableHint").innerHTML='Shift-click a checkbox to take a range. '
+  +'<span class="sum"><span class="actionMove">Moving</span><b>'+c.move+'</b></span>'
+  +(c.pause?'<span class="sum"><span class="actionPause">Pausing</span><b>'+c.pause+'</b></span>':'')
+  +(c.copy?'<span class="sum"><span class="actionCopy">Copying</span><b>'+c.copy+'</b></span>':'');
+ $("batchMessage").textContent=STATE.batchMessage||"";
+ $("bidMessage").textContent=STATE.bidMessage||"";
+}
+function renderChoose(){
+ renderCampaignList();updateFilterCounts();updatePlanBadges();
+}
+function renderQueueStrip(){
+ const q=queueCampaigns();
+ $("queueStrip").innerHTML=q.length?q.map((c,i)=>{
+  const st=STATE.done.has(c.key)?"done":(i===STATE.qIndex?"now":"todo"),n=campChangeCount(c);
+  return'<span class="qChip '+st+'" data-i="'+i+'" title="'+esc(c.name||"")+'"><button class="qGo" data-i="'+i+'"><span class="qMark">'+(st==="done"?"✓":(i+1))+'</span><span class="qName">'+esc((c.name||"(unnamed)").slice(0,34))+'</span>'+(n?'<span class="qN">'+n+'</span>':'')+'</button><button class="qX" data-x="'+esc(c.key)+'" title="Remove from the queue">×</button></span>';
+ }).join(""):"";
+ $("queueStrip").querySelectorAll(".qGo").forEach(b=>b.onclick=()=>gotoCampaign(Number(b.dataset.i)));
+ $("queueStrip").querySelectorAll(".qX").forEach(b=>b.onclick=ev=>{ev.stopPropagation();removeFromQueue(b.dataset.x)});
+ const done=q.filter(c=>STATE.done.has(c.key)).length;
+ $("queueSub").innerHTML=q.length?('<b>'+done+' of '+q.length+'</b> campaigns done. Finish one, press Done, and the next opens. Everything lands in the same export.'):"Nothing in the queue yet.";
+}
+function renderRestructure(){
+ bump();
+ STATE.openDest=STATE.destinations.some(d=>d.id===STATE.openDest)?STATE.openDest:null;
+ renderQueueStrip();
+ const cp=currentCampaign();
+ $("restructEmpty").style.display=cp?"none":"";
+ $("restructBody").style.display=cp?"":"none";
+ updateFilterCounts();updatePlanBadges();
+ if(!cp)return;
+ const k=campaignKPIs(cp),isDone=STATE.done.has(cp.key);
+ $("curPos").textContent="Campaign "+(STATE.qIndex+1)+" of "+STATE.queue.length;
+ $("curName").textContent=cp.name||"(unnamed campaign)";
+ $("curTags").innerHTML='<span class="badge '+(cp.state==="enabled"?"ok":"warn")+'">'+esc(cp.state)+'</span>'
+  +'<span class="badge">'+cp.targets.length+' targets</span><span class="badge">Budget '+money(cp.budget)+'</span>'
+  +(campChangeCount(cp)?'<span class="badge purple">'+campChangeCount(cp)+' planned</span>':'<span class="badge">nothing planned yet</span>')
+  +(isDone?'<span class="badge ok">done</span>':'');
+ $("prevCamp").disabled=STATE.qIndex===0;
+ $("nextCamp").disabled=STATE.qIndex>=STATE.queue.length-1;
+ $("doneCamp").textContent=nextOpenIndex(STATE.qIndex)<0?"Done — go to the preview →":(isDone?"Already done — next campaign →":"Done — next campaign →");
+ ensureDestination();renderSelStats();writeFilters();renderTargets();renderNameEditor();renderNegPreview();
+}
+
+/* ---- automatic build ---- */
+function autoScopeList(){return filteredTargets().filter(t=>dec(t).selected)}
+function autoGroups(list){
+ const size=$("autoSize").value==="all"?Infinity:Math.max(1,Math.round(num($("autoSize").value)||1));
+ const byAsin=$("splitAsin").checked;
+ const counters={},groups=new Map();
+ for(const t of list){
+  let base=t.type==="kw"?("kw|"+(t.match||"")):"pt";
+  if(byAsin)base+="|"+(t.asins.join("+")||"none");
+  const n=counters[base]=(counters[base]==null?0:counters[base]+1);
+  const key=size===Infinity?base:base+"|g"+Math.floor(n/size);
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push(t);
+ }
+ return groups;
+}
+function updateAutoPreview(){
+ const el=$("abCount");if(!el)return;
+ const list=autoScopeList();
+ if(!list.length){el.textContent="";return}
+ const groups=autoGroups(list);
+ el.innerHTML='<b>'+list.length+'</b> ticked → <b>'+groups.size+'</b> campaign'+(groups.size===1?"":"s");
+}
+function autoLabel(ts,i){
+ const t=ts[0],asin=(t.asins[0]||"");
+ if(ts.length===1&&t.type==="kw")return"1KW · "+String(t.text).slice(0,26);
+ const base=t.type==="kw"?("KW "+(t.match||"")):"PT";
+ return base+" · "+(asin||"group")+" · "+(i+1);
+}
+function runAutoBuild(){
+ const list=autoScopeList();
+ if(!list.length){STATE.autoMessage="Nothing to build from.";updateAutoPreview();return}
+ snapshot();
+ const act="move",groups=autoGroups(list);
+ let made=0,i=0;
+ for(const [,ts] of groups){
+  const src=STATE.campaignByKey[ts[0].campKey];
+  const d=defaultDestination(src,STATE.destinations.length+1);
+  d.label=autoLabel(ts,i++);
+  const asins=[...new Set([].concat(...ts.map(t=>t.asins)))];
+  d.asins=asins.length?asins:(src?src.asins.slice():[]);
+  if(src){d.intent=src.intent||"Generic";d.goal=src.goal||""}
+  STATE.destinations.push(d);made++;
+  ts.forEach(t=>{const x=dec(t);x.action=act;x.dest=d.id;x.selected=false});
+ }
+ bump();
+ STATE.destinations=STATE.destinations.filter(d=>assignedTargets(d.id).length);
+ if(!STATE.destinations.length)ensureDestination();
+ dedupeDestinationNames();bump();
+ STATE.autoMessage="";STATE.batchMessage="Built "+made+" campaign"+(made===1?"":"s")+" from "+list.length+" target"+(list.length===1?"":"s")+".";
+ renderRestructure();
+}
+
+/* ================= build preview ================= */
+function previewKwHtml(t,side){
+ const x=dec(t),act=x.action;
+ const cls=act==="move"?"kwMove":act==="copy"?"kwCopy":act==="pause"?"kwPause":"kwKeep";
+ const bid=side==="after"?money(x.bid):money(t.bid);
+ return'<div class="pvKw '+cls+'" data-tid="'+t.id+'">'
+  +'<span class="pvName">'+esc(t.text)+'</span>'
+  +'<span class="pvMeta">'+esc(t.type==="kw"?t.match:"PT")+'</span>'
+  +'<span class="pvMeta num">'+bid+'</span>'
+  +'<span class="pvMeta num">'+money(t.m.spend)+'</span>'
+  +'<span class="pvMeta num">'+(isFinite(targetAcos(t))?pct(targetAcos(t)):"—")+'</span>'
+  +'</div>';
+}
+function previewSourceBlock(cp){
+ const ts=cp.targets,changed=campChangeCount(cp);
+ const willPause=campaignsToPause().includes(cp);
+ const k=campaignKPIs(cp);
+ return'<div class="pvBlock'+(changed?" touched":"")+'" data-camp="'+esc(cp.key)+'">'
+  +'<div class="pvHead"><div class="pvTitle">'+esc(cp.name||"(unnamed)")+'</div>'
+  +'<div class="pvTags"><span class="badge '+(cp.state==="enabled"?"ok":"warn")+'">'+esc(cp.state)+'</span>'
+  +'<span class="badge">Budget '+money(cp.budget)+'</span>'
+  +'<span class="badge">'+ts.length+' targets</span>'
+  +'<span class="badge">Spend '+money(k.spend)+'</span>'
+  +'<span class="badge">ACOS '+(isFinite(k.acos)?pct(k.acos):"—")+'</span>'
+  +(changed?'<span class="badge purple">'+changed+' changing</span>':'<span class="badge">unchanged</span>')
+  +(willPause?'<span class="badge bad">will be paused</span>':'')+'</div></div>'
+  +'<div class="pvBody">'+(ts.length?ts.map(t=>previewKwHtml(t,"before")).join(""):'<div class="pvNone">No positive targets.</div>')+'</div></div>';
+}
+function previewDestBlock(d){
+ const m=groupMeta(d),ts=m.ts;
+ if(d.mode==="existing"){
+  const c=destCampaign(d),ag=destAdGroup(d);
+  const existing=ag?ag.targets.length:0;
+  return'<div class="pvBlock into" data-dest="'+d.id+'">'
+   +'<div class="pvHead"><div class="pvTitle">'+esc(c?c.name:"(no campaign chosen)")+'</div>'
+   +'<div class="pvTags"><span class="badge">existing campaign</span>'
+   +(ag?'<span class="badge">ad group '+esc(ag.name||ag.id)+'</span>':'<span class="badge bad">no ad group</span>')
+   +'<span class="badge">'+existing+' already there</span><span class="badge purple">+'+ts.length+' added</span></div></div>'
+   +'<div class="pvBody">'+ts.map(t=>previewKwHtml(t,"after")).join("")+'</div></div>';
+ }
+ const as=groupAsinRecords(d),name=destinationName(d);
+ const spend=ts.reduce((a,t)=>a+t.m.spend,0),sales=ts.reduce((a,t)=>a+t.m.sales,0);
+ return'<div class="pvBlock fresh" data-dest="'+d.id+'">'
+  +'<div class="pvHead"><div class="pvTitle">'+esc(name||"(name cannot be generated yet)")+'</div>'
+  +'<div class="pvTags"><span class="badge ok">new campaign</span>'
+  +'<span class="badge">Budget '+money(d.budget)+'</span>'
+  +'<span class="badge">'+esc(d.state)+'</span>'
+  +(num(d.tos)>0?'<span class="badge">TOS '+Math.round(num(d.tos))+'%</span>':'')
+  +(num(d.ros)>0?'<span class="badge">ROS '+Math.round(num(d.ros))+'%</span>':'')
+  +(num(d.pp)>0?'<span class="badge">PP '+Math.round(num(d.pp))+'%</span>':'')
+  +'<span class="badge">'+(as.length?esc(as.map(a=>a.asin).join(", ")):'<span>no ASIN</span>')+'</span>'
+  +'<span class="badge purple">'+ts.length+' targets</span>'+(negPlanForDest(d).filter(r=>r.on).length?'<span class="badge">'+negPlanForDest(d).filter(r=>r.on).length+' negatives</span>':'')
+  +'<span class="badge">carries '+money(spend)+' spend</span>'
+  +(sales>0?'<span class="badge">'+money(sales)+' sales</span>':'')+'</div></div>'
+  +'<div class="pvBody">'+ts.map(t=>previewKwHtml(t,"after")).join("")+'</div></div>';
+}
+function previewProtectCount(d){
+ if(!$("protectExact")||!$("protectExact").checked)return 0;
+ try{return protectFor(d,protectIndex(),$("protectPhrase").checked).length}catch(e){return 0}
+}
+function previewRemainBlock(cp){
+ const left=cp.targets.filter(t=>!["move","pause"].includes(dec(t).action));
+ const willPause=campaignsToPause().includes(cp);
+ return'<div class="pvBlock remain" data-camp="'+esc(cp.key)+'">'
+  +'<div class="pvHead"><div class="pvTitle">'+esc(cp.name||"(unnamed)")+'</div>'
+  +'<div class="pvTags"><span class="badge '+(willPause?"bad":"ok")+'">'+(willPause?"paused, nothing left":"still running")+'</span>'
+  +'<span class="badge">'+left.length+' of '+cp.targets.length+' targets remain</span></div></div>'
+  +'<div class="pvBody">'+(left.length?left.map(t=>previewKwHtml(t,"after")).join(""):'<div class="pvNone">Everything moved out.</div>')+'</div></div>';
+}
+function renderPreview(){
+ bump();
+ const dests=activeDestinations(),touched=touchedCampaigns();
+ const sources=(()=>{const s=new Map();workingCampaigns().forEach(c=>s.set(c.key,c));touched.forEach(c=>s.set(c.key,c));return [...s.values()]})();
+ const any=dests.length||touched.length;
+ $("previewEmpty").style.display=any?"none":"";
+ $("previewBody").style.display=any?"":"none";
+ if(!any)return;
+ const moved=STATE.allTargets.filter(t=>dec(t).action==="move").length,copied=STATE.allTargets.filter(t=>dec(t).action==="copy").length,paused=STATE.allTargets.filter(t=>dec(t).action==="pause").length;
+ const spend=STATE.allTargets.filter(t=>["move","copy"].includes(dec(t).action)).reduce((a,t)=>a+t.m.spend,0);
+ const newC=dests.filter(d=>d.mode!=="existing").length;
+ $("previewStats").innerHTML=[["Campaigns today",sources.length],["New campaigns",newC],["Into existing",dests.length-newC],["Moved",moved],["Copied",copied],["Paused",paused],["Campaigns closing",campaignsToPause().length],["Spend restructured",money(spend)]].map(x=>'<div class="stat"><b>'+esc(x[1])+'</b><span>'+esc(x[0])+'</span></div>').join("");
+ $("beforeCol").innerHTML=sources.map(previewSourceBlock).join("")||'<div class="pvNone">Nothing selected.</div>';
+ $("beforeCount").textContent=sources.length+" campaign"+(sources.length===1?"":"s");
+ let after="";
+ if($("groupBySource").checked){
+  for(const cp of sources){
+   const ds=dests.filter(d=>groupMeta(d).srcs.includes(cp.key));
+   after+='<div class="pvGroup"><div class="pvGroupHead">From '+esc((cp.name||"").slice(0,60))+'</div>'
+    +previewRemainBlock(cp)+ds.map(previewDestBlock).join("")+'</div>';
+  }
+ }else{
+  after=dests.map(previewDestBlock).join("");
+  if(touched.length)after+='<div class="pvDivider">What is left in the source campaigns</div>'+touched.map(previewRemainBlock).join("");
+ }
+ $("afterCol").innerHTML=after||'<div class="pvNone">No destinations yet.</div>';
+ $("afterCount").textContent=dests.length+" destination"+(dests.length===1?"":"s");
+ wirePreview();
+}
+function wirePreview(){
+ const box=$("previewBody");
+ box.querySelectorAll(".pvKw").forEach(el=>{
+  el.onmouseenter=()=>box.querySelectorAll('.pvKw[data-tid="'+el.dataset.tid+'"]').forEach(x=>x.classList.add("lit"));
+  el.onmouseleave=()=>box.querySelectorAll(".pvKw.lit").forEach(x=>x.classList.remove("lit"));
+  el.onclick=()=>jumpToTarget(el.dataset.tid);
+ });
+ box.querySelectorAll(".pvBlock[data-camp]").forEach(el=>{
+  el.querySelector(".pvHead").onclick=()=>jumpToCampaign(el.dataset.camp);
+ });
+}
+function jumpToCampaign(key){
+ if(!STATE.queue.includes(key))STATE.queue.push(key);
+ STATE.qIndex=STATE.queue.indexOf(key);
+ showPanel("restructure");
+}
+function jumpToTarget(id){
+ const t=STATE.allTargets.find(x=>x.id===id);if(!t)return;
+ Object.assign(STATE.filters,DEFAULT_FILTERS);STATE.filters.q=String(t.text);
+ jumpToCampaign(t.campKey);
+}
+
+/* ================= validation ================= */
+function targetKey(t){return t.type==="kw"?("kw|"+String(t.text).toLowerCase()+"|"+String(t.match).toLowerCase()):("pt|"+String(t.expr||t.text).toLowerCase())}
+function validatePlan(){
+ const errors=[],warnings=[],dests=activeDestinations();
+ const existingNames=new Set(STATE.campaigns.map(c=>String(c.name||"").trim().toLowerCase()));
+ const newNames={},seller=$("accountType").value==="seller";
+ for(const d of dests){
+  const m=groupMeta(d),ts=m.ts;
+  for(const t of ts){
+   if(!(num(dec(t).bid)>0))errors.push(d.label+': "'+t.text+'" needs a bid above 0.');
+   if(t.type==="kw"&&String(t.text).length>80)errors.push(d.label+': "'+String(t.text).slice(0,40)+'…" is longer than the 80 characters Amazon allows.');
+  }
+  if(d.mode==="existing"){
+   const c=destCampaign(d),ag=destAdGroup(d);
+   if(!c){errors.push(d.label+": choose the campaign it should go into.");continue}
+   if(!ag){errors.push(d.label+": choose an ad group inside "+c.name+".");continue}
+   if(c.state==="archived")errors.push(d.label+": "+c.name+" is archived and cannot take new targets.");
+   else if(c.state!=="enabled")warnings.push(d.label+": "+c.name+" is "+c.state+", so the new targets will not run yet.");
+   if(ag.state!=="enabled")warnings.push(d.label+": ad group "+(ag.name||ag.id)+" is "+ag.state+".");
+   const have=new Set(ag.targets.map(targetKey));
+   const agMatches=[...new Set(ag.targets.filter(t=>t.type==="kw").map(t=>String(t.match)))];
+   for(const t of ts){
+    if(t.ag&&t.ag.id===ag.id&&t.campKey===c.key)errors.push(d.label+': "'+t.text+'" is already in that ad group.');
+    if(have.has(targetKey(t)))errors.push(d.label+': "'+t.text+'" already exists in '+(ag.name||ag.id)+' and Amazon would reject it.');
+   }
+   if(m.kind==="kw"&&m.matches.length>1)warnings.push(d.label+": several match types are going into one ad group.");
+   if(m.kind==="kw"&&agMatches.length&&m.match&&!agMatches.includes(m.match))warnings.push(d.label+": that ad group holds "+agMatches.join("/")+" keywords and will receive "+m.match+".");
+   if(m.types.length>1)warnings.push(d.label+": keywords and product targets are going into the same ad group.");
+   const dAsins=[...new Set(c.ads.map(a=>a.asin).filter(Boolean))],srcAsins=[...new Set([].concat(...ts.map(t=>t.asins)))];
+   if(dAsins.length&&srcAsins.length&&!srcAsins.some(a=>dAsins.includes(a)))warnings.push(d.label+": it advertises "+dAsins.join(", ")+" but these targets come from "+srcAsins.join(", ")+".");
+   continue;
+  }
+  const name=destinationName(d),as=groupAsinRecords(d);
+  if(m.types.length>1)errors.push(d.label+": keywords and product targets cannot share one campaign.");
+  if(m.kind==="kw"&&m.matches.length>1)errors.push(d.label+": it holds "+m.matches.join(" and ")+" keywords. One campaign can only hold one match type.");
+  if(!d.asins.length)errors.push(d.label+": tick at least one advertised product.");
+  if(!(num(d.budget)>0))errors.push(d.label+": daily budget must be above 0.");
+  else if(num(d.budget)<1)warnings.push(d.label+": most marketplaces have a minimum daily budget of 1.");
+  if(num(d.tos)<0||num(d.tos)>900||num(d.pp)<0||num(d.pp)>900||num(d.ros)<0||num(d.ros)>900)errors.push(d.label+": placement adjustments must be between 0% and 900%.");
+  for(const a of as){
+   if(!a.desc)errors.push(d.label+": "+a.asin+" needs a product name for the campaign name.");
+   if(seller&&!a.sku)errors.push(d.label+": "+a.asin+" has no SKU, which Seller Central needs to create the ad.");
+   if(!seller&&!a.asin)errors.push(d.label+": missing ASIN.");
+  }
+  if(!name)errors.push(d.label+": the campaign name is empty. Generate one or type it in.");
+  if(d.customName&&d.customName.trim()&&/[\t\n]/.test(d.customName))errors.push(d.label+": the campaign name contains a tab or line break.");
+  if(name.length>BASIS.rules.campLimit)errors.push(d.label+": the campaign name is "+name.length+" characters, "+(name.length-BASIS.rules.campLimit)+" over the limit of "+BASIS.rules.campLimit+".");
+  const agName=as.length?as[0].asin:"";
+  if(!agName)errors.push(d.label+": no ad group name could be derived.");
+  const nl=String(name).toLowerCase();
+  if(existingNames.has(nl))errors.push(d.label+": that campaign name already exists in the account: "+name);
+  if(newNames[nl])errors.push(d.label+": the same name is generated for "+newNames[nl]+": "+name);
+  newNames[nl]=d.label;
+  if(d.asins.length>1)warnings.push(d.label+": "+d.asins.length+" products, so the name uses lead ASIN and Various.");
+  if(m.srcs.length>1)warnings.push(d.label+": it collects targets from "+m.srcs.length+" source campaigns.");
+  {const srcAsins=[...new Set([].concat(...ts.map(t=>t.asins)))],outside=srcAsins.filter(a=>!d.asins.includes(a));
+   if(outside.length)warnings.push(d.label+": it advertises "+d.asins.join(", ")+", but some keywords come from "+outside.join(", ")+". They will run on the products ticked here.");}
+ }
+ const moved=STATE.allTargets.filter(t=>dec(t).action==="move"),copied=STATE.allTargets.filter(t=>dec(t).action==="copy"),paused=STATE.allTargets.filter(t=>dec(t).action==="pause");
+ if(!moved.length&&!copied.length&&!paused.length)warnings.push("Nothing is being changed yet.");
+ STATE.allTargets.filter(t=>{const x=dec(t);return(x.action==="move"||x.action==="copy")&&!STATE.destinations.some(d=>d.id===x.dest)})
+  .forEach(t=>errors.push('"'+t.text+'" in '+t.campName+" is set to "+dec(t).action+" but has no destination."));
+ const recv=receivingCampaigns();
+ for(const cp of touchedCampaigns())if(cp.state==="enabled"&&remainingEnabled(cp)===0&&recv.has(cp.key))warnings.push(cp.name+": everything original is leaving, but it also receives new targets, so it stays enabled.");
+ if($("protectExact").checked){
+  const idx=protectIndex(),ap=$("protectPhrase").checked;
+  for(const d of dests){
+   const n=protectFor(d,idx,ap).length;
+   if(n>1000)errors.push(d.label+": "+n+" protective negatives, over Amazon's limit of 1000 per ad group. Narrow the scope.");
+   else if(n>200)warnings.push(d.label+": "+n+" protective negatives will be added.");
+  }
+ }
+ const dupe={};
+ for(const d of dests)for(const t of assignedTargets(d.id)){const k=(d.mode==="existing"?"E"+d.existAg:"N"+d.id)+"|"+targetKey(t);if(dupe[k])errors.push('"'+t.text+'" is assigned twice into '+d.label+".");dupe[k]=true}
+ return{errors,warnings,activeDests:dests,moved,copied,paused};
+}
+
+/* ================= export ================= */
+const NUMCOLS=new Set(["bid","dailybudget","adgroupdefaultbid","percentage"]);
+const IDCOLS=new Set(["campaignid","adgroupid","keywordid","producttargetingid","adid","portfolioid"]);
+function cloneRow(cells){const out=[];for(let i=0;i<Math.max(STATE.headers.length,cells.length);i++){const c=cells[i];out[i]=c?{v:c.v,num:c.num&&!IDCOLS.has(normH(STATE.headers[i]||""))}:{v:"",num:false}}return out}
+function hIndex(name){const key=normH(name);for(let i=0;i<STATE.headers.length;i++)if(normH(STATE.headers[i])===key)return i;return -1}
+function setCell(row,name,val){
+ const i=hIndex(name);if(i<0)return;
+ const wantNum=NUMCOLS.has(normH(name))&&val!==""&&val!=null&&isFinite(Number(val));
+ row[i]={v:wantNum?String(Number(val)):String(val==null?"":val),num:!!wantNum};
+}
+function blankRow(){return STATE.headers.map(()=>({v:"",num:false}))}
+function createRow(vals){const r=blankRow();for(const[k,v]of Object.entries(vals))if(v!==""&&v!=null)setCell(r,k,v);return r}
+function normStrategy(v){const t=String(v||"").toLowerCase();if(t.includes("up")&&t.includes("down"))return"Dynamic bids - up and down";if(t.includes("fixed"))return"Fixed bid";return"Dynamic bids - down only"}
+function ptExpression(t){return String(t.text).match(/^B0[A-Z0-9]{8}$/i)?'asin="'+t.text.toUpperCase()+'"':(t.expr||t.text)}
+function negMatchFor(kind){return outNegMatch(kind)}
+function plannedNegatives(){
+ if(!$("addNegatives")||!$("addNegatives").checked)return [];
+ const scope=$("negScope").value,kind=$("negMatch").value,out=[],seen=new Set();
+ for(const t of STATE.allTargets){
+  const x=dec(t);
+  if(x.action!=="move"||t.type!=="kw")continue;
+  const d=STATE.destinations.find(q=>q.id===x.dest);if(!d)continue;
+  const cp=STATE.campaignByKey[t.campKey];if(!cp)continue;
+  const txt=String(t.text).trim(),low=txt.toLowerCase();
+  if(scope==="campaign"){
+   if(d.mode==="existing"&&d.existCamp===t.campKey)continue;
+   if(cp.negs.has(low))continue;
+   const k="C|"+cp.key+"|"+low;if(seen.has(k))continue;seen.add(k);
+   out.push({level:"campaign",cp,ag:null,text:txt,match:negMatchFor(kind)});
+  }else{
+   const ag=t.ag;if(!ag)continue;
+   if(d.mode==="existing"&&d.existAg===ag.id&&d.existCamp===t.campKey)continue;
+   if(ag.negs.has(low))continue;
+   const k="A|"+cp.key+"|"+ag.id+"|"+low;if(seen.has(k))continue;seen.add(k);
+   out.push({level:"adgroup",cp,ag,text:txt,match:negMatchFor(kind)});
+  }
+ }
+ return out;
+}
+function protectIndex(){
+ const scope=$("protectScope")?$("protectScope").value:"account";
+ const keys=scope==="selected"?new Set(selectedCampaigns().map(c=>c.key)):null;
+ const idx={};
+ const add=(asin,text,match,from)=>{if(!asin||!text)return;const m=(idx[asin]||(idx[asin]=new Map()));const k=String(text).toLowerCase().trim();if(!m.has(k))m.set(k,{match,from,text:String(text).trim()})};
+ for(const cp of STATE.campaigns){
+  if(cp.state!=="enabled")continue;
+  if(keys&&!keys.has(cp.key))continue;
+  for(const ag of cp.ags){
+   if(ag.state!=="enabled")continue;
+   const asins=[...new Set(ag.ads.filter(a=>a.state!=="archived").map(a=>a.asin).filter(Boolean))];
+   for(const t of ag.targets){
+    if(t.type!=="kw"||t.state!=="enabled")continue;
+    const mt=String(t.match).toLowerCase();
+    if(mt!=="exact"&&mt!=="phrase")continue;
+    const x=dec(t);if(x&&(x.action==="move"||x.action==="pause"))continue;
+    asins.forEach(a=>add(a,t.text,mt,cp.name));
+   }
+  }
+ }
+ for(const d of activeDestinations()){
+  if(d.mode==="existing")continue;
+  const m=groupMeta(d);if(m.kind!=="kw")continue;
+  const mt=String(m.match).toLowerCase();
+  if(mt!=="exact"&&mt!=="phrase")continue;
+  m.ts.forEach(t=>(d.asins||[]).forEach(a=>add(a,t.text,mt,"new: "+(destinationName(d)||d.label))));
+ }
+ return idx;
+}
+function protectFor(d,idx,alsoPhrase){
+ const m=groupMeta(d);
+ if(d.mode==="existing"||m.kind!=="kw")return [];
+ const mt=String(m.match).toLowerCase();
+ if(mt!=="phrase"&&mt!=="broad")return [];
+ const out=[],seen=new Set();
+ for(const a of(d.asins||[])){
+  const map=idx[a];if(!map)continue;
+  for(const [text,rec] of map){
+   const src=rec.match;
+   if(src==="phrase"&&!(mt==="broad"&&alsoPhrase))continue;
+   const k=text+"|"+src;if(seen.has(k))continue;seen.add(k);
+   out.push({text:rec.text||text,match:outNegMatch(src==="exact"?"exact":"phrase"),from:rec.from||"",origin:"protect"});
+  }
+ }
+ return out;
+}
+function protectNegatives(){
+ if(!$("protectExact")||!$("protectExact").checked)return [];
+ const idx=protectIndex(),alsoPhrase=$("protectPhrase").checked,out=[];
+ for(const d of activeDestinations())protectFor(d,idx,alsoPhrase).forEach(n=>out.push(Object.assign({dest:d},n)));
+ return out;
+}
+function inheritedNegatives(d){
+ if(!$("carryNegatives")||!$("carryNegatives").checked)return{camp:[],ag:[],skipped:[]};
+ const m=groupMeta(d);
+ if(d.mode==="existing")return{camp:[],ag:[],skipped:[]};
+ const own=m.ts.filter(t=>t.type==="kw").map(t=>String(t.text).toLowerCase().trim());
+ const camp=[],ag=[],skipped=[],seenC=new Set(),seenA=new Set();
+ const blocks=rec=>{
+  if(rec.type!=="kw")return false;
+  const nt=String(rec.text).toLowerCase().trim(),neg=String(rec.match||"").toLowerCase().replace(/[^a-z]/g,"");
+  if(neg.includes("phrase"))return own.some(k=>k.includes(nt));
+  return own.includes(nt);
+ };
+ const agIds=new Set();
+ m.ts.forEach(t=>{if(t.ag)agIds.add(t.campKey+"|"+t.ag.id)});
+ for(const key of new Set(m.srcs)){
+  const cp=STATE.campaignByKey[key];if(!cp)continue;
+  (cp.negList||[]).forEach(r=>{
+   if(r.state==="archived")return;
+   const k=r.type+"|"+r.text.toLowerCase()+"|"+String(r.match).toLowerCase();
+   if(seenC.has(k))return;seenC.add(k);
+   if(blocks(r)){skipped.push(r);return}
+   camp.push(r);
+  });
+  cp.ags.forEach(g=>{
+   if(!agIds.has(cp.key+"|"+g.id))return;
+   (g.negList||[]).forEach(r=>{
+    if(r.state==="archived")return;
+    const k=r.type+"|"+r.text.toLowerCase()+"|"+String(r.match).toLowerCase();
+    if(seenA.has(k))return;seenA.add(k);
+    if(blocks(r)){skipped.push(r);return}
+    ag.push(r);
+   });
+  });
+ }
+ return{camp,ag,skipped};
+}
+function inheritedCount(d){const x=inheritedNegatives(d);return x.camp.length+x.ag.length}
+function negKey(scope,r){return scope+"|"+(r.type||"kw")+"|"+String(r.text).toLowerCase().trim()+"|"+String(r.match||"").toLowerCase()}
+function negOn(k){return !(STATE.negOff||[]).includes(k)}
+function negPlanForDest(d){
+ const out=[];
+ if(d.mode==="existing")return out;
+ const inh=inheritedNegatives(d);
+ inh.camp.forEach(r=>out.push({level:"campaign",origin:"carried",from:"source campaign",text:r.text,match:r.match||outNegMatch("exact"),type:r.type,key:negKey("D"+d.id,r)}));
+ inh.ag.forEach(r=>out.push({level:"adgroup",origin:"carried",from:"source ad group",text:r.text,match:r.match||outNegMatch("exact"),type:r.type,key:negKey("D"+d.id,r)}));
+ if($("protectExact")&&$("protectExact").checked){
+  protectFor(d,protectIndex(),$("protectPhrase").checked).forEach(r=>out.push({level:"adgroup",origin:"protect",from:r.from,text:r.text,match:r.match,type:"kw",key:negKey("D"+d.id,r)}));
+ }
+ const seen=new Set();
+ return out.filter(r=>{if(seen.has(r.key))return false;seen.add(r.key);return true}).map(r=>Object.assign(r,{on:negOn(r.key)}));
+}
+function negPlanForSources(){
+ return plannedNegatives().map(n=>Object.assign({},n,{key:negKey("S"+n.cp.key+(n.ag?("|"+n.ag.id):""),{text:n.text,match:n.match,type:"kw"}),on:negOn(negKey("S"+n.cp.key+(n.ag?("|"+n.ag.id):""),{text:n.text,match:n.match,type:"kw"}))}));
+}
+function toggleNeg(k,on){
+ const off=new Set(STATE.negOff||[]);
+ if(on)off.delete(k);else off.add(k);
+ STATE.negOff=[...off];bump();
+}
+function buildRows(force){
+ const v=validatePlan();
+ if(!force&&v.errors.length)throw new Error("Fix the validation errors before exporting.");
+ const seller=$("accountType").value==="seller";
+ const rows=[STATE.headers.map(h=>({v:h,num:false}))];
+ /* 1. pause the originals that are moving or being switched off */
+ for(const t of STATE.allTargets){
+  const x=dec(t);
+  if((x.action==="move"||x.action==="pause")&&t.state!=="paused"){
+   const r=cloneRow(t.cells);setCell(r,"Operation","Update");setCell(r,"State","paused");rows.push(r);
+  }
+ }
+ /* 2. negatives so the old campaign stops competing */
+ for(const n of negPlanForSources().filter(r=>r.on)){
+  if(n.level==="campaign")rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Campaign Negative Keyword"),"Operation":"Create","Campaign ID":n.cp.id,"Campaign Name":n.cp.name,"State":"enabled","Keyword Text":n.text,"Match Type":n.match}));
+  else rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Negative Keyword"),"Operation":"Create","Campaign ID":n.cp.id,"Ad Group ID":n.ag.id,"Campaign Name":n.cp.name,"Ad Group Name":n.ag.name,"State":"enabled","Keyword Text":n.text,"Match Type":n.match}));
+ }
+ /* 3. campaigns left with nothing */
+ if($("pauseEmptyCampaign").checked)for(const cp of campaignsToPause()){
+  const r=cloneRow(cp.cells);setCell(r,"Operation","Update");setCell(r,"State","paused");
+  if(hIndex("Campaign State")>=0)setCell(r,"Campaign State","paused");
+  rows.push(r);
+ }
+ /* 4. the new structure */
+ const protectOn=$("protectExact").checked,protectPhrase=$("protectPhrase").checked,pIdx=protectOn?protectIndex():{};
+ const today=new Date(),start=""+today.getFullYear()+String(today.getMonth()+1).padStart(2,"0")+String(today.getDate()).padStart(2,"0");
+ const usedIds=new Set();
+ STATE.campaigns.forEach(c=>{usedIds.add(String(c.id));c.ags.forEach(a=>usedIds.add(String(a.id)))});
+ const tmpId=(p,n)=>{let id=p+String(n).padStart(3,"0"),k=0;while(usedIds.has(id))id=p+String(n).padStart(3,"0")+"-"+(++k);usedIds.add(id);return id};
+ let di=0;
+ for(const d of v.activeDests){
+  const ts=assignedTargets(d.id);
+  if(d.mode==="existing"){
+   const c=destCampaign(d),ag=destAdGroup(d);
+   if(!c||!ag)continue;
+   ts.forEach(t=>{
+    const base={"Product":"Sponsored Products","Operation":"Create","Campaign ID":c.id,"Ad Group ID":ag.id,"Campaign Name":c.name,"Ad Group Name":ag.name,"State":"enabled","Bid":num(dec(t).bid)};
+    if(t.type==="kw")rows.push(createRow(Object.assign({},base,{"Entity":outEntity("Keyword"),"Keyword Text":t.text,"Match Type":outMatch(t.match)})));
+    else rows.push(createRow(Object.assign({},base,{"Entity":outEntity("Product Targeting"),"Product Targeting Expression":ptExpression(t)})));
+   });
+   continue;
+  }
+  di++;
+  const name=destinationName(d),cid=tmpId("NEW-C-",di),agid=tmpId("NEW-AG-",di);
+  const as=groupAsinRecords(d),agname=as.length?as[0].asin:"",dbid=num(d.defaultBid)>0?num(d.defaultBid):Math.max(...ts.map(t=>num(dec(t).bid)),0.02);
+  rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Campaign"),"Operation":"Create","Campaign ID":cid,"Campaign Name":name,"Start Date":start,"Targeting Type":outTargeting("Manual"),"State":d.state,"Daily Budget":num(d.budget),"Bidding Strategy":outStrategy(normStrategy(d.strategy)),"Portfolio ID":d.portfolio||""}));
+  rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Ad Group"),"Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":name,"Ad Group Name":agname,"State":d.state,"Ad Group Default Bid":dbid}));
+  as.forEach(a=>{
+   const ad={"Product":"Sponsored Products","Entity":outEntity("Product Ad"),"Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":name,"Ad Group Name":agname,"State":d.state};
+   if(seller)ad["SKU"]=a.sku;else ad["ASIN"]=a.asin;
+   rows.push(createRow(ad));
+  });
+  negPlanForDest(d).filter(r=>r.on).forEach(r=>{
+   if(r.level==="campaign"){
+    if(r.type==="pt")rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Campaign Negative Product Targeting"),"Operation":"Create","Campaign ID":cid,"Campaign Name":name,"State":"enabled","Product Targeting Expression":r.text}));
+    else rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Campaign Negative Keyword"),"Operation":"Create","Campaign ID":cid,"Campaign Name":name,"State":"enabled","Keyword Text":r.text,"Match Type":r.match}));
+   }else{
+    if(r.type==="pt")rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Negative Product Targeting"),"Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":name,"Ad Group Name":agname,"State":"enabled","Product Targeting Expression":r.text}));
+    else rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Negative Keyword"),"Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":name,"Ad Group Name":agname,"State":"enabled","Keyword Text":r.text,"Match Type":r.match}));
+   }
+  });
+  ts.forEach(t=>{
+   const base={"Product":"Sponsored Products","Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":name,"Ad Group Name":agname,"State":d.state,"Bid":num(dec(t).bid)};
+   if(t.type==="kw")rows.push(createRow(Object.assign({},base,{"Entity":outEntity("Keyword"),"Keyword Text":t.text,"Match Type":outMatch(t.match)})));
+   else rows.push(createRow(Object.assign({},base,{"Entity":outEntity("Product Targeting"),"Product Targeting Expression":ptExpression(t)})));
+  });
+  if(num(d.tos)>0)rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Bidding Adjustment"),"Operation":"Create","Campaign ID":cid,"Campaign Name":name,"Placement":outPlacement("Placement Top"),"Percentage":Math.round(num(d.tos))}));
+  if(num(d.ros)>0)rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Bidding Adjustment"),"Operation":"Create","Campaign ID":cid,"Campaign Name":name,"Placement":outPlacement("Placement Rest Of Search"),"Percentage":Math.round(num(d.ros))}));
+  if(num(d.pp)>0)rows.push(createRow({"Product":"Sponsored Products","Entity":outEntity("Bidding Adjustment"),"Operation":"Create","Campaign ID":cid,"Campaign Name":name,"Placement":outPlacement("Placement Product Page"),"Percentage":Math.round(num(d.pp))}));
+ }
+ return rows;
+}
+function exportRows(){return buildRows(false)}
+function rowBreakdown(){
+ let rows;try{rows=buildRows(true)}catch(e){return null}
+ const counts={};
+ const ei=hIndex("Entity"),oi=hIndex("Operation");
+ rows.slice(1).forEach(r=>{const k=(r[oi]?r[oi].v:"")+" · "+(r[ei]?r[ei].v:"");counts[k]=(counts[k]||0)+1});
+ return{total:rows.length-1,counts,rows};
+}
+function stamp(){return(STATE.fileName.replace(/\.[^.]+$/,"")||"account").replace(/[^a-z0-9]+/gi,"-").replace(/^-|-$/g,"").slice(0,35)+"-restructure-"+new Date().toISOString().slice(0,10)}
+
+/* ================= review ================= */
+function renderReview(){
+ bump();
+ const v=validatePlan();STATE.review=v;
+ const touched=touchedCampaigns();
+ const any=v.activeDests.length||touched.length;
+ $("reviewEmpty").style.display=any?"none":"";
+ $("reviewBody").style.display=any?"":"none";
+ if(!any)return;
+ const bd=rowBreakdown();
+ $("reviewStats").innerHTML=[["Source campaigns",touched.length],["Destinations",v.activeDests.length],["Rows in the file",bd?bd.total:"—"],["Errors",v.errors.length],["Warnings",v.warnings.length]].map(x=>'<div class="stat"><b>'+esc(x[1])+'</b><span>'+esc(x[0])+'</span></div>').join("");
+ let html="";
+ if(v.errors.length)html+='<div class="note bad"><b>Amazon would reject this.</b><ul class="validationList">'+v.errors.map(e=>'<li>'+esc(e)+'</li>').join("")+'</ul></div>';
+ if(v.warnings.length)html+='<div class="note warn" style="margin-top:10px"><b>Worth a look</b><ul class="validationList">'+v.warnings.map(e=>'<li>'+esc(e)+'</li>').join("")+'</ul></div>';
+ if(!v.errors.length&&!v.warnings.length)html='<div class="note ok"><b>All clear.</b> Names, products, bids and update rows are ready.</div>';
+ else if(!v.errors.length)html+='<div class="note ok" style="margin-top:10px"><b>Safe to export.</b> Warnings only, nothing blocking.</div>';
+ const longOnes=v.activeDests.filter(d=>d.mode!=="existing"&&destinationName(d).length>BASIS.rules.campLimit);
+ const mixed=v.activeDests.filter(d=>d.mode!=="existing"&&groupMeta(d).matches.length>1);
+ if(longOnes.length||mixed.length){
+  html+='<div class="row" style="margin-top:12px;gap:8px">'
+   +(longOnes.length?'<button class="btn" id="fixLengths">Shorten '+longOnes.length+' name'+(longOnes.length===1?"":"s")+' to fit</button>':'')
+   +(mixed.length?'<button class="btn" id="fixMixed">Split '+mixed.length+' mixed campaign'+(mixed.length===1?"":"s")+' by match type</button>':'')
+   +'</div>';
+ }
+ $("validation").innerHTML=html;
+ const fl=$("fixLengths");
+ if(fl)fl.onclick=()=>{snapshot();longOnes.forEach(applyShorten);bump();renderReview()};
+ const fm=$("fixMixed");
+ if(fm)fm.onclick=()=>{
+  snapshot();
+  mixed.forEach(d=>{
+   const ts=assignedTargets(d.id),by={};
+   ts.forEach(t=>{const k=t.type+"|"+(t.match||"");(by[k]||(by[k]=[])).push(t)});
+   const keys=Object.keys(by);keys.shift();
+   keys.forEach(k=>{
+    const nd=defaultDestination(STATE.campaignByKey[by[k][0].campKey],STATE.destinations.length+1);
+    nd.label=d.label+" "+(by[k][0].match||by[k][0].type);
+    nd.goal=d.goal;nd.intent=d.intent;nd.niche=d.niche;nd.budget=d.budget;nd.strategy=d.strategy;
+    nd.tos=d.tos;nd.ros=d.ros;nd.pp=d.pp;nd.state=d.state;nd.drop=(d.drop||[]).slice();
+    nd.asins=[...new Set([].concat(...by[k].map(t=>t.asins)))];
+    if(!nd.asins.length)nd.asins=(d.asins||[]).slice();
+    STATE.destinations.push(nd);
+    by[k].forEach(t=>{dec(t).dest=nd.id});
+   });
+  });
+  dedupeDestinationNames();bump();renderReview();
+ };
+ $("rowPlan").innerHTML=bd?'<div class="rowCounts">'+Object.entries(bd.counts).sort().map(([k,n])=>'<span class="sum"><span>'+esc(k)+'</span><b>'+n+'</b></span>').join("")+'</div>':'<div class="mini">Fix the errors above to see the row plan.</div>';
+}
+
+/* ================= export screen ================= */
+function renderExport(){
+ bump();
+ const v=validatePlan(),touched=touchedCampaigns();
+ const ready=v.activeDests.length+v.paused.length>0;
+ $("exportEmpty").style.display=ready?"none":"";
+ $("exportBody").style.display=ready?"":"none";
+ if(!ready)return;
+ const newTargets=v.activeDests.reduce((s,d)=>s+assignedTargets(d.id).length,0);
+ const updates=v.moved.concat(v.paused).filter(t=>t.state!=="paused").length;
+ const newCamps=v.activeDests.filter(d=>d.mode!=="existing").length;
+ $("exportStats").innerHTML=[["Source campaigns",touched.length],["New campaigns",newCamps],["Into existing",v.activeDests.length-newCamps],["New targets",newTargets],["Paused originals",updates],["Negatives",negPlanForSources().filter(r=>r.on).length+v.activeDests.reduce((s,d)=>s+negPlanForDest(d).filter(r=>r.on).length,0)],["Campaigns paused",$("pauseEmptyCampaign").checked?campaignsToPause().length:0],["Errors",v.errors.length]].map(x=>'<div class="stat"><b>'+esc(x[1])+'</b><span>'+esc(x[0])+'</span></div>').join("");
+ $("exportMessage").innerHTML=v.errors.length
+  ?'<div class="note bad"><b>Export blocked.</b> '+v.errors.length+' error'+(v.errors.length===1?"":"s")+' on the review screen.</div>'
+  :'<div class="note ok"><b>Ready.</b> New campaigns, ad groups, product ads, targets and placements are created, the original rows are updated in place, and the two halves reference each other correctly.</div>';
+ $("downloadBulk").disabled=!!v.errors.length;
+}
+function downloadPlanCsv(){
+ const rows=[["Source campaign","Source ad group","Target","Type","Match","State","Old bid","Impressions","Clicks","Orders","Units","Spend","Sales","ACOS %","ROAS","Decision","Destination type","Destination campaign","Destination ad group","New bid"]];
+ for(const t of STATE.allTargets){
+  const x=dec(t);if(!x||x.action==="keep")continue;
+  const d=STATE.destinations.find(q=>q.id===x.dest),ag=d?destAdGroup(d):null,a=targetAcos(t),r=targetRoas(t);
+  rows.push([t.campName,t.ag?t.ag.name:"",t.text,t.type,t.match,t.state,t.bid,t.m.impr,t.m.clicks,t.m.orders,t.m.units,t.m.spend,t.m.sales,isFinite(a)?a.toFixed(1):"",isFinite(r)?r.toFixed(2):"",x.action,d?(d.mode==="existing"?"existing":"new"):"",d?destinationName(d):"",ag?(ag.name||ag.id):"",x.bid]);
+ }
+ const csv=rows.map(r=>r.map(v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"').join(",")).join("\r\n");
+ download(new Blob(["\uFEFF"+csv],{type:"text/csv"}),stamp()+"-plan.csv");
+}
+
+/* ================= saving ================= */
+function planKey(t){return t.campKey+"|"+(t.ag?t.ag.id:"")+"|"+targetKey(t)}
+function planPayload(){
+ const decisions={};
+ for(const t of STATE.allTargets){const x=dec(t);if(x.action==="keep")continue;decisions[planKey(t)]={action:x.action,dest:x.dest,bid:x.bid}}
+ return{tool:"sp-restructure",version:4,savedAt:new Date().toISOString(),file:STATE.fileName,
+  negOff:STATE.negOff||[],nameSpec:STATE.nameSpec,nameShowEmpty:STATE.nameShowEmpty,sep:BASIS.sep,selected:[...STATE.selected],queue:STATE.queue,done:[...STATE.done],qIndex:STATE.qIndex,
+  asinNames:Object.fromEntries(Object.values(STATE.asinInfo).filter(a=>a.desc).map(a=>[a.asin,a.desc])),
+  destinations:STATE.destinations,decisions};
+}
+function savePlan(){download(new Blob([JSON.stringify(planPayload(),null,1)],{type:"application/json"}),stamp()+"-plan.json")}
+function loadPlan(text){
+ let p;try{p=JSON.parse(text)}catch(e){alert("That file is not a saved plan.");return}
+ if(!p||!/sp-restructure$/.test(p.tool||"")||!p.decisions){alert("That file is not a saved restructure plan.");return}
+ if(!STATE.allTargets.length){alert("Load the bulk file first, then reopen the plan.");return}
+ applyPlan(p);
+ showPanel("restructure");
+}
+function applyPlan(p){
+ STATE.negOff=Array.isArray(p.negOff)?p.negOff:[];
+ if(p.nameSpec)STATE.nameSpec=p.nameSpec;
+ if(typeof p.nameShowEmpty==="boolean")STATE.nameShowEmpty=p.nameShowEmpty;
+ if(p.sep)BASIS.sep=p.sep;
+ for(const a in(p.asinNames||{}))if(STATE.asinInfo[a])STATE.asinInfo[a].desc=p.asinNames[a];
+ STATE.destinations=Array.isArray(p.destinations)?p.destinations:[];
+ const byKey={};STATE.allTargets.forEach(t=>{byKey[planKey(t)]=t});
+ STATE.allTargets.forEach(t=>Object.assign(dec(t),{action:"keep",dest:"",selected:false}));
+ let hit=0,miss=0;
+ for(const k in p.decisions){const t=byKey[k];if(!t){miss++;continue}hit++;const v=p.decisions[k];Object.assign(dec(t),{action:v.action,dest:v.dest,bid:num(v.bid)||dec(t).bid})}
+ STATE.selected=new Set((p.selected||[]).filter(k=>STATE.campaignByKey[k]));
+ STATE.queue=(p.queue||[]).filter(k=>STATE.campaignByKey[k]);
+ STATE.done=new Set((p.done||[]).filter(k=>STATE.campaignByKey[k]));
+ STATE.qIndex=Math.max(0,Math.min(STATE.queue.length-1,p.qIndex||0));
+ if(!STATE.queue.length)touchedCampaigns().forEach(c=>{if(!STATE.queue.includes(c.key))STATE.queue.push(c.key)});
+ STATE.batchMessage="Plan reopened: "+hit+" target"+(hit===1?"":"s")+" restored"+(miss?", "+miss+" no longer in this file":"")+".";
+ bump();
+}
+const LSKEY=()=>"bs-sp-restructure:"+(STATE.fileName||"file");
+let _saveTimer=null,_saveOk=true;
+function scheduleAutoSave(){
+ if(!_saveOk||!STATE.allTargets.length)return;
+ clearTimeout(_saveTimer);
+ _saveTimer=setTimeout(()=>{
+  try{localStorage.setItem(LSKEY(),JSON.stringify(planPayload()));markSaved("saved "+new Date().toLocaleTimeString().slice(0,5))}
+  catch(e){_saveOk=false;markSaved("auto-save unavailable in this browser")}
+ },900);
+}
+function markSaved(txt){const el=$("sbSave");if(el)el.textContent=txt}
+function findAutoSave(){
+ try{const raw=localStorage.getItem(LSKEY());if(!raw)return null;const p=JSON.parse(raw);return p&&p.decisions&&Object.keys(p.decisions).length?p:null}catch(e){return null}
+}
+function restoreAutoSave(){const p=findAutoSave();if(!p)return;applyPlan(p);showPanel("restructure")}
+
+/* ================= nav and status ================= */
+function planBadgeText(){const tc=touchedCampaigns().length,ad=activeDestinations().length;return tc?(tc+" campaign"+(tc===1?"":"s")+" · "+ad+" destination"+(ad===1?"":"s")):"Nothing planned"}
+function updatePlanBadges(){
+ const nc=$("navChoose");if(nc)nc.textContent=STATE.selected.size?(STATE.selected.size+" ticked"):"None ticked";
+ const q=queueCampaigns(),dn=q.filter(c=>STATE.done.has(c.key)).length;
+ $("navPlan").textContent=q.length?(dn+" of "+q.length+" done"):STATE.selected.size?(STATE.selected.size+" ticked · "+planBadgeText()):planBadgeText();
+ const n=STATE.allTargets.filter(x=>dec(x)&&dec(x).action!=="keep").length;
+ const sb=$("statusbar");if(!sb)return;
+ if(n){sb.hidden=false;$("sbText").textContent=n+" target"+(n===1?"":"s")+" planned across "+touchedCampaigns().length+" campaign"+(touchedCampaigns().length===1?"":"s")+" · "+activeDestinations().length+" destination"+(activeDestinations().length===1?"":"s")}
+ else sb.hidden=true;
+ document.querySelectorAll(".nav button").forEach(b=>{
+  const p=b.dataset.panel;let done=false;
+  if(p==="upload")done=STATE.campaigns.length>0;
+  else if(p==="choose")done=STATE.selected.size>0||STATE.queue.length>0;
+  else if(p==="restructure")done=STATE.queue.length>0&&queueCampaigns().every(c=>STATE.done.has(c.key));
+  else if(p==="preview")done=n>0&&activeDestinations().length>0;
+  else if(p==="review")done=n>0&&STATE.review&&!STATE.review.errors.length;
+  b.classList.toggle("done",!!done);
+ });
+}
+
+/* ================= wiring ================= */
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>showPanel(b.dataset.panel));
+$("drop").onclick=()=>$("fileInput").click();
+$("drop").onkeydown=e=>{if(e.key==="Enter"||e.key===" ")$("fileInput").click()};
+["dragenter","dragover"].forEach(ev=>$("drop").addEventListener(ev,e=>{e.preventDefault();$("drop").classList.add("hot")}));
+["dragleave","drop"].forEach(ev=>$("drop").addEventListener(ev,e=>{e.preventDefault();$("drop").classList.remove("hot")}));
+$("drop").addEventListener("drop",e=>{if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])});
+$("fileInput").onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);e.target.value=""};
+async function loadFile(file){
+ $("fileStatus").innerHTML='<div class="note">Reading <b>'+esc(file.name)+'</b>…</div>';
+ try{
+  const sheets=await readWorkbook(file);
+  parseBulk(sheets,file.name);postProcess();
+  const saved=findAutoSave();
+  STATE.saveNote=saved?' <b>A plan for this file was auto-saved '+esc(new Date(saved.savedAt).toLocaleString())+'.</b> <button class="btn subtle" id="restoreSaved">Restore it</button>':"";
+  renderLoadSummary();updatePlanBadges();
+  $("fileStatus").innerHTML='<div class="note ok"><b>Loaded.</b> '+esc(file.name)+'</div>';
+ }catch(err){$("fileStatus").innerHTML='<div class="note bad"><b>Could not read that file.</b> '+esc(err.message||err)+'</div>'}
+}
+$("goPlan").onclick=()=>showPanel("choose");
+["campaignSearch","campaignState","campaignSort"].forEach(id=>$(id).addEventListener(id==="campaignSearch"?"input":"change",renderChoose));
+Object.values(CAMPF).forEach(id=>$(id).addEventListener("input",()=>{readCampFilters();updateFilterCounts();renderChoose()}));
+$("resetCampFilters").onclick=()=>{STATE.campFilters={...DEFAULT_CAMP_FILTERS};writeCampFilters();$("campaignSearch").value="";$("campaignState").value="";updateFilterCounts();renderChoose()};
+$("toggleCampFilters").onclick=()=>{$("campFilterBox").hidden=!$("campFilterBox").hidden};
+$("toggleTargetFilters").onclick=()=>{$("targetFilterBox").hidden=!$("targetFilterBox").hidden};
+$("toggleMetrics").onclick=()=>{STATE.showMetrics=!STATE.showMetrics;$("toggleMetrics").textContent=STATE.showMetrics?"Fewer metrics":"More metrics";renderTargets()};
+$("selectAllCamps").onclick=()=>{campaignRows().slice(0,300).forEach(c=>STATE.selected.add(c.key));renderChoose()};
+$("clearCamps").onclick=()=>{STATE.selected.clear();renderChoose()};
+Object.keys(DEFAULT_FILTERS).forEach(k=>{const el=$(capK(k));if(el)el.addEventListener("input",()=>{readFilters();updateFilterCounts();renderTargets()})});
+document.querySelectorAll(".chip[data-preset]").forEach(b=>b.onclick=()=>applyPreset(b.dataset.preset));
+document.querySelectorAll(".sizeQuick .chip").forEach(b=>b.onclick=()=>{$("autoSize").value=b.dataset.size==="all"?"all":b.dataset.size;updateAutoPreview()});
+["autoSize","splitAsin"].forEach(id=>$(id).addEventListener("input",updateAutoPreview));
+$("startQueue").onclick=startQueue;
+$("dropCamp").onclick=()=>{const cp=currentCampaign();if(cp)removeFromQueue(cp.key)};
+$("specKind").onchange=renderNameEditor;
+$("showEmptyPH").onchange=()=>{STATE.nameShowEmpty=$("showEmptyPH").checked;bump();renderNameEditor();renderDestinations();renderTargets()};
+$("nameSep").onchange=()=>{const v=$("nameSep").value;if(v)BASIS.sep=v;bump();renderNameEditor();renderDestinations();renderTargets()};
+$("resetSpec").onclick=()=>{STATE.nameSpec=defaultSpec();STATE.nameShowEmpty=true;$("showEmptyPH").checked=true;bump();renderNameEditor();renderDestinations();renderTargets()};
+$("addSeg").onchange=()=>{
+ const v=$("addSeg").value;if(!v)return;
+ const sp=specFor($("specKind").value);
+ if(v==="text"){const t=prompt("Fixed text for this part of the name");if(t&&t.trim())sp.push({id:uid(),kind:"text",v:t.trim(),on:true})}
+ else sp.push({id:uid(),kind:"token",v:v.slice(4),on:true});
+ $("addSeg").value="";bump();renderNameEditor();renderDestinations();renderTargets();
+};
+$("applyNameAll").onclick=()=>{
+ snapshot();let n=0;
+ STATE.destinations.filter(d=>d.mode!=="existing").forEach(d=>{d.customName="";d.drop=[];n++});
+ dedupeDestinationNames();bump();
+ STATE.batchMessage="Rebuilt "+n+" campaign name"+(n===1?"":"s")+" from the convention.";
+ renderNameEditor();renderTargets();
+};
+$("applyPartsAll").onclick=()=>{
+ const cur=STATE.destinations.find(d=>d.id===STATE.openDest&&d.mode!=="existing")||STATE.destinations.find(d=>d.mode!=="existing"&&assignedTargets(d.id).length);
+ if(!cur){alert("Open the campaign whose name parts you want to copy first.");return}
+ snapshot();let n=0;
+ STATE.destinations.filter(d=>d.mode!=="existing"&&d!==cur).forEach(d=>{d.drop=(cur.drop||[]).slice();n++});
+ STATE.batchMessage="Name parts copied to "+n+" campaign"+(n===1?"":"s")+".";
+ bump();renderTargets();
+};
+$("addMoreCamps").onclick=()=>showPanel("choose");
+$("prevCamp").onclick=()=>gotoCampaign(STATE.qIndex-1);
+$("nextCamp").onclick=()=>gotoCampaign(STATE.qIndex+1);
+$("skipCamp").onclick=()=>{const n=nextOpenIndex(STATE.qIndex);if(n<0)showPanel("preview");else gotoCampaign(n)};
+$("doneCamp").onclick=()=>{
+ const cp=currentCampaign();if(!cp)return;
+ if(!campChangeCount(cp)&&!confirm("Nothing is planned in this campaign. Mark it done anyway?"))return;
+ markDone(cp.key,true);
+ const n=nextOpenIndex(STATE.qIndex);
+ if(n<0){renderRestructure();showPanel("preview")}else gotoCampaign(n);
+};
+$("reuseDest").onchange=()=>{
+ const id=$("reuseDest").value;if(!id)return;
+ const sel=STATE.allTargets.filter(t=>dec(t).selected);
+ if(!sel.length){alert("Tick the keywords you want to send there first.");$("reuseDest").value="";return}
+ const dRe=STATE.destinations.find(q=>q.id===id);
+ if(dRe&&!destAccepts(dRe,sel)){alert("That campaign already holds a different match type. One campaign can only hold one.");$("reuseDest").value="";return}
+ snapshot();
+ sel.forEach(t=>{const x=dec(t);x.action="move";x.dest=id;x.selected=false});
+ STATE.batchMessage=sel.length+" keyword"+(sel.length===1?"":"s")+" sent into an earlier campaign.";
+ $("reuseDest").value="";bump();renderTargets();
+};
+$("openBids").onclick=()=>{$("bidFold").open=true;$("bidFold").scrollIntoView({block:"center"})};
+$("abClear").onclick=()=>{STATE.allTargets.forEach(t=>dec(t).selected=false);STATE.lastRowIdx=null;renderTargets()};
+$("runAutoBuild").onclick=runAutoBuild;
+$("addExisting").onclick=()=>{snapshot();const d=existingDestination(STATE.destinations.length+1);STATE.destinations.push(d);STATE.openDest=d.id;bump();renderTargets()};
+$("fixNames").onclick=()=>{snapshot();dedupeDestinationNames();bump();STATE.batchMessage="Duplicate names renumbered.";renderTargets()};
+$("applyAllSettings").onclick=()=>{
+ snapshot();
+ const g={goal:$("gGoal").value.trim(),intent:$("gIntent").value,niche:$("gNiche").value.trim(),budget:$("gBudget").value,strategy:$("gStrategy").value,tos:$("gTos").value,ros:$("gRos").value,pp:$("gPp").value,state:$("gState").value};
+ let n=0;
+ STATE.destinations.filter(d=>d.mode!=="existing").forEach(d=>{
+  if(g.goal)d.goal=g.goal;if(g.intent)d.intent=g.intent;if(g.niche)d.niche=g.niche;
+  if(hasNum(g.budget))d.budget=num(g.budget);if(hasNum(g.tos))d.tos=num(g.tos);if(hasNum(g.ros))d.ros=num(g.ros);if(hasNum(g.pp))d.pp=num(g.pp);
+  if(g.strategy)d.strategy=g.strategy;if(g.state)d.state=g.state;n++;
+ });
+ STATE.batchMessage="Applied to "+n+" campaign"+(n===1?"":"s")+".";bump();renderTargets();
+};
+$("selectAllTargets").onclick=()=>{(STATE.visibleRows||[]).forEach(t=>dec(t).selected=true);renderTargets()};
+$("clearTargets").onclick=()=>{STATE.allTargets.forEach(t=>dec(t).selected=false);STATE.lastRowIdx=null;renderTargets()};
+$("showMoreRows").onclick=()=>{STATE.rowLimit+=400;renderTargets()};
+$("applyBatch").onclick=()=>{
+ const action=$("batchAction").value,dest=$("batchDest").value;
+ const selected=STATE.allTargets.filter(t=>dec(t).selected);
+ if(!selected.length)return;
+ if(["move","copy"].includes(action)&&!dest){alert("Choose a destination first.");return}
+ const dBa=STATE.destinations.find(q=>q.id===dest);
+ if(dBa&&["move","copy"].includes(action)&&!destAccepts(dBa,selected)){alert("Those rows are not all the same match type as that campaign.");return}
+ snapshot();
+ selected.forEach(t=>{const x=dec(t);x.action=action;x.dest=["move","copy"].includes(action)?dest:"";x.selected=false});
+ STATE.batchMessage=selected.length+" row"+(selected.length===1?"":"s")+" set to "+action+".";
+ bump();renderTargets();
+};
+$("bidMode").onchange=()=>{const m=$("bidMode").value;$("bidValueLabel").textContent={fixed:"Bid",pct:"Change %",cpc:"% of CPC",acos:"Target ACOS %",default:"—"}[m];$("bidValue").disabled=m==="default"};
+$("bidMode").dispatchEvent(new Event("change"));
+$("applyBids").onclick=applyBidRule;
+["addNegatives","negScope","negMatch","protectExact","protectScope","protectPhrase","carryNegatives"].forEach(id=>$(id).addEventListener("change",()=>{
+ $("negScope").disabled=!$("addNegatives").checked;$("negMatch").disabled=!$("addNegatives").checked;
+ $("protectScope").disabled=!$("protectExact").checked;$("protectPhrase").disabled=!$("protectExact").checked;
+ if($("p-export").classList.contains("on"))renderExport();
+ if($("p-preview").classList.contains("on"))renderPreview();
+}));
+$("negScope").disabled=true;$("negMatch").disabled=true;$("protectScope").disabled=true;$("protectPhrase").disabled=true;
+$("splitAsin").addEventListener("change",updateAutoPreview);
+$("pauseEmptyCampaign").onchange=()=>{if($("p-export").classList.contains("on"))renderExport();if($("p-preview").classList.contains("on"))renderPreview()};
+$("undoBtn").onclick=undo;
+$("clearPlan").onclick=()=>{
+ if(!confirm("Clear every decision and destination?"))return;
+ snapshot();
+ STATE.allTargets.forEach(t=>Object.assign(dec(t),{action:"keep",dest:"",selected:false}));
+ STATE.destinations=[];bump();STATE.batchMessage="Plan cleared.";renderRestructure();
+};
+$("savePlan").onclick=savePlan;$("savePlan2").onclick=savePlan;
+[["openPlan","planInput"],["openPlan2","planInput"]].forEach(([b,i])=>{$(b).onclick=()=>$(i).click()});
+$("planInput").onchange=async e=>{const f=e.target.files[0];if(f)loadPlan(await f.text());e.target.value=""};
+$("groupBySource").onchange=renderPreview;
+$("expandAll").onclick=()=>{const on=$("previewBody").classList.toggle("expanded");$("expandAll").textContent=on?"Collapse all":"Expand all"};
+$("printPreview").onclick=()=>window.print();
+$("refreshReview").onclick=renderReview;
+$("sbPreview").onclick=()=>showPanel("preview");
+$("sbReview").onclick=()=>showPanel("review");
+$("sbExport").onclick=()=>showPanel("export");
+$("downloadBulk").onclick=()=>{try{const rows=exportRows();download(makeXlsx([{name:STATE.spSheet||"Sponsored Products Campaigns",rows}]),stamp()+"-amazon-upload.xlsx")}catch(err){alert(err.message||err)}};
+$("downloadPlan").onclick=downloadPlanCsv;
+const dl=document.createElement("datalist");dl.id="goalList";dl.innerHTML=BASIS.goals.map(g=>'<option value="'+g+'">').join("");document.body.appendChild(dl);
+</script>
+</body>
+</html>

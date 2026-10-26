@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bid Optimizer — standalone</title>
+<style>
+:root{
+  --navy:#0f1c2a; --ink:#111827; --muted:#6b7280;
+  --surface:#ffffff; --surface2:#f4f5f7; --border:#e6e8ec;
+  --brand:#e69841; --brand-dk:#c97d2c;
+  --good:#e2f3e8; --good-ink:#1c7a45; --bad:#fbe6ea; --bad-ink:#c0364c;
+  --rev:#fcebd8; --rev-ink:#a9741f;
+  --canvas:#f3f5f8; --sidebar:#111c29;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+  background:var(--canvas);
+  color:var(--ink);font-size:14px;line-height:1.5;min-height:100vh}
+.app{display:flex;min-height:100vh;max-width:1680px;margin:0 auto;background:var(--canvas)}
+.sidebar{flex:0 0 210px;padding:24px 16px;position:sticky;top:0;align-self:flex-start;height:100vh;
+  background:var(--sidebar);display:flex;flex-direction:column;gap:20px}
+.brand h1{margin:0;font-size:19px;font-weight:800;letter-spacing:-.02em;color:#fff;line-height:1.1}
+.brand .brand-sub{color:var(--brand);font-size:11px;font-weight:800;letter-spacing:.08em;margin-top:4px;text-transform:uppercase}
+.sidenote{color:#8b93a6;font-size:11px;line-height:1.5}
+.sidenav{display:flex;flex-direction:column;gap:3px}
+.sidenav button{font:inherit;font-weight:600;font-size:13.5px;text-align:left;padding:11px 13px;
+  border:none;background:transparent;color:#aab2c3;border-radius:9px;cursor:pointer;
+  display:flex;align-items:center;gap:11px;transition:background .12s,color .12s}
+.sidenav button .ico{width:17px;height:17px;flex:0 0 auto;opacity:.85}
+.sidenav button .nl{flex:1}
+.sidenav button:hover{background:rgba(255,255,255,.06);color:#fff}
+.sidenav button.on{background:linear-gradient(180deg,var(--brand),var(--brand-dk));color:#fff;font-weight:700;
+  box-shadow:0 4px 14px rgba(230,152,65,.35)}
+.sidenav button.on .ico{opacity:1}
+.sidenav .badge{display:inline-block;background:var(--rev);color:var(--rev-ink);
+  border-radius:10px;padding:1px 9px;font-size:11px;font-weight:800}
+.sidenav button.on .badge{background:rgba(255,255,255,.9);color:var(--brand-dk)}
+.side-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.08);padding-top:14px}
+.side-foot .lbl{color:#6b7385;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.side-foot .val{color:#9aa2b6;font-size:12px;margin-top:3px}
+.content{flex:1;min-width:0;padding:28px 34px;background:var(--canvas)}
+/* ---- Dark canvas for Output & ASIN-conflict tabs ---- */
+.content.dark{background:radial-gradient(1100px 500px at 78% -20%, #1d3245 0%, var(--navy) 55%) no-repeat, var(--navy)}
+.content.dark .card{background:linear-gradient(180deg,#ffffff 0%,#f7f9fc 100%);border:1px solid transparent;box-shadow:0 6px 22px rgba(0,0,0,.30)}
+.content.dark .card:hover{box-shadow:0 12px 30px rgba(0,0,0,.40)}
+.content.dark .pp-note{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);border-left:3px solid var(--brand);color:#c8cfdd;box-shadow:none}
+.content.dark .pp-note strong{color:var(--brand)}
+.content.dark .filters input,.content.dark .filters select{background:#fff;border-color:#dde1e8;color:var(--ink)}
+.content.dark .tblwrap{background:#fff;border:1px solid rgba(255,255,255,.08);box-shadow:0 6px 22px rgba(0,0,0,.30)}
+.content.dark thead th{background:#f7f9fc;color:#4a5160;border-bottom:1px solid #e6e9ef}
+.content.dark thead th:hover{background:#eef1f6}
+.content.dark table{color:var(--ink)}
+.content.dark tbody td{border-bottom:1px solid #eef1f5}
+.content.dark tbody tr:hover td{background:rgba(230,152,65,.07)}
+.content.dark tr.detail td{background:var(--surface2)}
+.content.dark .detailbox h4{color:var(--ink)}
+.content.dark table.mini th{color:var(--muted)}
+.content.dark table.mini th,.content.dark table.mini td{border-bottom:1px solid var(--border)}
+.content.dark .reviewcard{background:#fff;border:1px solid #edf0f4;box-shadow:0 6px 22px rgba(0,0,0,.30)}
+.content.dark .reviewcard .why{background:var(--surface2);color:var(--ink)}
+.content.dark .foot{color:#c8cfdd}
+@media(max-width:1000px){.sidebar{flex-basis:190px}}
+.pane{display:none} .pane.on{display:block}
+.panel{background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.05);padding:26px 28px;margin-bottom:18px;color:var(--ink);border:1px solid #edf0f4}
+.panel h3{margin:0 0 20px;font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--brand-dk);
+  font-weight:800;display:flex;align-items:center;gap:9px}
+.panel h3::before{content:"";width:4px;height:15px;border-radius:2px;background:linear-gradient(180deg,var(--brand),var(--brand-dk))}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:linear-gradient(180deg,#ffffff 0%,#f4f6f9 100%);border:1px solid #e6e9ef;border-radius:10px;padding:9px 13px;
+  box-shadow:0 1px 2px rgba(8,15,30,.05),0 3px 8px rgba(8,15,30,.06),inset 0 1px 0 rgba(255,255,255,.9);
+  transition:border-color .15s,box-shadow .15s,transform .15s}
+.field:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(8,15,30,.06),0 8px 18px rgba(8,15,30,.10),inset 0 1px 0 rgba(255,255,255,.9)}
+.field:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(230,152,65,.15),0 3px 8px rgba(8,15,30,.06),inset 0 1px 0 rgba(255,255,255,.9)}
+.field label{font-weight:600;font-size:12px;color:#4a5160;letter-spacing:.01em}
+.field input,.field select{font:inherit;font-weight:700;font-size:13.5px;width:78px;text-align:right;padding:6px 9px;
+  border:1px solid #dde1e8;border-radius:7px;background:#fff;color:var(--ink);box-shadow:inset 0 1px 2px rgba(8,15,30,.05)}
+.field input:focus,.field select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px rgba(230,152,65,.22)}
+.field input::placeholder{color:#c2c6d0}
+.field .suffix{color:var(--brand-dk);font-size:11px;font-weight:700;width:14px}
+.tier-row{display:flex;align-items:center;gap:8px;
+  background:linear-gradient(180deg,#ffffff 0%,#f4f6f9 100%);border:1px solid #e6e9ef;border-radius:10px;padding:8px 12px;margin-bottom:7px;
+  box-shadow:0 1px 2px rgba(8,15,30,.05),0 3px 8px rgba(8,15,30,.06),inset 0 1px 0 rgba(255,255,255,.9);
+  transition:border-color .15s,box-shadow .15s,transform .15s}
+.tier-row:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(8,15,30,.06),0 8px 18px rgba(8,15,30,.10),inset 0 1px 0 rgba(255,255,255,.9)}
+.tier-row:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(230,152,65,.15),inset 0 1px 0 rgba(255,255,255,.9)}
+.tier-row .lab{font-weight:600;font-size:12.5px;white-space:nowrap;color:#4a5160}
+.tier-row input{font:inherit;font-weight:700;font-size:13.5px;width:62px;text-align:right;padding:6px 9px;border:1px solid #dde1e8;border-radius:7px;background:#fff;box-shadow:inset 0 1px 2px rgba(8,15,30,.05)}
+.tier-row input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px rgba(230,152,65,.22)}
+/* no-sales / activity rules: long label + pinned input that never overflows */
+.rule-row{display:flex;align-items:center;gap:10px;
+  background:linear-gradient(180deg,#ffffff 0%,#f4f6f9 100%);border:1px solid #e6e9ef;border-radius:10px;padding:9px 13px;margin-bottom:8px;
+  box-shadow:0 1px 2px rgba(8,15,30,.05),0 3px 8px rgba(8,15,30,.06),inset 0 1px 0 rgba(255,255,255,.9);
+  transition:border-color .15s,box-shadow .15s,transform .15s}
+.rule-row:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(8,15,30,.06),0 8px 18px rgba(8,15,30,.10),inset 0 1px 0 rgba(255,255,255,.9)}
+.rule-row:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(230,152,65,.15),inset 0 1px 0 rgba(255,255,255,.9)}
+.rule-row .lab{flex:1 1 auto;min-width:0;font-weight:600;font-size:12px;color:#4a5160;line-height:1.35}
+.rule-row input{flex:0 0 auto;font:inherit;font-weight:700;font-size:13.5px;width:56px;text-align:right;padding:6px 8px;border:1px solid #dde1e8;border-radius:7px;background:#fff;box-shadow:inset 0 1px 2px rgba(8,15,30,.05)}
+.rule-row input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px rgba(230,152,65,.22)}
+.rule-row .suffix{flex:0 0 auto;color:var(--brand-dk);font-size:11px;font-weight:700}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}}
+.col h4{margin:0 0 12px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#9299a8;font-weight:700}
+.subhead{margin:24px 0 12px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--brand-dk);
+  font-weight:800;display:flex;align-items:center;gap:8px}
+.subhead::before{content:"";width:4px;height:12px;border-radius:2px;background:linear-gradient(180deg,var(--brand),var(--brand-dk));opacity:.75}
+.btnrow{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.btn{font:inherit;font-weight:800;padding:12px 22px;border:none;border-radius:9px;cursor:pointer}
+.btn.primary{background:var(--brand);color:#3a2400}
+.btn.ghost{background:var(--surface2);color:var(--ink);border:1px solid var(--border)}
+.btn.green{background:#2fae7a;color:#06301f}
+.symbol-seg{display:flex;border:1px solid #e6e9ef;border-radius:9px;overflow:hidden;background:#f7f8fa}
+.symbol-seg button{font:inherit;font-weight:700;font-size:13px;padding:10px 24px;border:none;background:transparent;color:#6b7280;cursor:pointer;transition:background .12s,color .12s}
+.symbol-seg button:hover{background:#eef0f4}
+.symbol-seg button.on{background:linear-gradient(180deg,var(--brand),var(--brand-dk));color:#fff;box-shadow:0 1px 6px rgba(230,152,65,.35)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+.card{position:relative;background:#fff;border-radius:14px;border:1px solid #edf0f4;
+  padding:17px 18px;box-shadow:0 1px 3px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.05);overflow:hidden;
+  transition:transform .12s,box-shadow .12s}
+.card:hover{transform:translateY(-2px);box-shadow:0 2px 5px rgba(16,24,40,.07),0 12px 26px rgba(16,24,40,.10)}
+.card::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:#c8cdd6}
+.card .n{font-size:27px;font-weight:800;color:var(--ink);margin-top:4px}
+.card .l{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:2px;font-weight:700}
+.card.inc .n{color:var(--good-ink)} .card.inc::before{background:var(--good-ink)}
+.card.dec .n{color:var(--bad-ink)}  .card.dec::before{background:var(--bad-ink)}
+.card.rev .n{color:var(--rev-ink)}  .card.rev::before{background:var(--brand)}
+.card.mnt .n{color:#3f6ea5}         .card.mnt::before{background:#3f6ea5}
+.card.skp .n{color:#8a90a0}         .card.skp::before{background:#8a90a0}
+.card.shw .n{color:var(--brand-dk)} .card.shw::before{background:linear-gradient(180deg,var(--brand),var(--brand-dk))}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.filters input,.filters select{font:inherit;padding:9px 12px;border:1px solid #dde1e8;border-radius:9px;background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.filters input:focus,.filters select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(230,152,65,.15)}
+.pp-note{background:#fff;border:1px solid #edf0f4;border-left:3px solid var(--brand);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12.5px;color:#5b6472;box-shadow:0 1px 3px rgba(16,24,40,.05)}
+.pp-note strong{color:var(--brand-dk)}
+.tblwrap{background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.05);border:1px solid #edf0f4;overflow:auto;max-height:66vh}
+table{border-collapse:collapse;width:100%;font-size:13px;color:var(--ink)}
+thead th{position:sticky;top:0;background:#f7f9fc;color:#4a5160;font-weight:700;padding:11px 13px;text-align:left;cursor:pointer;white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e6e9ef}
+thead th:hover{background:#eef1f6}
+.pp-note strong{color:var(--brand)}
+tbody td{padding:9px 13px;border-bottom:1px solid #eef1f5;white-space:nowrap}
+tbody tr:hover td{background:rgba(230,152,65,.07)}
+td.primary-cell{background:rgba(230,152,65,.22);font-weight:800;box-shadow:inset 0 0 0 2px var(--brand)}
+tbody tr.parent{cursor:pointer}
+tbody tr.parent .exp-caret{color:var(--brand-dk);font-weight:800;margin-right:4px;display:inline-block;width:10px}
+tr.detail td{background:var(--surface2);padding:0}
+.detailbox{padding:12px 16px}
+.detailbox h4{margin:0 0 8px;font-size:12px;color:var(--ink);text-transform:uppercase;letter-spacing:.05em}
+table.mini{width:auto;font-size:12px}
+table.mini th,table.mini td{padding:5px 12px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+table.mini th:first-child,table.mini td:first-child{text-align:left;font-weight:700}
+table.mini th{background:transparent;color:var(--muted);position:static;cursor:default;text-transform:none;font-size:11px}
+table.mini td.pp{background:rgba(230,152,65,.18);font-weight:800;color:var(--brand-dk)}
+.pill{display:inline-block;padding:3px 9px;border-radius:12px;font-weight:800;font-size:11px}
+.pill.increase{background:var(--good);color:var(--good-ink)} .pill.reduce{background:var(--bad);color:var(--bad-ink)}
+.pill.review{background:var(--rev);color:var(--rev-ink)} .pill.maintain{background:var(--surface2);color:var(--muted)} .pill.skip{background:var(--surface2);color:#aab0c2}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.dup{color:var(--good-ink);font-weight:800} .ddn{color:var(--bad-ink);font-weight:800} .dz{color:var(--muted)}
+th.kpi,td.kpi{background:rgba(230,152,65,.06)}
+th.kpi{white-space:nowrap}
+.reviewcard{background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.05);border:1px solid #edf0f4;padding:0;overflow:hidden;margin-bottom:14px}
+.reviewcard .rc-head{background:var(--rev);color:var(--rev-ink);padding:12px 16px;font-weight:800}
+.reviewcard .why{padding:12px 16px;font-size:13px;color:var(--ink);background:var(--surface2)}
+.foot{color:#8b93a8;font-size:11px;margin-top:14px}
+
+/* ---- upload pane ---- */
+.dropzone{border:2px dashed #cfd6e2;border-radius:14px;background:linear-gradient(180deg,#fbfcfe,#f4f6fa);
+  padding:34px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.dropzone:hover{border-color:var(--brand);background:#fffaf3}
+.dropzone.over{border-color:var(--brand);background:#fff4e6;transform:translateY(-2px)}
+.dropzone .dz-ico{color:var(--brand-dk);opacity:.9}
+.dropzone .dz-ico svg{width:38px;height:38px}
+.dropzone .dz-main{font-weight:800;font-size:15px;color:var(--ink);margin-top:8px}
+.dropzone .dz-sub{font-size:12.5px;color:var(--muted);margin-top:10px;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
+.dropzone .dz-sub .btn{padding:8px 16px;font-size:13px}
+.filerow{display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#fff,#f5f7fa);
+  border:1px solid #e6e9ef;border-radius:10px;padding:9px 13px;margin-bottom:7px;
+  box-shadow:0 1px 2px rgba(8,15,30,.05),0 3px 8px rgba(8,15,30,.05)}
+.filerow .fx{flex:0 0 auto;font-size:10px;font-weight:800;letter-spacing:.05em;color:var(--brand-dk);
+  background:var(--rev);border-radius:5px;padding:3px 7px}
+.filerow .fn{flex:1 1 auto;min-width:0;font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filerow .fs{flex:0 0 auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.filerow select{font:inherit;font-weight:700;font-size:13px;padding:5px 8px;border:1px solid #dde1e8;
+  border-radius:7px;background:#fff;color:var(--ink)}
+.filerow .fdel{flex:0 0 auto;border:none;background:transparent;color:#aab0c2;font-size:20px;
+  line-height:1;cursor:pointer;padding:0 4px}
+.filerow .fdel:hover{color:var(--bad-ink)}
+.loadstatus{margin-top:16px;background:#fff;border:1px solid #edf0f4;border-left:3px solid var(--brand);
+  border-radius:10px;padding:12px 16px;font-size:12.5px;color:#5b6472;box-shadow:0 1px 3px rgba(16,24,40,.05)}
+.loadstatus strong{color:var(--brand-dk)}
+.loadstatus.warn,.warn{border-left-color:var(--bad-ink)}
+.warn{background:#fff;border:1px solid #edf0f4;border-left:3px solid var(--bad-ink);border-radius:10px;
+  padding:10px 14px;font-size:12.5px;color:#5b6472;margin-top:8px}
+td.empty{text-align:center;color:var(--muted);padding:34px 12px!important;font-size:13px}
+.card.sup .n{color:#6f5aa6} .card.sup::before{background:#6f5aa6}
+.rule-row.inert{opacity:.45}
+.rule-row.inert .lab::after{content:" \2014 inactive while High-spend guard is set to Hold";color:var(--brand-dk);font-weight:700}
+#modeNote{margin-left:6px}
+</style></head>
+
+<!-- PPC LAB THEME -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<script>/* PPC Lab theme: Plum & Rose */document.documentElement.setAttribute("data-board","b5");</script>
+<style id="ppc-lab-theme">
+/* PPC Lab uniform theme · colors, type and surfaces only. Original layout and behaviour untouched. */
+html[data-board="b5"]{--tb-nav:#221432;--tb-act:#7A3E9D;--tb-hi:#E8A598;--tb-bg:#F6F4F8;--tb-ink:#1E1529}
+html[data-board]{
+  --tb-nav2:color-mix(in srgb,var(--tb-nav) 86%,#fff);--tb-nav3:color-mix(in srgb,var(--tb-nav) 74%,#fff);
+  --tb-card:#fff;--tb-sunk:color-mix(in srgb,var(--tb-bg) 55%,#fff);
+  --tb-line:color-mix(in srgb,var(--tb-ink) 14%,#fff);--tb-line2:color-mix(in srgb,var(--tb-ink) 7%,#fff);
+  --tb-ink2:color-mix(in srgb,var(--tb-ink) 74%,#fff);--tb-ink3:color-mix(in srgb,var(--tb-ink) 52%,#fff);--tb-muted:color-mix(in srgb,var(--tb-ink) 62%,#fff);
+  --tb-act-soft:color-mix(in srgb,var(--tb-act) 10%,#fff);--tb-act-line:color-mix(in srgb,var(--tb-act) 32%,#fff);--tb-act-dk:color-mix(in srgb,var(--tb-act) 78%,#000);
+  --tb-hi-soft:color-mix(in srgb,var(--tb-hi) 16%,#fff);
+  --tb-sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --tb-mono:"JetBrains Mono","IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  accent-color:var(--tb-act);color-scheme:light}
+html[data-board]{--navy:var(--tb-nav);--ink:var(--tb-ink);--muted:var(--tb-muted);--surface:var(--tb-card);--surface2:var(--tb-sunk);--border:var(--tb-line);--brand:var(--tb-act);--brand-dk:var(--tb-act-dk);--canvas:var(--tb-bg);--sidebar:var(--tb-nav)}
+html[data-board] .brand .brand-sub{color:var(--tb-hi)}
+html[data-board] .btn.primary{color:#fff}
+html[data-board] .sidenav button.on,html[data-board] .symbol-seg button.on{box-shadow:0 4px 14px color-mix(in srgb,var(--tb-act) 35%,transparent)}
+html[data-board] .field:focus-within,html[data-board] .tier-row:focus-within,html[data-board] .rule-row:focus-within,html[data-board] .filters input:focus,html[data-board] .filters select:focus{box-shadow:0 0 0 3px var(--tb-act-soft)}
+html[data-board] .field input:focus,html[data-board] .field select:focus,html[data-board] .tier-row input:focus,html[data-board] .rule-row input:focus{box-shadow:0 0 0 2px var(--tb-act-line)}
+html[data-board] td.primary-cell{background:var(--tb-act-soft)}
+html[data-board] .dropzone:hover,html[data-board] .dropzone.over{background:var(--tb-act-soft)}
+html[data-board] .content.dark{background:radial-gradient(1100px 500px at 78% -20%,var(--tb-nav2) 0%,var(--tb-nav) 55%) no-repeat,var(--tb-nav)}
+html[data-board] body{font-family:var(--tb-sans);-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01","tnum"}
+html[data-board] ::selection{background:var(--tb-hi-soft)}
+html[data-board] *{scrollbar-color:color-mix(in srgb,var(--tb-ink) 24%,transparent) transparent}
+html[data-board] :focus-visible{outline-color:var(--tb-act)}
+</style>
+<body><div class="app">
+<aside class="sidebar">
+  <div class="brand"><h1 id="brandTitle">Bid Optimizer</h1><div class="brand-sub">Bid Optimizer</div></div>
+  <div class="sidenote">Load your bulk files, set the strategy in Setup &amp; Bid Rules, export the upload file.</div>
+  <nav class="sidenav">
+    <button id="tUpload" class="on"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span class="nl">Bulk files</span></button>
+    <button id="tParams"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="nl">Setup</span></button>
+    <button id="tAdjust"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg><span class="nl">Bid Rules</span></button>
+    <button id="tBids"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="3" x2="3" y2="21"/><line x1="3" y1="21" x2="21" y2="21"/><rect x="7" y="10" width="3" height="8"/><rect x="12" y="6" width="3" height="12"/><rect x="17" y="13" width="3" height="5"/></svg><span class="nl">Output</span></button>
+    <button id="tReview"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span class="nl">ASIN-conflict</span><span class="badge" id="revBadge">0</span></button>
+    <button id="tControl"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span class="nl">Downloads</span></button>
+  </nav>
+  <div class="side-foot"><div class="lbl">Data source</div><div class="val" id="srcNote">No files loaded yet</div></div>
+</aside>
+<main class="content">
+<!-- UPLOAD -->
+<div id="paneUpload" class="pane on">
+  <div class="panel"><h3>Load bulk files</h3>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:18px;align-items:flex-start">
+      <div class="field" style="flex:0 0 auto"><label>Brand / account name</label>
+        <input id="u_brand" type="text" placeholder="auto from filename" style="width:190px;text-align:left"><span class="suffix"></span></div>
+      <div style="flex:1;min-width:260px;font-size:12px;color:var(--muted);line-height:1.5">Used for the sidebar title and the export filenames. Leave blank to take it from the first file's name.</div>
+    </div>
+
+    <div id="drop" class="dropzone">
+      <div class="dz-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <div class="dz-main">Drop your Amazon bulk files here</div>
+      <div class="dz-sub">or <button class="btn primary" id="pickBtn" type="button">Choose files</button> &nbsp;·&nbsp; .xlsx only · 7d / 14d / 30d / 60d</div>
+      <input id="fileInput" type="file" multiple accept=".xlsx" style="display:none">
+    </div>
+
+    <div id="fileList" style="margin-top:16px"></div>
+
+    <div class="btnrow" style="margin-top:16px">
+      <button class="btn green" id="runBtn" disabled>Build bid table</button>
+      <button class="btn ghost" id="clearBtn">Clear files</button>
+    </div>
+
+    <div id="loadStatus" class="loadstatus" style="display:none"></div>
+
+    <div class="pp-note" style="margin-top:18px">
+      <strong>Where to get these:</strong> Amazon Ads console → Sponsored ads → <strong>Bulk operations</strong>. Do one download per date range (7 / 14 / 30 / 60 days), ticking <strong>Sponsored Products</strong>, <strong>Sponsored Brands</strong>, <strong>Sponsored Display</strong> and <strong>Include paused campaigns</strong>. Leave "terminated" and "zero-impression items" unticked.
+      Bulk files are marketplace-specific — load one marketplace at a time. A single file works too; it just becomes the only timeframe and the multi-timeframe blend is skipped.
+      <strong>Nothing is uploaded anywhere</strong> — the files are read inside this page on your own machine.
+    </div>
+  </div>
+</div>
+
+<!-- SETUP (mode toggle + targets + reset) -->
+<div id="paneParams" class="pane">
+  <div class="panel"><h3>Setup</h3>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="field" style="flex:1;min-width:280px"><label>Ad type to optimize</label>
+        <div class="symbol-seg" id="typeSeg"><button id="tyAll" class="on">All</button><button id="tySP">SP</button><button id="tySB">SB</button><button id="tySD">SD</button></div></div>
+      <div class="field" style="flex:1;min-width:280px"><label>Optimize using</label>
+        <div class="symbol-seg"><button id="cPct">Percent (%)</button><button id="cCent">Cents (¢)</button></div></div>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+      <div class="field" style="flex:0 0 auto"><label>Placement-modifier campaigns</label>
+        <div class="symbol-seg"><button id="pmodOn" class="on">Exclude (review)</button><button id="pmodOff">Optimize anyway</button></div></div>
+      <div style="flex:1;min-width:240px;font-size:12px;color:var(--muted);line-height:1.5">Campaigns with a Top-of-Search, Rest-of-Search, Product-Page (or Amazon Business) modifier above 0%. <strong>Exclude</strong> holds them for manual review; <strong>Optimize anyway</strong> bids them like any other campaign.</div>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+      <div class="field" style="flex:0 0 auto"><label>Optimize scope</label>
+        <div class="symbol-seg"><button id="scopeAll" class="on">All ad groups</button><button id="scopePerAsin">Per-ASIN only</button></div></div>
+      <div style="flex:1;min-width:240px;font-size:12px;color:var(--muted);line-height:1.5"><strong>Per-ASIN only</strong> optimizes just the ad groups whose name contains one of the ASIN(s) you enter below. All other ad groups are dropped from the output entirely. <strong>All ad groups</strong> optimizes everything.</div>
+    </div>
+    <div id="asinBox" style="display:none;margin-bottom:20px">
+      <div class="field" style="width:100%"><label>ASIN(s) to optimize — one or more, separated by comma, space, or newline</label>
+        <textarea id="p_asins" rows="2" placeholder="B0ABCDE123, B0ZZZ99999" style="width:100%;font:inherit;padding:10px 12px;border:1px solid #dde1e8;border-radius:9px;background:#fff;color:var(--ink);resize:vertical"></textarea></div>
+      <div id="asinHint" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+    </div>
+    <div id="brandedBox" style="margin-bottom:20px">
+      <div class="field" style="width:100%"><label>Branded terms to exclude from optimization — one or more, separated by comma or newline (whole-word match on keyword text)</label>
+        <textarea id="p_branded" rows="2" placeholder="weltecke, welt basics" style="width:100%;font:inherit;padding:10px 12px;border:1px solid #dde1e8;border-radius:9px;background:#fff;color:var(--ink);resize:vertical"></textarea></div>
+      <div id="brandedHint" style="font-size:12px;color:var(--muted);margin-top:6px">Keywords whose text contains one of these terms are held as <strong>Review — Branded</strong> (no change, excluded from the upload file).</div>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+      <div class="field" style="flex:0 0 auto"><label>Direction to optimize</label>
+        <div class="symbol-seg" id="dirSeg"><button id="dirBoth" class="on">Both</button><button id="dirUp">Increase only</button><button id="dirDown">Decrease only</button></div></div>
+      <div style="flex:1;min-width:240px;font-size:12px;color:var(--muted);line-height:1.5"><strong>Increase only</strong> applies raises and holds every cut; <strong>Decrease only</strong> does the reverse. A suppressed row stays visible as Maintain, carrying the decision it would have taken, and never reaches the upload file. The Output filter follows the mode, so you land on just that direction.</div>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+      <div class="field" style="flex:0 0 auto"><label>High spend, no orders</label>
+        <div class="symbol-seg" id="hsSeg"><button id="hsHoldBtn" class="on">Hold — no bid change</button><button id="hsRedBtn">Reduce (no-sales tier)</button></div></div>
+      <div style="flex:1;min-width:240px;font-size:12px;color:var(--muted);line-height:1.5">A keyword whose primary-window spend is at or above <strong>High Spend</strong> with <strong>zero orders</strong> is never raised. <strong>Hold</strong> leaves the bid alone for a human to judge; <strong>Reduce</strong> hands it to the "High Clicks &amp; High Spend, no Sales" tier in Bid Rules.</div>
+    </div>
+    <div class="pgrid">
+      <div class="field"><label>Target ACOS</label><input id="p_tacos" type="number" step="1"><span class="suffix">%</span></div>
+      <div class="field"><label>Low Impressions</label><input id="p_lowimp" type="number" step="1"><span class="suffix">#</span></div>
+      <div class="field"><label>High Clicks</label><input id="p_hiclicks" type="number" step="1"><span class="suffix">#</span></div>
+      <div class="field"><label>High Spend</label><input id="p_hispend" type="number" step="0.5"><span class="suffix unit-cur">€</span></div>
+      <div class="field"><label>Min Clicks</label><input id="p_lowclicks" type="number" step="1"><span class="suffix">#</span></div>
+      <div class="field"><label>Low Spend</label><input id="p_lowspend" type="number" step="0.5"><span class="suffix unit-cur">€</span></div>
+      <div class="field"><label>Max Bid</label><input id="p_maxbid" type="number" step="0.05"><span class="suffix unit-cur">€</span></div>
+      <div class="field"><label>Currency</label>
+        <select id="p_currency"><option value="€">Euro (€)</option><option value="$">Dollar ($)</option><option value="£">Pound (£)</option></select><span class="suffix"></span></div>
+      <div class="field" style="justify-content:center;background:none;border:none;padding:0">
+        <button class="btn ghost" id="resetBtn" style="width:100%">Reset to defaults</button></div>
+    </div>
+    <div class="pp-note" style="margin-top:14px">
+      <strong>Min Clicks</strong> is the floor for acting on performance: if the primary window has fewer clicks than this, the row is held with no bid change. The zero/low-impression visibility raises are exempt — they exist for keywords that have no clicks yet.
+      <strong>High Spend</strong> is the bleed ceiling: at or above it with no orders, the bid is never raised (held or cut, per the toggle above).
+      <strong>Low Spend</strong> stays the low-activity marker — the visibility raise needs 7d spend under 2× this, and the gentle no-sales cut starts at 2× this.
+    </div>
+    <h4 class="subhead">Timeframe to optimize on</h4>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+      <div class="field" style="flex:0 0 auto"><label>Decision window</label>
+        <div class="symbol-seg" id="tfSeg">
+          <button id="tfOrig" class="on">Original (cascade)</button>
+          <button id="tf7">7d only</button>
+          <button id="tf14">14d only</button>
+          <button id="tf30">30d only</button>
+          <button id="tf60">60d only</button>
+        </div></div>
+      <div style="flex:1;min-width:240px;font-size:12px;color:var(--muted);line-height:1.5"><strong>Original (cascade)</strong> picks, per keyword, the shortest window that clears its click bar (uses the min-clicks settings below). A <strong>single window</strong> (7d/14d/30d/60d) forces every decision onto that one window's data and ignores the click bars; keywords with no data in that window are left unchanged.</div>
+    </div>
+    <h4 class="subhead" id="dataSuffHead">Data sufficiency — min clicks to trust a window</h4>
+    <div class="pp-note" style="margin:0 0 12px">The tool uses the shortest window that clears its click bar as the "primary period" for each keyword. Higher = more cautious (waits for more data); lower = more responsive.</div>
+    <div class="pgrid">
+      <div class="field"><label>7-day min clicks</label><input id="p_ct7" type="number" step="1"><span class="suffix">#</span></div>
+      <div class="field"><label>14-day min clicks</label><input id="p_ct14" type="number" step="1"><span class="suffix">#</span></div>
+      <div class="field"><label>30-day min clicks</label><input id="p_ct30" type="number" step="1"><span class="suffix">#</span></div>
+      <div class="field"><label>60-day min clicks</label><input id="p_ct60" type="number" step="1"><span class="suffix">#</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADJUSTMENTS -->
+<div id="paneAdjust" class="pane">
+  <div class="panel"><h3>Bid Rules</h3>
+    <div class="two-col">
+      <div class="col"><h4>Reduce tiers (higher ACOS → bigger cut)</h4><div id="reduceTiers"></div></div>
+      <div class="col"><h4>Increase tiers (lower ACOS → bigger raise)</h4><div id="increaseTiers"></div>
+        <h4 style="margin-top:18px">Impression, activity &amp; no-sales rules</h4>
+        <div class="rule-row"><span class="lab">Low to Zero Impressions &amp; No Clicks, Increase bid by</span><input id="a_zeroimp_inc" type="number" step="1"><span class="suffix unit-adj">%</span></div>
+        <div class="rule-row"><span class="lab">Low Impressions/Clicks/Spend, Increase bid by</span><input id="a_lowact_inc" type="number" step="1"><span class="suffix unit-adj">%</span></div>
+        <div class="rule-row" id="ruleHighRed"><span class="lab">High Clicks &amp; High Spend, no Sales, Reduce by</span><input id="a_high_red" type="number" step="1"><span class="suffix unit-adj">%</span></div>
+        <div class="rule-row"><span class="lab">Mid Clicks &amp; Mid Spend, no Sales, Reduce by</span><input id="a_mid_red" type="number" step="1"><span class="suffix unit-adj">%</span></div>
+      </div>
+    </div>
+    <div class="pp-note" style="margin-top:16px">Amounts are read as <strong>percent</strong> or <strong>cents</strong> per the Optimize using toggle in Setup. ACOS thresholds are always percentages. Increase tiers are <strong>banded</strong>: each threshold is the top of its band (inclusive), and lower ACOS earns a bigger raise — e.g. with 35/25/20, an ACOS of 25–35% takes the 35% tier, 20–25% takes the 25% tier, and below 20% takes the 20% tier. Fields open pre-filled with the standard values — overwrite any of them, or use <strong>Reset to defaults</strong> in Setup to restore.</div>
+  </div>
+</div>
+
+<!-- DOWNLOADS -->
+<div id="paneControl" class="pane">
+  <div class="panel"><h3>Downloads</h3>
+    <h4 class="subhead" style="margin-top:4px">Ready-to-upload files (live — reflect your on-screen strategy)</h4>
+    <div class="btnrow">
+      <button class="btn primary" id="exAll">Download All (live)</button>
+      <button class="btn primary" id="exSP">SP only</button>
+      <button class="btn primary" id="exSB">SB only</button>
+      <button class="btn primary" id="exSD">SD only</button>
+    </div>
+    <h4 class="subhead">Engine files &amp; settings</h4>
+    <div class="btnrow">
+      <button class="btn green" id="dlAnalysis">Download analysis workbook (live)</button>
+      <button class="btn ghost" id="dlSettings">Download settings (params.json)</button>
+    </div>
+    <div class="pp-note" style="margin-top:16px">
+      <strong>Ready-to-upload (live)</strong> files are .xlsx workbooks reflecting your current on-screen strategy — pick All, or one campaign type to work it alone. Rows are written back into Amazon's own worksheets with Amazon's own column names, and IDs are stored as text, so the file uploads to Bulk operations as-is. This is the file you upload to Amazon. <strong>Analysis workbook</strong> is the full working file — every row with its per-timeframe metrics, primary period, new bid, signed Bid Δ, action and reasoning, plus the ASIN-conflict campaigns. <strong>Settings</strong> saves your current on-screen parameters as JSON.
+    </div>
+  </div>
+</div>
+
+<!-- BID CHANGES -->
+<div id="paneBids" class="pane">
+  <div class="pp-note" style="margin-bottom:12px">Showing <strong id="scopeLabel">All ad types</strong> — change the ad type in the <strong>Setup</strong> tab.<span id="modeNote"></span></div>
+  <div class="cards" id="cards"></div>
+  <div class="filters">
+    <input id="search" placeholder="Search campaign / keyword…" style="min-width:260px">
+    <select id="fAction"><option value="">All actions</option><option>increase</option><option>reduce</option><option>maintain</option><option>Review</option><option>skip</option></select>
+    <label style="display:flex;flex-direction:column;gap:3px">
+      <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#8b93a8">Filter by Primary Period</span>
+      <select id="fPrimary"><option value="">All primary periods</option><option>7d</option><option>14d</option><option>30d</option><option>60d</option></select></label>
+    <label style="display:flex;align-items:center;gap:6px;color:#aab0c2"><input type="checkbox" id="hideSkip" checked> Hide skipped</label>
+  </div>
+  <div class="pp-note"><span id="kpiNote"></span><strong>Primary period</strong> = the timeframe that drove each keyword's decision (shortest window with enough clicks; defers to a longer one if the short window has spend but no sales). Highlighted in each row — click a row for the full per-timeframe breakdown.</div>
+  <div class="tblwrap"><table id="tbl"><thead><tr>
+    <th data-k="Campaign">Campaign</th><th data-k="Keyword/Target">Keyword / Target</th><th data-k="Match Type">Match</th>
+    <th data-k="Current Bid" class="num">Cur Bid</th><th data-k="_primary">Primary</th>
+    <th data-k="_clicks" class="num kpi">Clicks</th><th data-k="_spend" class="num kpi">Spend</th>
+    <th data-k="_sales" class="num kpi">Sales</th><th data-k="_orders" class="num kpi">Orders</th>
+    <th data-k="_acos7" class="num">7d ACOS</th><th data-k="_acos14" class="num">14d ACOS</th>
+    <th data-k="_acos30" class="num">30d ACOS</th><th data-k="_acos60" class="num">60d ACOS</th>
+    <th data-k="_newbid" class="num">New Bid</th><th data-k="_delta" class="num">Bid &Delta;</th>
+    <th data-k="_action">Action</th><th data-k="_note">Notes</th>
+  </tr></thead><tbody id="tbody"></tbody></table></div>
+  <div class="foot">Live recompute mirrors the engine cascade. Edit Targets/Bid Rules to see changes here.</div>
+</div>
+
+<!-- ASIN REVIEW -->
+<div id="paneReview" class="pane">
+  <div class="pp-note"><strong>ASIN-conflict campaigns.</strong> Active campaigns with multiple ASINs bleeding (high ACOS, high wasted spend) — likely one child ASIN is dragging the campaign. Review/split before rebidding; their keywords are held, not auto-changed.</div>
+  <div id="reviewList"></div>
+</div>
+
+</main>
+</div>
+<script>
+const PALETTE = {"navy": "#0F1C2A", "ink": "#0f1c2a", "muted": "#6b7280", "surface": "#ffffff", "surface2": "#f4f5f7", "border": "#e6e8ec", "brand": "#e69841", "brand_dk": "#c97d2c", "good_bg": "#e2f3e8", "good_ink": "#1c7a45", "bad_bg": "#fbe6ea", "bad_ink": "#c0364c", "rev_bg": "#fcebd8", "rev_ink": "#a9741f"};
+let DATA = {"rows": [], "params": {"_comment": "Default bid-optimization parameters. ACOS values are decimals (0.30 = 30%). 'symbol' is 'cents' or 'percent'. Cent amounts are absolute currency; percent amounts are fractions of the base bid.", "target_acos": 0.3, "max_bid": 2.5, "min_bid": 0.02, "symbol": "percent", "currency": "€", "acos_reduce_tiers": [{"acos_above": 1.0, "reduce_by": 0.25}, {"acos_above": 0.75, "reduce_by": 0.2}, {"acos_above": 0.6, "reduce_by": 0.15}, {"acos_above": 0.5, "reduce_by": 0.12}, {"acos_above": 0.4, "reduce_by": 0.1}, {"acos_above": 0.35, "reduce_by": 0.07}], "acos_increase_tiers": [{"acos_below": 0.1, "increase_by": 0.15}, {"acos_below": 0.2, "increase_by": 0.1}, {"acos_below": 0.28, "increase_by": 0.07}], "high_clicks": 15, "high_clicks_reduce_by": 0.2, "high_spend": 5.0, "clicks_no_orders_reduce_by": 0.15, "low_clicks": 5, "low_spend": 1.0, "zero_impr_no_clicks_increase_by": 0.15, "low_activity_increase_by": 0.1, "high_no_sales_reduce_by": 0.2, "mid_no_sales_reduce_by": 0.12, "low_impressions": 100, "low_impressions_increase_by": 0.1, "zero_impressions_increase_by": 0.15, "click_thresholds": {"7d": 5, "14d": 8, "30d": 15, "60d": 25}, "period_priority": ["7d", "14d", "30d", "60d"], "blend_disagreement_factor": 0.5, "rank_keyword": "RANK", "per_asin_only": false, "target_asins": [], "branded_terms": [], "cpc_guard": true, "multi_asin_min_asins": 2, "multi_asin_wasted_share": 0.6, "multi_asin_min_spend": 10.0, "bleeder_min_clicks": 10, "bleeder_min_spend": 10.0}, "brand": "Brand", "review": [], "embedded": {}, "prefill": true, "sheetHeaders": {}};
+const P0 = DATA.params;
+const PRIO = P0.period_priority;
+const CLICK_TH = P0.click_thresholds;
+// live thresholds, refreshed from the Setup fields on each recompute (falls back to defaults)
+let liveClickTh = Object.assign({}, CLICK_TH);
+function readClickTh(){
+  const g=(id,d)=>{ const el=document.getElementById(id); if(!el) return d; const v=parseFloat(el.value); return isNaN(v)?d:v; };
+  liveClickTh = {"7d":g("p_ct7",CLICK_TH["7d"]),"14d":g("p_ct14",CLICK_TH["14d"]),
+                 "30d":g("p_ct30",CLICK_TH["30d"]),"60d":g("p_ct60",CLICK_TH["60d"])};
+}
+
+// ---- exact JS port of the Python cascade ----------------------------------
+function periodAcos(m){ return m.sales>0 ? m.spend/m.sales : (m.spend>0? Infinity : 0); }
+
+let forceWindow = "";  // "" = original cascade; else "7d"/"14d"/"30d"/"60d" forces that window
+function choosePrimary(periods){
+  // forced single-window mode: use only that window (if the keyword has data for it).
+  if(forceWindow){
+    if(periods[forceWindow]) return [forceWindow, periods[forceWindow]];
+    return [null, null];  // no data in the chosen window -> no decision (maintains)
+  }
+  const suff = PRIO.filter(t=>periods[t] && periods[t].clicks >= (liveClickTh[t]??999));
+  if(suff.length){
+    const first = suff[0];
+    if(!isFinite(periodAcos(periods[first]))){
+      for(const t of suff.slice(1)){ if(isFinite(periodAcos(periods[t]))) return [t, periods[t]]; }
+    }
+    return [first, periods[first]];
+  }
+  const tags = Object.keys(periods);
+  if(tags.length){ tags.sort((a,b)=>periods[b].clicks-periods[a].clicks); return [tags[0], periods[tags[0]]]; }
+  return [null,null];
+}
+
+function hasSalesInLonger(periods, primaryTag){
+  if(forceWindow) return false;  // no cascade in forced-window mode
+  if(!primaryTag) return false;
+  const i = PRIO.indexOf(primaryTag); if(i<0) return false;
+  for(const t of PRIO.slice(i+1)){ const m=periods[t]; if(!m) continue;
+    if(m.clicks < (liveClickTh[t]??999)) continue; if(m.sales>=1) return true; }
+  return false;
+}
+
+function direction(m, P){
+  const acos = periodAcos(m);
+  if(m.sales<1) return "within";
+  for(const t of P.acos_reduce_tiers){ if(acos>=t.acos_above) return "reduce"; }
+  if(P.target_acos!=null && acos>P.target_acos) return "within";
+  if(P.acos_increase_tiers.length && acos>P.acos_increase_tiers[0].acos_below) return "within";
+  for(const t of P.acos_increase_tiers){ if(acos>0 && acos<=t.acos_below) return "increase"; }
+  if(m.impr>0 && m.impr<P.low_impressions) return "increase";
+  if(m.impr<1) return "increase";
+  return "within";
+}
+
+function applyAdj(base, amt, dir, sym){ return sym==="percent" ? base*(1+dir*amt) : base+dir*amt; }
+
+function decide(m, bid, P, scale, hls){
+  const acos=periodAcos(m), cpc = m.clicks>0? m.spend/m.clicks : bid;
+  const lo=Math.min(cpc,bid), hi=Math.max(cpc,bid), sym=P.symbol;
+  const A=(b,a,d)=>applyAdj(b,a*scale,d,sym);
+  if(m.sales<1){
+    if(hls) return [hi,"No sales in this window; converts over a longer period, Maintain","maintain"];
+    const lc=P.low_clicks??5, ls=P.low_spend??1, hc=P.high_clicks, hs=P.high_spend;
+    const midFloor=2*ls;  // spend at/above 2x low_spend -> mid (not low)
+    // No-sales bands decided by SPEND severity (inclusive). Spend, not clicks, decides.
+    if(m.spend>=hs && P.high_no_sales_reduce_by!=null){ const r=P.high_no_sales_reduce_by;
+      return [A(lo,r,-1),`High Clicks & Spend, no Sales`,"reduce"]; }
+    if(m.spend>=midFloor && P.mid_no_sales_reduce_by!=null){ const r=P.mid_no_sales_reduce_by;
+      return [A(lo,r,-1),`Mid Clicks & Spend, no Sales`,"reduce"]; }
+    // (low band = low impr/clicks/spend under 2x low_spend -> increase, handled 7d-first in computeRow)
+    return [null,"","maintain"];
+  }
+  for(const t of P.acos_reduce_tiers){ if(acos>=t.acos_above) return [A(lo,t.reduce_by,-1),`ACOS ≥ ${(t.acos_above*100)|0}%`,"reduce"]; }
+  if(P.target_acos!=null && acos>P.target_acos) return [lo,"Within Target","maintain"];
+  if(P.acos_increase_tiers.length && acos>P.acos_increase_tiers[0].acos_below) return [hi,"Within Target","maintain"];
+  // Banded: lower ACOS = bigger raise. Evaluate lowest threshold first; upper bound inclusive (<=).
+  if(acos>0){ const asc=[...P.acos_increase_tiers].sort((a,b)=>a.acos_below-b.acos_below);
+    for(const t of asc){ if(acos<=t.acos_below) return [A(hi,t.increase_by,+1),`ACOS ≤ ${(t.acos_below*100)|0}%`,"increase"]; } }
+  return [null,"","maintain"];
+}
+
+function computeRow(r, P){
+  if(r.skip || !r.bid) return {...r, action:"skip", newbid:null, note:"", primary:""};
+  const periods = r.periods;
+  const [ptag, prim] = choosePrimary(periods);
+  // "No strategy set" = no target ACOS, no tiers, no no-sales rules. Everything just maintains
+  // (primary period still shown — it's data, not a decision). Keeps blank truly inert.
+  const noStrategy = (P.target_acos==null)
+    && P.acos_reduce_tiers.length===0 && P.acos_increase_tiers.length===0
+    && P.zero_impr_no_clicks_increase_by==null && P.low_activity_increase_by==null
+    && P.high_no_sales_reduce_by==null && P.mid_no_sales_reduce_by==null;
+  if(noStrategy && !r.rank && !r.pause && !(r.pmod&&pmodExclude)) return {...r, action:"maintain", newbid:null, note:"", primary:ptag||""};
+  if(r.pmod && pmodExclude) return {...r, action:"Review — With Placement Modifier", newbid:null,
+    note:`Campaign has placement modifier(s): ${r.pmodDesc||""} — base-bid change interacts with the multiplier; review manually.`, primary:ptag||""};
+  if(r.rank) { const [nb,note]=prim?decide(prim,r.bid,P,1,false):[null,""];
+    return {...r, action:"Review — RANK", newbid:null, note:"RANK held; suggestion: "+note, primary:ptag||""}; }
+  if(brandedTerms.length && matchesBranded(r.kw)){ const [nb,note]=prim?decide(prim,r.bid,P,1,false):[null,""];
+    return {...r, action:"Review — Branded", newbid:null, note:"Branded keyword held; suggestion: "+(note||"n/a"), primary:ptag||""}; }
+  if(r.pause){ const [nb]=prim?decide(prim,r.bid,P,1,false):[null];
+    let v=nb; if(v!=null){ if(v>=P.max_bid||r.bid>=P.max_bid)v=Math.min(v,P.max_bid); v=Math.max(v,P.min_bid); v=Math.round(v*100)/100; }
+    return {...r, action:"Review — Pause/Restructure", newbid:v, note:"Multi-ASIN bleed — pause/split", primary:ptag||""}; }
+  if(!prim) return {...r, action:"maintain", newbid:null, note:"No data", primary:""};
+  // CPC guard (always on): current bid already below the primary period's CPC -> manual review.
+  if(P.cpc_guard!==false && prim.clicks>0){
+    const cpc = prim.spend/prim.clicks;
+    if(r.bid < cpc) return {...r, action:"Review — Bid below CPC", newbid:null,
+      note:`Current bid €${r.bid.toFixed(2)} is already below ${ptag} CPC €${cpc.toFixed(2)} — held for manual review, no change.`, primary:ptag};
+  }
+  // --- 7d-idle rules (checked FIRST, on 7d data; blank field = off). If neither fires,
+  //     fall through to the normal cascade on the primary period. ---
+  const d7=periods["7d"];
+  const applyInc=(inc,label)=>{
+    if(r.bid>=P.max_bid) return {...r, action:"maintain", newbid:null, note:"Already above max bid, Maintain", primary:"7d"};
+    let nb=applyAdj(r.bid,inc,+1,P.symbol), note;
+    const amt=P.symbol==="percent"?`${(inc*100)|0}%`:`${inc.toFixed(2)}¢`;
+    if(nb>=P.max_bid){ nb=Math.min(nb,P.max_bid); note=`${label}, Increase Bid By ${amt} (capped at Max Bid)`; }
+    else { note=`${label}, Increase Bid By ${amt}`; }
+    nb=Math.round(Math.max(nb,P.min_bid)*100)/100;
+    const act=(nb!==Math.round(r.bid*100)/100)?"increase":"maintain";
+    return {...r, action:act, newbid:act==="increase"?nb:null,
+      note:act==="increase"?note:"Already above max bid, Maintain", primary:"7d"};
+  };
+  if(d7 && d7.sales<1){
+    const zi=P.zero_impr_no_clicks_increase_by, la=P.low_activity_increase_by;
+    if(zi!=null && d7.impr<=P.low_impressions && d7.clicks===0) return applyInc(zi,"Low to Zero Impressions & No Clicks in 7d");
+    if(la!=null && d7.impr<=P.low_impressions && d7.clicks<(P.low_clicks??5) && d7.spend<2*(P.low_spend??1))
+      return applyInc(la,"Low Impressions/Clicks/Spend in 7d");
+  }
+  // --- Min Clicks gate: below the click floor there is nothing to judge. -----
+  // Visibility raises above are exempt by design (a 0-click keyword could never
+  // be raised otherwise); everything data-driven below it is held.
+  const minCl = P.low_clicks;
+  if(minCl!=null && minCl>0 && prim.clicks < minCl)
+    return {...r, action:"maintain", newbid:null, primary:ptag,
+      note:`Below Min Clicks (${prim.clicks} click(s) in ${ptag}, floor ${minCl}) \u2014 no bid change`};
+  // --- High spend, no orders: never raise. Hold, or hand to the no-sales tier.
+  const noConv = prim.sales<1 && (prim.orders||0)<1;
+  const bigSpend = P.high_spend!=null && prim.spend >= P.high_spend;
+  if(hsHold && noConv && bigSpend)
+    return {...r, action:"maintain", newbid:null, primary:ptag,
+      note:`Spend ${(P.currency||"")}${prim.spend.toFixed(2)} in ${ptag} is at/above High Spend with no orders \u2014 held, no bid change`};
+  const hls = hasSalesInLonger(periods, ptag);
+  const pdir = direction(prim,P);
+  let scale=1, secRed=null;
+  for(const t of Object.keys(periods)){ if(t===ptag) continue; const m=periods[t];
+    if(m.clicks<(liveClickTh[t]??999)) continue; const d=direction(m,P);
+    if(d==="reduce") secRed=t;
+    if(d!==pdir && pdir!=="within" && d!=="within") scale=P.blend_disagreement_factor; }
+  let [nb,note,action]=decide(prim,r.bid,P,scale,hls);
+  if(typeof action==="string" && action.indexOf("Review")===0)
+    return {...r, action, newbid:(nb==null?null:Math.round(nb*100)/100), note, primary:ptag};
+  if(action==="reduce"){
+    const pidx=PRIO.indexOf(ptag);
+    let nextTag=null,nextM=null;
+    for(const t of PRIO.slice(pidx+1)){ const m=periods[t];
+      if(m && m.clicks>=(liveClickTh[t]??999)){ nextTag=t; nextM=m; break; } }
+    if(nextM && nextM.sales>0){ const na=nextM.spend/nextM.sales; const buf=0.05;
+      if(P.target_acos!=null && na<=P.target_acos+buf) return {...r, action:"Review — Timeframes Conflict", newbid:null,
+        note:`Primary ${ptag} above target but ${nextTag} healthy (${(na*100)|0}% ≤ ${((P.target_acos+buf)*100)|0}%) — hold or cut?`, primary:ptag}; }
+  }
+  if(pdir==="within" && secRed && action==="maintain") return {...r, action:"Review — Timeframes Conflict", newbid:null,
+    note:`Primary ${ptag} within target but ${secRed} reduce-worthy`, primary:ptag};
+  if(scale<1 && (action==="reduce"||action==="increase")) note+=" (halved: disagree)";
+  if(action==="maintain") return {...r, action:"maintain", newbid:null, note, primary:ptag};
+  if(action==="increase" && noConv && bigSpend) return {...r, action:"maintain", newbid:null, primary:ptag,
+    note:`Raise blocked \u2014 spend at/above High Spend with no orders`};
+  if(action==="increase" && r.bid>=P.max_bid) return {...r, action:"maintain", newbid:null, note:"Already above max bid, Maintain", primary:ptag};
+  if(nb!=null){ if(nb>=P.max_bid||r.bid>=P.max_bid){nb=Math.min(nb,P.max_bid); note=note?(note+" (capped at Max Bid)"):"Capped at Max Bid";}
+    nb=Math.max(nb,P.min_bid); nb=Math.round(nb*100)/100; if(nb===Math.round(r.bid*100)/100){ action="maintain"; nb=null; } }
+  return {...r, action, newbid:nb, note, primary:ptag};
+}
+
+
+// ---- read editable params from the DOM ------------------------------------
+function currentParams(){
+  const sym = cPct.classList.contains("on") ? "percent" : "cents";
+  const val=(id,d)=>{ const v=parseFloat(document.getElementById(id).value); return isNaN(v)?d:v; };
+  // Adjustment amounts: percent mode -> user types 24 => 0.24 fraction; cents mode -> user types 0.24 => 0.24 currency
+  const adj=(id,dFrac)=>{ const raw=parseFloat(document.getElementById(id).value);
+    if(isNaN(raw)) return dFrac;
+    return sym==="percent" ? raw/100 : raw; };
+  // like adj() but returns null when the field is blank, so the rule can be switched off
+  const adjOrNull=(id)=>{ const el=document.getElementById(id); const v=el?el.value:"";
+    if(v===""||v==null) return null; const raw=parseFloat(v); if(isNaN(raw)) return null;
+    return sym==="percent" ? raw/100 : raw; };
+  const rt=[], it=[];
+  const isBlank=id=>{ const v=document.getElementById(id).value; return v===""||v==null; };
+  for(let i=0;i<6;i++){ if(isBlank("rt_a"+i)) continue; // blank threshold -> tier inert
+    rt.push({acos_above:val("rt_a"+i,0)/100, reduce_by:adj("rt_r"+i,0)}); }
+  for(let i=0;i<3;i++){ if(isBlank("it_a"+i)) continue;
+    it.push({acos_below:val("it_a"+i,0)/100, increase_by:adj("it_r"+i,0)}); }
+  // sort so the cascade still evaluates highest-threshold reduce first / highest increase-below first
+  rt.sort((a,b)=>b.acos_above-a.acos_above);
+  it.sort((a,b)=>b.acos_below-a.acos_below);
+  return Object.assign({}, P0, {
+    target_acos: (function(){ const v=p_tacos.value; return (v===""||v==null)?null:parseFloat(v)/100; })(),
+    low_impressions: val("p_lowimp",100),
+    high_clicks: val("p_hiclicks",15),
+    high_spend: val("p_hispend",5),
+    low_clicks: val("p_lowclicks",5),
+    low_spend: val("p_lowspend",1),
+    max_bid: val("p_maxbid",2.5),
+    symbol: sym,
+    currency: p_currency.value,
+    acos_reduce_tiers: rt,
+    acos_increase_tiers: it,
+    zero_impr_no_clicks_increase_by: adjOrNull("a_zeroimp_inc"),
+    low_activity_increase_by: adjOrNull("a_lowact_inc"),
+    high_no_sales_reduce_by: adjOrNull("a_high_red"),
+    mid_no_sales_reduce_by: adjOrNull("a_mid_red"),
+  });
+}
+
+// Format a stored adjustment amount for display in the current mode.
+function fmtAdj(frac){ return cPct.classList.contains("on") ? Math.round(frac*100) : frac; }
+
+// Set every unit label to match the active symbol + currency, and reformat amount inputs.
+function refreshUnits(){
+  const pct = cPct.classList.contains("on");
+  const cur = p_currency.value;
+  document.querySelectorAll(".unit-adj").forEach(el=>el.textContent = pct ? "%" : cur);
+  document.querySelectorAll(".unit-cur").forEach(el=>el.textContent = cur);
+}
+
+let computed=[];
+let curType="all";
+let perAsinOnly=false;  // per-ASIN-only scope (toggle in Setup)
+let targetAsins=[];     // specific ASIN(s) typed into the box when per-ASIN scope is on
+function parseAsins(str){
+  return (str||"").toUpperCase().match(/B0[A-Z0-9]{8}/g) || []; }
+let brandedTerms=[];    // branded terms to hold out of optimization (any mode)
+function parseBranded(str){
+  return (str||"").split(/[,\n]/).map(s=>s.trim().toLowerCase()).filter(Boolean); }
+function matchesBranded(kw){
+  const t=String(kw||"").toLowerCase();
+  return brandedTerms.some(term=>{
+    if(!term) return false;
+    const re=new RegExp("(?<!\\w)"+term.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?!\\w)");
+    return re.test(t); }); }
+let pmodExclude=true;  // exclude placement-modifier campaigns by default (toggle in Setup)
+let dirMode="both";    // "both" | "up" (increase only) | "down" (decrease only)
+let hsHold=true;       // high spend + no orders -> hold (true) or reduce via the no-sales tier (false)
+function productType(r){ const p=(r.product||"").toLowerCase();
+  if(p.includes("display")) return "sd";
+  if(p.includes("brand")) return "sb";
+  if(p.includes("product")) return "sp";
+  return "other"; }
+function rowMatchesAsins(r){
+  // true if the ad group's ASIN(s) intersect the user's target list
+  const ag=r.agasins||[]; if(!ag.length) return false;
+  return ag.some(a=>targetAsins.includes(a)); }
+function inScope(r){
+  if(perAsinOnly && !rowMatchesAsins(r)) return false;
+  return curType==="all" ? true : productType(r)===curType; }
+function recompute(){ readClickTh(); const P=currentParams();
+  computed=DATA.rows.filter(inScope).map(r=>computeRow(r,P));
+  render(); renderReview(); }
+
+// ---- populate editable fields --------------------------------------------
+// blank=true  -> Bid Rules fields start empty (user sets their own); Targets keep starting values
+// blank=false -> everything filled from defaults (used by "Reset to defaults")
+function fillFields(blank){
+  // Defaults: Percent mode and Euro currency (mode/display, not strategy — kept even when blank)
+  cPct.classList.add("on"); cCent.classList.remove("on");
+  p_currency.value="€";
+  // Targets: blank on load (blank=true), filled from defaults on Reset (blank=false)
+  p_tacos.value      = blank?"":Math.round(P0.target_acos*100);
+  p_lowimp.value     = blank?"":P0.low_impressions;
+  p_hiclicks.value   = blank?"":P0.high_clicks;
+  p_hispend.value    = blank?"":P0.high_spend;
+  p_maxbid.value     = blank?"":P0.max_bid;
+  p_lowclicks.value  = blank?"":P0.low_clicks;
+  p_lowspend.value   = blank?"":P0.low_spend;
+  p_ct7.value  = blank?"":(P0.click_thresholds["7d"]);
+  p_ct14.value = blank?"":(P0.click_thresholds["14d"]);
+  p_ct30.value = blank?"":(P0.click_thresholds["30d"]);
+  p_ct60.value = blank?"":(P0.click_thresholds["60d"]);
+  const rv=t=>blank?"":Math.round(t.acos_above*100), ra=t=>blank?"":fmtAdj(t.reduce_by);
+  const iv=t=>blank?"":Math.round(t.acos_below*100), ia=t=>blank?"":fmtAdj(t.increase_by);
+  reduceTiers.innerHTML=P0.acos_reduce_tiers.map((t,i)=>
+    `<div class="tier-row"><span class="lab">If ACOS ≥</span><input id="rt_a${i}" type="number" value="${rv(t)}"><span class="lab">% → Reduce by</span><input id="rt_r${i}" type="number" value="${ra(t)}"><span class="suffix unit-adj">%</span></div>`).join("");
+  increaseTiers.innerHTML=P0.acos_increase_tiers.map((t,i)=>
+    `<div class="tier-row"><span class="lab">If ACOS ≤</span><input id="it_a${i}" type="number" value="${iv(t)}"><span class="lab">% → Increase by</span><input id="it_r${i}" type="number" value="${ia(t)}"><span class="suffix unit-adj">%</span></div>`).join("");
+  a_zeroimp_inc.value=blank?"":fmtAdj(P0.zero_impr_no_clicks_increase_by);
+  a_lowact_inc.value=blank?"":fmtAdj(P0.low_activity_increase_by);
+  a_high_red.value=blank?"":fmtAdj(P0.high_no_sales_reduce_by);
+  a_mid_red.value=blank?"":fmtAdj(P0.mid_no_sales_reduce_by);
+  refreshUnits();
+}
+
+// ---- render table ----------------------------------------------------------
+
+// ---- KPI columns + Bid Δ ---------------------------------------------------
+// KPIs follow the Decision window toggle: a forced window (7d/14d/30d/60d) shows THAT
+// window's numbers; on Original (cascade) they show the row's primary period — i.e. the
+// data that actually drove the decision.
+function kpiWindow(){ return forceWindow || null; }
+function kpiOf(r){
+  const tag = kpiWindow() || r.primary;
+  const m = tag ? r.periods[tag] : null;
+  if(!m) return {clicks:null, spend:null, sales:null, orders:null, tag:tag};
+  return {clicks:m.clicks, spend:m.spend, sales:m.sales, orders:(m.orders||0), tag:tag};
+}
+function bidDelta(r){ return (r.newbid==null||!r.bid) ? null : (r.newbid - r.bid); }
+function fmtNum(v){ return v==null ? "\u2014" : v.toLocaleString(); }
+function fmtCur(v){ return v==null ? "\u2014" : p_currency.value + v.toFixed(2); }
+function fmtDelta(r){
+  const d = bidDelta(r);
+  if(d==null || Math.abs(d) < 0.005) return '<span class="dz">\u2014</span>';
+  const cls = d>0 ? "dup" : "ddn";
+  return `<span class="${cls}">${d>0?"+":"\u2212"}${Math.abs(d).toFixed(2)}</span>`;
+}
+
+function actClass(a){ if(a==="increase")return"increase"; if(a==="reduce")return"reduce"; if(a&&a.indexOf("Review")===0)return"review"; if(a==="skip")return"skip"; return"maintain"; }
+function fmtAcos(m){ if(!m) return "—"; const a=periodAcos(m); if(a===0)return"—"; if(!isFinite(a))return"no sales"; return (a*100).toFixed(0)+"%"; }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m])); }
+let sortKey="_action", sortDir=1;
+function render(){
+  { const kn=document.getElementById("kpiNote");
+    if(kn) kn.innerHTML = forceWindow
+      ? `<strong>Clicks / Spend / Sales / Orders</strong> show <strong>${forceWindow}</strong> data (the window you forced). `
+      : `<strong>Clicks / Spend / Sales / Orders</strong> show each row's <strong>primary period</strong> \u2014 the data that drove its decision. `; }
+  const q=search.value.toLowerCase(), fa=fAction.value, fp=fPrimary.value, hs=hideSkip.checked;
+  // computed is already scoped to the chosen ad type; cards reflect that scope
+  let list=computed.filter(r=>{
+    if(hs && r.action==="skip") return false;
+    if(fa){ if(fa==="Review"){ if(r.action.indexOf("Review")!==0) return false; } else if(r.action!==fa) return false; }
+    if(fp && r.primary!==fp) return false;
+    if(q && !((r.campaign||"").toLowerCase().includes(q)||(r.kw||"").toLowerCase().includes(q))) return false;
+    return true; });
+  const c={increase:0,reduce:0,maintain:0,review:0,skip:0}; let sup=0;
+  computed.forEach(r=>{ if(r.suppressed) sup++; else c[actClass(r.action)]++; });
+  cards.innerHTML=card("inc",c.increase,"Increase")+card("dec",c.reduce,"Decrease")+card("mnt",c.maintain,"Maintain")+card("rev",c.review,"Review")+card("skp",c.skip,"Skipped")+(sup?card("sup",sup,"Suppressed"):"")+card("shw",list.length,"Shown");
+  const val=(r,k)=>{ const K=kpiOf(r); return {"_primary":r.primary,
+    "_clicks":K.clicks,"_spend":K.spend,"_sales":K.sales,"_orders":K.orders,
+    "_acos7":r.periods["7d"]?periodAcos(r.periods["7d"]):-1,"_acos14":r.periods["14d"]?periodAcos(r.periods["14d"]):-1,"_acos30":r.periods["30d"]?periodAcos(r.periods["30d"]):-1,"_acos60":r.periods["60d"]?periodAcos(r.periods["60d"]):-1,
+    "_newbid":r.newbid??-1,"_delta":bidDelta(r)??-999,"_action":r.action,"_note":r.note,
+    "Campaign":r.campaign,"Keyword/Target":r.kw,"Match Type":r.match,"Current Bid":r.bid}[k]; };
+  list.sort((a,b)=>{ let x=val(a,sortKey),y=val(b,sortKey); if(typeof x==="string"){x=x||"";y=y||"";return sortDir*x.localeCompare(y);} return sortDir*((x||0)-(y||0)); });
+  const acCell=(r,tag)=>{ const cls=(r.primary===tag)?'class="num primary-cell"':'class="num"'; return `<td ${cls}>${fmtAcos(r.periods[tag])}</td>`; };
+  tbody.innerHTML=list.slice(0,2000).map((r,i)=>{
+    const chg=r.newbid!=null?`<b>${r.newbid.toFixed(2)}</b>`:"—";
+    const K=kpiOf(r);
+    const kpi=`<td class="num kpi">${fmtNum(K.clicks)}</td><td class="num kpi">${fmtCur(K.spend)}</td><td class="num kpi">${fmtCur(K.sales)}</td><td class="num kpi">${fmtNum(K.orders)}</td>`;
+    const parent=`<tr class="parent" data-i="${i}"><td><span class="exp-caret">▸</span>${esc(r.campaign)}</td><td>${esc(r.kw)}</td><td>${esc(r.match)}</td><td class="num">${r.bid?r.bid.toFixed(2):"—"}</td><td>${r.primary||"—"}</td>${kpi}${acCell(r,"7d")}${acCell(r,"14d")}${acCell(r,"30d")}${acCell(r,"60d")}<td class="num">${chg}</td><td class="num">${fmtDelta(r)}</td><td><span class="pill ${actClass(r.action)}">${esc(r.action)}</span></td><td>${esc(r.note)}</td></tr>`;
+    const detail=`<tr class="detail" data-for="${i}" style="display:none"><td colspan="17">${detailBox(r)}</td></tr>`;
+    return parent+detail; }).join("");
+  tbody.querySelectorAll("tr.parent").forEach(tr=>tr.onclick=()=>{ const d=tbody.querySelector(`tr.detail[data-for="${tr.dataset.i}"]`); const open=d.style.display!=="none"; d.style.display=open?"none":"table-row"; tr.querySelector(".exp-caret").textContent=open?"▸":"▾"; });
+}
+function card(cls,n,l){ return `<div class="card ${cls}"><div class="n">${n}</div><div class="l">${l}</div></div>`; }
+function detailBox(r){
+  const CUR=()=>p_currency.value;
+  const mets=[["Impr","impr",v=>v.toLocaleString()],["Clicks","clicks",v=>v.toLocaleString()],["Spend","spend",v=>CUR()+v.toFixed(2)],["Sales","sales",v=>CUR()+v.toFixed(2)],["Orders","orders",v=>(v||0).toLocaleString()],["ACOS","_acos",m=>fmtAcos(m)]];
+  const head="<tr><th>Metric</th>"+PRIO.map(t=>`<th>${t}${r.primary===t?" ★":""}</th>`).join("")+"</tr>";
+  const body=mets.map(([lbl,key,fmt])=>{ const cells=PRIO.map(t=>{ const m=r.periods[t]; const pp=r.primary===t?' class="pp"':''; if(!m) return `<td${pp}>—</td>`; const v=key==="_acos"?fmt(m):fmt(m[key]); return `<td${pp}>${v}</td>`; }).join(""); return `<tr><td>${lbl}</td>${cells}</tr>`; }).join("");
+  const why=r.primary?`Primary period <strong>${r.primary}</strong> ★ drove this decision — ${esc(r.note||r.action)}.`:`No period had enough data to act on.`;
+  return `<div class="detailbox"><h4>${esc(r.kw||r.campaign)} — per-timeframe metrics</h4><table class="mini">${head}${body}</table><div style="margin-top:8px;font-size:12px;color:var(--muted)">${why}</div></div>`;
+}
+function renderReview(){
+  const list=DATA.review||[]; revBadge.textContent=list.length;
+  if(!list.length){ reviewList.innerHTML=`<div class="reviewcard"><div class="why">No active multi-ASIN bleed campaigns detected.</div></div>`; return; }
+  reviewList.innerHTML=list.map(c=>{ const acos=c.acos==null?"no sales":(c.acos*100).toFixed(0)+"%";
+    const kws=DATA.rows.filter(r=>r.cid===c.cid).slice(0,50).map(r=>`<tr><td>${esc(r.kw)}</td><td>${esc(r.match)}</td><td class="num">${r.bid?r.bid.toFixed(2):"—"}</td></tr>`).join("")||`<tr><td colspan="3" style="color:var(--muted)">No keyword rows.</td></tr>`;
+    return `<div class="reviewcard"><div class="rc-head">${esc(c.name||c.cid)} · ${c.asins} ASINs · ACOS ${acos}</div><table class="mini" style="width:100%"><tr><th>Spend</th><th>Sales</th><th>ASINs</th><th>ACOS</th></tr><tr><td>${p_currency.value}${(c.spend||0).toFixed(2)}</td><td>${p_currency.value}${(c.sales||0).toFixed(2)}</td><td>${c.asins}</td><td>${acos}</td></tr></table><div class="why"><strong>Why flagged:</strong> multiple ASINs + high ACOS + high wasted spend. Likely one child ASIN is the heavy spender. Recommended: split ASINs or pause the underperformer, then rebid. Keywords held for review:</div><table class="mini" style="width:100%"><tr><th>Keyword / Target</th><th>Match</th><th>Cur Bid</th></tr>${kws}</table></div>`; }).join("");
+}
+
+// ---- export + settings -----------------------------------------------------
+// ---- minimal .xlsx writer (self-contained: CRC32 + stored-ZIP + inline strings) ----
+const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0;}return t;})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRCT[(c^u8[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+const ENC=new TextEncoder();
+function xesc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function colRef(n){let s="";while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26;}return s;}
+// rows: array of arrays; each cell {v, t:"s"|"n"}
+function sheetXml(rows){
+  let out='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+  rows.forEach((row,ri)=>{ out+='<row r="'+(ri+1)+'">';
+    row.forEach((cell,ci)=>{ const ref=colRef(ci+1)+(ri+1);
+      if(cell==null||cell.v===""||cell.v==null) return;
+      if(cell.t==="n") out+='<c r="'+ref+'"><v>'+cell.v+'</v></c>';
+      else out+='<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xesc(cell.v)+'</t></is></c>';
+    }); out+='</row>'; });
+  return out+'</sheetData></worksheet>';
+}
+function makeXlsx(sheets){   // sheets: [{name, rows}]
+  const files=[];
+  const names=sheets.map((s,i)=>({name:String(s.name).slice(0,31)||("Sheet"+(i+1)), rid:"rId"+(i+1), file:"sheet"+(i+1)+".xml"}));
+  files.push(["[Content_Types].xml",
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+    '<Default Extension="xml" ContentType="application/xml"/>'+
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+    names.map(n=>'<Override PartName="/xl/worksheets/'+n.file+'" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("")+
+    '</Types>']);
+  files.push(["_rels/.rels",
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'+
+    '</Relationships>']);
+  files.push(["xl/workbook.xml",
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+
+    names.map((n,i)=>'<sheet name="'+xesc(n.name)+'" sheetId="'+(i+1)+'" r:id="'+n.rid+'"/>').join("")+
+    '</sheets></workbook>']);
+  files.push(["xl/_rels/workbook.xml.rels",
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    names.map(n=>'<Relationship Id="'+n.rid+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/'+n.file+'"/>').join("")+
+    '</Relationships>']);
+  sheets.forEach((s,i)=>files.push(["xl/worksheets/"+names[i].file, sheetXml(s.rows)]));
+  // stored (uncompressed) ZIP
+  const parts=[], central=[]; let offset=0;
+  const u16=n=>[n&255,(n>>8)&255], u32=n=>[n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255];
+  files.forEach(([name,text])=>{
+    const nb=ENC.encode(name), db=ENC.encode(text), crc=crc32(db);
+    const lh=[...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),
+              ...u32(crc),...u32(db.length),...u32(db.length),...u16(nb.length),...u16(0)];
+    parts.push(new Uint8Array(lh), nb, db);
+    central.push([[...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),
+                   ...u32(crc),...u32(db.length),...u32(db.length),...u16(nb.length),
+                   ...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(offset)], nb]);
+    offset += lh.length + nb.length + db.length;
+  });
+  const cdParts=[]; let cdSize=0;
+  central.forEach(([hdr,nb])=>{ const h=new Uint8Array(hdr); cdParts.push(h, nb); cdSize+=h.length+nb.length; });
+  const eocd=new Uint8Array([...u32(0x06054b50),...u16(0),...u16(0),...u16(files.length),...u16(files.length),
+                             ...u32(cdSize),...u32(offset),...u16(0)]);
+  return new Blob([...parts,...cdParts,eocd],
+    {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+
+// ---- export the live upload file ------------------------------------------
+// Written back into Amazon's OWN worksheets, with Amazon's OWN header spelling
+// ("Ad group ID", "Targeting ID", ...). Amazon matches sheet AND column names on
+// upload, so a renamed sheet or column is silently ignored.
+const UP_ORDER=[["product","product"],["entity","entity"],["operation",null],
+                ["campaign_id","cid"],["adgroup_id","agid"],
+                ["keyword_id","kid"],["target_id","tid"],["bid",null]];
+function exportUpload(type){
+  type = type || "all";
+  const P=currentParams();
+  const src=DATA.rows.filter(r=> (type==="all" ? true : productType(r)===type) && (!perAsinOnly || rowMatchesAsins(r))).map(r=>computeRow(r,P));
+  const changed=src.filter(r=>(r.action==="increase"||r.action==="reduce")&&r.newbid!=null);
+  const tag = type==="all" ? "ALL" : type.toUpperCase();
+  if(!changed.length){ alert(`No ${tag} bid changes to export at the current settings.`); return; }
+  // IDs must be plain integer strings — not NaN, not 4.2E+14 scientific notation.
+  const idStr=v=>{ if(v==null) return ""; if(typeof v==="number"&&isNaN(v)) return ""; let s=String(v).trim();
+    if(s===""||s.toLowerCase()==="nan") return ""; if(/^\d+$/.test(s)) return s;
+    const n=Number(s); return Number.isFinite(n) ? BigInt(Math.round(n)).toString() : s; };
+  const SH=DATA.sheetHeaders||{};
+  const groups=new Map();
+  changed.forEach(r=>{ const k=r.sheet||""; if(!SH[k]) return; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(r); });
+  if(!groups.size){ alert("Could not match these rows to an Amazon worksheet — export the engine file from Downloads instead."); return; }
+  const sheets=[];
+  groups.forEach((rows,sname)=>{
+    const hdr=SH[sname];
+    const fields=UP_ORDER.filter(([k])=>hdr[k]);
+    const head=fields.map(([k])=>({v:hdr[k],t:"s"}));
+    const body=rows.map(r=>fields.map(([k,src])=>{
+      if(k==="operation") return {v:"update",t:"s"};
+      if(k==="bid")       return {v:r.newbid.toFixed(2),t:"n"};
+      if(k==="product")   return {v:r.product||"",t:"s"};
+      if(k==="entity")    return {v:r.entity||"",t:"s"};
+      return {v:idStr(r[src]),t:"s"};   // IDs as TEXT cells — Excel can't mangle them
+    }));
+    sheets.push({name:sname, rows:[head,...body]});
+  });
+  dl(makeXlsx(sheets), `${DATA.brand}_upload_${tag}_tACOS${p_tacos.value}.xlsx`);
+}
+function dlSettingsFn(){ const P=currentParams(); dl(new Blob([JSON.stringify(P,null,2)],{type:"application/json"}), `${DATA.brand}_params.json`); }
+function b64ToBlob(b64, mime){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return new Blob([u],{type:mime}); }
+function dlEngineFiles(){
+  const e=DATA.embedded||{}; const xl="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if(!e.analysis_b64 && !e.upload_b64){ alert("Engine files were not embedded in this dashboard."); return; }
+  const jobs=[];
+  if(e.analysis_b64) jobs.push([e.analysis_b64, e.analysis_name||"analysis.xlsx"]);
+  if(e.upload_b64)   jobs.push([e.upload_b64,   e.upload_name||"upload.xlsx"]);
+  // Download sequentially with a comfortable gap so the browser doesn't drop the 2nd file.
+  jobs.forEach(([b64,name],i)=> setTimeout(()=>dl(b64ToBlob(b64,xl), name), i*900));
+  if(jobs.length>1) setTimeout(()=>{ /* gentle hint if browser blocks multi-download */ }, 100);
+}
+function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); }
+
+// ---- tabs + wiring ---------------------------------------------------------
+const TABS={tUpload:"paneUpload",tParams:"paneParams",tAdjust:"paneAdjust",tControl:"paneControl",tBids:"paneBids",tReview:"paneReview"};
+const DARK_TABS={tBids:1,tReview:1};  // Output & ASIN-conflict use the dark canvas
+function switchTab(btnId){ for(const [b,p] of Object.entries(TABS)){ const on=b===btnId; document.getElementById(b).classList.toggle("on",on); document.getElementById(p).classList.toggle("on",on); }
+  document.querySelector(".content").classList.toggle("dark", !!DARK_TABS[btnId]); }
+Object.keys(TABS).forEach(b=>document.getElementById(b).onclick=()=>switchTab(b));
+
+document.querySelectorAll("thead th").forEach(th=>th.onclick=()=>{ const k=th.dataset.k; if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=1;} render(); });
+[search,fAction,fPrimary,hideSkip].forEach(el=>el.addEventListener("input",render));
+// On mode switch, clear adjustment amounts to 0.00 (percent and cents are different
+// operations — no meaningful conversion). ACOS thresholds & Targets are left untouched.
+function clearAdjFields(){
+  const ids=["rt_r0","rt_r1","rt_r2","rt_r3","rt_r4","rt_r5","it_r0","it_r1","it_r2",
+             "a_zeroimp_inc","a_lowact_inc","a_high_red","a_mid_red"];
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value="0.00"; });
+}
+cPct.onclick=()=>{ if(cPct.classList.contains("on"))return; clearAdjFields(); cPct.classList.add("on");cCent.classList.remove("on"); refreshUnits();recompute(); };
+cCent.onclick=()=>{ if(cCent.classList.contains("on"))return; clearAdjFields(); cCent.classList.add("on");cPct.classList.remove("on"); refreshUnits();recompute(); };
+exAll.onclick=()=>exportUpload("all"); exSP.onclick=()=>exportUpload("sp"); exSB.onclick=()=>exportUpload("sb"); exSD.onclick=()=>exportUpload("sd");
+dlSettings.onclick=dlSettingsFn;
+// The analysis workbook is a frozen snapshot from the original engine run (pmod excluded, all ad types,
+// engine params). Build a signature of that baseline and compare to the live settings on download,
+// so the user is warned if the workbook no longer matches what's on screen.
+function settingsSig(P, pmodExcl, type){
+  const r=(P.acos_reduce_tiers||[]).map(t=>`${t.acos_above}:${t.reduce_by}`).join(",");
+  const i=(P.acos_increase_tiers||[]).map(t=>`${t.acos_below}:${t.increase_by}`).join(",");
+  return JSON.stringify([P.target_acos,P.low_impressions,P.high_clicks,P.high_spend,P.low_clicks,P.low_spend,
+    P.max_bid,P.zero_impr_no_clicks_increase_by,P.low_activity_increase_by,P.high_no_sales_reduce_by,
+    P.mid_no_sales_reduce_by,P.click_thresholds,r,i,!!pmodExcl,type||"all"]);
+}
+const BASELINE_SIG = settingsSig(P0, true, "all");  // the state the workbook was generated with
+dlAnalysis.onclick=()=>{ const e=DATA.embedded||{}; const xl="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if(!e.analysis_b64){ alert("Analysis workbook was not embedded in this dashboard."); return; }
+  const liveSig = settingsSig(currentParams(), pmodExclude, curType);
+  if(liveSig !== BASELINE_SIG){
+    const ok = confirm(
+      "Heads-up: the analysis workbook is a frozen snapshot from the ORIGINAL engine run.\n\n"+
+      "Your current on-screen settings differ from that run (e.g. the placement-modifier toggle, targets, "+
+      "or bid rules have changed), so the workbook will NOT reflect your live edits — rows may show different "+
+      "actions than the Output view.\n\n"+
+      "For a workbook that matches your live edits, re-run the engine with your chosen settings.\n\n"+
+      "Download the original workbook anyway?");
+    if(!ok) return;
+  }
+  dl(b64ToBlob(e.analysis_b64,xl), e.analysis_name||"analysis.xlsx"); };
+// master ad-type selector (Setup) — re-scopes the whole calculation to the chosen type
+const TYPE_BTN={tyAll:"all",tySP:"sp",tySB:"sb",tySD:"sd"};
+const TYPE_LABEL={all:"All ad types",sp:"Sponsored Products (SP)",sb:"Sponsored Brands (SB)",sd:"Sponsored Display (SD)"};
+Object.keys(TYPE_BTN).forEach(b=>document.getElementById(b).onclick=()=>{
+  curType=TYPE_BTN[b];
+  Object.keys(TYPE_BTN).forEach(x=>document.getElementById(x).classList.toggle("on",x===b));
+  if(typeof scopeLabel!=="undefined") scopeLabel.textContent=TYPE_LABEL[curType];
+  recompute();
+});
+resetBtn.onclick=()=>{ fillFields(false); bindInputs(); recompute(); };
+// placement-modifier exclusion toggle
+pmodOn.onclick=()=>{ if(pmodExclude)return; pmodExclude=true; pmodOn.classList.add("on"); pmodOff.classList.remove("on"); recompute(); };
+pmodOff.onclick=()=>{ if(!pmodExclude)return; pmodExclude=false; pmodOff.classList.add("on"); pmodOn.classList.remove("on"); recompute(); };
+// per-ASIN scope toggle
+function refreshAsinScope(){
+  asinBox.style.display = perAsinOnly ? "block" : "none";
+  targetAsins = perAsinOnly ? parseAsins(p_asins.value) : [];
+  if(perAsinOnly){
+    if(!targetAsins.length){
+      asinHint.textContent = "Enter at least one ASIN — nothing is optimized until you do.";
+      asinHint.style.color = "var(--rev-ink, #A9741F)";
+    } else {
+      const matches = DATA.rows.filter(rowMatchesAsins).length;
+      asinHint.textContent = `Targeting ${targetAsins.length} ASIN(s): ${targetAsins.join(", ")} — ${matches} matching keyword/target row(s).`;
+      asinHint.style.color = "var(--muted)";
+    }
+  }
+}
+scopeAll.onclick=()=>{ if(!perAsinOnly)return; perAsinOnly=false; scopeAll.classList.add("on"); scopePerAsin.classList.remove("on"); refreshAsinScope(); recompute(); };
+scopePerAsin.onclick=()=>{ if(perAsinOnly)return; perAsinOnly=true; scopePerAsin.classList.add("on"); scopeAll.classList.remove("on"); refreshAsinScope(); recompute(); };
+p_asins.oninput=()=>{ refreshAsinScope(); recompute(); };
+function refreshBranded(){
+  brandedTerms = parseBranded(p_branded.value);
+  if(brandedTerms.length){
+    const n = DATA.rows.filter(r=>matchesBranded(r.kw)).length;
+    brandedHint.innerHTML = `Excluding ${brandedTerms.length} branded term(s): ${brandedTerms.join(", ")} — ${n} matching keyword(s) held as <strong>Review — Branded</strong> (no change, not in upload).`;
+  } else {
+    brandedHint.innerHTML = `Keywords whose text contains one of these terms are held as <strong>Review — Branded</strong> (no change, excluded from the upload file).`;
+  }
+}
+p_branded.oninput=()=>{ refreshBranded(); recompute(); };
+// timeframe (decision window) toggle
+const TF_BTNS = {"":"tfOrig","7d":"tf7","14d":"tf14","30d":"tf30","60d":"tf60"};
+function setWindow(w){
+  if(forceWindow===w) return;
+  forceWindow=w;
+  Object.entries(TF_BTNS).forEach(([val,id])=>{ const el=document.getElementById(id); if(el) el.classList.toggle("on", val===w); });
+  // dim the min-clicks section when a single window is forced (it's ignored then)
+  const ds=document.getElementById("dataSuffHead"); if(ds) ds.style.opacity = w? .4 : 1;
+  recompute();
+}
+tfOrig.onclick=()=>setWindow("");
+tf7.onclick=()=>setWindow("7d");
+tf14.onclick=()=>setWindow("14d");
+tf30.onclick=()=>setWindow("30d");
+tf60.onclick=()=>setWindow("60d");
+function bindInputs(){
+  document.querySelectorAll('#paneParams input,#paneParams select,#paneAdjust input').forEach(el=>{
+    el.oninput=recompute; el.onchange=recompute; });
+  // currency must also relabel the unit spans (recompute alone doesn't touch labels)
+  p_currency.onchange=()=>{ refreshUnits(); recompute(); };
+}
+
+// Pre-fill from the params the engine ran with IF they were explicitly provided (--params);
+// otherwise start blank (nothing invented). Reset always restores these same params (P0).
+fillFields(!DATA.prefill); bindInputs(); refreshAsinScope(); refreshBranded(); recompute();
+
+/* ============================================================================
+   Standalone loader — reads Amazon bulk .xlsx files in the browser and builds
+   the same payload the Python engine used to embed. Mirrors collect(),
+   flag_multi_asin_campaigns() and build_payload_rows() from optimize_bids.py.
+   ========================================================================== */
+
+// ---------------- minimal ZIP reader (central directory + inflate) ----------
+const TDEC = new TextDecoder("utf-8");
+function _u16(b,o){ return b[o]|(b[o+1]<<8); }
+function _u32(b,o){ return (b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0; }
+function zipDir(b){
+  let e=-1; const lim=Math.max(0,b.length-66000);
+  for(let i=b.length-22;i>=lim;i--){ if(_u32(b,i)===0x06054b50){ e=i; break; } }
+  if(e<0) throw new Error("Not a valid .xlsx file (no ZIP end record).");
+  let n=_u16(b,e+10), off=_u32(b,e+16);
+  if(n===0xFFFF || off===0xFFFFFFFF){                       // ZIP64
+    const loc=e-20;
+    if(loc>=0 && _u32(b,loc)===0x07064b50){
+      const dv=new DataView(b.buffer,b.byteOffset);
+      const z64=Number(dv.getBigUint64(loc+8,true));
+      n  =Number(dv.getBigUint64(z64+32,true));
+      off=Number(dv.getBigUint64(z64+48,true));
+    } else throw new Error("ZIP64 archive without a locator — cannot read this file.");
+  }
+  const out={}; let p=off;
+  for(let i=0;i<n;i++){
+    if(_u32(b,p)!==0x02014b50) break;
+    const method=_u16(b,p+10), csize=_u32(b,p+20),
+          nlen=_u16(b,p+28), elen=_u16(b,p+30), clen=_u16(b,p+32), lho=_u32(b,p+42);
+    out[TDEC.decode(b.subarray(p+46,p+46+nlen))]={method,csize,lho};
+    p+=46+nlen+elen+clen;
+  }
+  return out;
+}
+async function entryText(b, ent){
+  if(!ent) return "";
+  const p=ent.lho;
+  if(_u32(b,p)!==0x04034b50) throw new Error("Corrupt .xlsx (bad local header).");
+  const start=p+30+_u16(b,p+26)+_u16(b,p+28);
+  const data=b.subarray(start, start+ent.csize);
+  if(ent.method===0) return TDEC.decode(data);
+  if(typeof DecompressionStream==="undefined")
+    throw new Error("This browser cannot unzip .xlsx files. Use a recent Chrome, Edge, Safari or Firefox.");
+  const stream=new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return await new Response(stream).text();
+}
+
+// ---------------- XML helpers ----------------------------------------------
+const ENT={"&amp;":"&","&lt;":"<","&gt;":">","&quot;":'"',"&apos;":"'"};
+function xdec(s){
+  if(s.indexOf("&")<0) return s;
+  return s.replace(/&(?:amp|lt|gt|quot|apos);|&#x?[0-9a-fA-F]+;/g, m=>{
+    if(ENT[m]!==undefined) return ENT[m];
+    const hex=m[2]==="x"||m[2]==="X";
+    return String.fromCodePoint(parseInt(m.slice(hex?3:2,-1), hex?16:10));
+  });
+}
+function colIdx(ref){ let n=0; for(let i=0;i<ref.length;i++){ const c=ref.charCodeAt(i);
+  if(c>=65&&c<=90) n=n*26+(c-64); else break; } return n-1; }
+
+const RE_SI   = /<si>([\s\S]*?)<\/si>|<si\/>/g;
+const RE_T    = /<t[^>]*>([\s\S]*?)<\/t>/g;
+const RE_ROW  = /<row([^>]*?)(?:\/>|>([\s\S]*?)<\/row>)/g;
+const RE_CELL = /<c([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+const RE_V    = /<v[^>]*>([\s\S]*?)<\/v>/;
+
+function parseShared(xml){
+  const out=[]; let m; RE_SI.lastIndex=0;
+  while((m=RE_SI.exec(xml))){
+    const inner=m[1];
+    if(inner==null){ out.push(""); continue; }
+    let s="", t; RE_T.lastIndex=0;
+    while((t=RE_T.exec(inner))) s+=t[1];
+    out.push(xdec(s));
+  }
+  return out;
+}
+function parseCells(inner, shared){
+  const cells=[]; let m; RE_CELL.lastIndex=0; let auto=0;
+  while((m=RE_CELL.exec(inner))){
+    const attrs=m[1]||"", body=m[2]||"";
+    const rm=/r="([A-Z]+)/.exec(attrs);
+    const ci=rm?colIdx(rm[1]):auto; auto=ci+1;
+    const tm=/t="([^"]+)"/.exec(attrs), t=tm?tm[1]:"";
+    let val="";
+    if(t==="inlineStr"){ let x,s=""; RE_T.lastIndex=0; while((x=RE_T.exec(body))) s+=x[1]; val=xdec(s); }
+    else if(t!=="e"){
+      const v=RE_V.exec(body);
+      if(v) val = (t==="s") ? (shared[+v[1]]??"") : xdec(v[1]);
+    }
+    cells[ci]=val;
+  }
+  return cells;
+}
+
+/* Walk every campaign-ish worksheet of one bulk file, calling
+   cb(sheetName, headerCells, rowCells) for each data row. */
+async function forEachBulkRow(file, cb, tick){
+  const buf=new Uint8Array(await file.arrayBuffer());
+  const dir=zipDir(buf);
+  const shared = dir["xl/sharedStrings.xml"] ? parseShared(await entryText(buf, dir["xl/sharedStrings.xml"])) : [];
+  const relsXml = await entryText(buf, dir["xl/_rels/workbook.xml.rels"]);
+  const rel={}; let r;
+  const RE_REL=/<Relationship\s([^>]*?)\/?>/g;
+  while((r=RE_REL.exec(relsXml))){
+    const id=/Id="([^"]+)"/.exec(r[1]), tg=/Target="([^"]+)"/.exec(r[1]);
+    if(id&&tg) rel[id[1]]=tg[1];
+  }
+  const wbXml=await entryText(buf, dir["xl/workbook.xml"]);
+  const sheets=[]; const RE_SHEET=/<sheet\s([^>]*?)\/?>/g; let s;
+  while((s=RE_SHEET.exec(wbXml))){
+    const nm=/name="([^"]*)"/.exec(s[1]), rid=/r:id="([^"]+)"/.exec(s[1]);
+    if(!nm||!rid) continue;
+    let t=(rel[rid[1]]||"").replace(/^\//,"");
+    if(!t) continue;
+    sheets.push({name:xdec(nm[1]), path:(t.indexOf("xl/")===0? t : "xl/"+t)});
+  }
+  for(const sh of sheets){
+    if(!isCampSheet(sh.name)) continue;
+    const ent=dir[sh.path]; if(!ent) continue;
+    const xml=await entryText(buf, ent);
+    let head=null, m=0, n=0; RE_ROW.lastIndex=0; let rm;
+    while((rm=RE_ROW.exec(xml))){
+      const inner=rm[2]; if(inner==null) continue;
+      const cells=parseCells(inner, shared);
+      if(!head){ head=cells; continue; }
+      cb(sh.name, head, cells);
+      if((++n % 4000)===0 && tick) await tick(sh.name, n);
+    }
+  }
+}
+
+// ---------------- column mapping (mirrors COLS in optimize_bids.py) --------
+const COLS={
+  product:["product"], entity:["entity"], operation:["operation"],
+  campaign_id:["campaign id"], adgroup_id:["ad group id"], keyword_id:["keyword id"],
+  target_id:["product targeting id","target id","targeting id"],
+  campaign_name:["campaign name","campaign name (informational only)"],
+  campaign_name_info:["campaign name (informational only)"],
+  adgroup_name:["ad group name","ad group name (informational only)"],
+  adgroup_name_info:["ad group name (informational only)"],
+  state:["state"], campaign_state:["campaign state (informational only)"],
+  adgroup_state:["ad group state (informational only)"],
+  keyword_text:["keyword text"],
+  target_expr:["product targeting expression","targeting expression","resolved product targeting expression (informational only)"],
+  match_type:["match type"], asin:["asin","asin (informational only)","sku"],
+  bid:["bid"], placement:["placement"], percentage:["percentage"],
+  impressions:["impressions"], clicks:["clicks"], spend:["spend"],
+  sales:["sales","14 day total sales","14 day total sales (informational only)","7 day total sales","sales (informational only)"],
+  orders:["orders","units","14 day total orders (#)","14 day total orders","orders (informational only)"],
+};
+function nrm(s){ return String(s==null?"":s).trim().toLowerCase().replace(/\s+/g," "); }
+function isCampSheet(name){ const n=nrm(name);
+  return ["sponsored","campaign","product","brand","display"].some(k=>n.indexOf(k)>=0); }
+function resolveCols(head){
+  const idx={}; head.forEach((h,i)=>{ const k=nrm(h); if(k && !(k in idx)) idx[k]=i; });
+  const res={};
+  for(const key in COLS){ for(const cand of COLS[key]){ const k=nrm(cand);
+      if(k in idx){ res[key]={i:idx[k], name:String(head[idx[k]])}; break; } } }
+  return res;
+}
+function cv(cells, c, key){ const e=c[key]; return e===undefined?"":(cells[e.i]===undefined?"":cells[e.i]); }
+function numv(v){
+  if(v===null||v===undefined) return 0;
+  if(typeof v==="number") return isFinite(v)?v:0;
+  let s=String(v).replace(/,/g,"").trim();
+  if(s==="") return 0;
+  const n=parseFloat(s);
+  return isNaN(n)?0:n;
+}
+function detectPeriod(fname){
+  const f=String(fname).toLowerCase();
+  for(const tag of ["60d","30d","14d","7d"]) if(f.indexOf(tag)>=0) return tag;
+  const m=/[_\-\s](60|30|14|7)[dD]?[_\-\s.]/.exec(f);
+  if(m) return m[1]+"d";
+  return "";
+}
+
+// ---------------- merge (mirrors collect()) --------------------------------
+const ASIN_RE=/\bB0[A-Z0-9]{8}\b/g;
+function asinsIn(s){ const f=String(s==null?"":s).toUpperCase().match(ASIN_RE); return f?[...new Set(f)]:[]; }
+
+async function buildPayload(fileSpecs, onProgress){
+  const entities=new Map(), campMetrics=new Map(), campAsins=new Map(),
+        campPlace=new Map(), sheetHeaders={};
+  const periodsLoaded=[];
+  for(const spec of fileSpecs){
+    const tag=spec.period;
+    if(!tag) continue;
+    periodsLoaded.push(tag);
+    await onProgress(`Reading ${spec.file.name} (${tag}) …`);
+    await forEachBulkRow(spec.file, (sname, head, cells)=>{
+      let c=spec._cols && spec._cols[sname];
+      if(!c){ c=resolveCols(head); (spec._cols=spec._cols||{})[sname]=c; }
+      if(!c.entity) return;
+      if(!sheetHeaders[sname]){
+        const h={};
+        ["product","entity","operation","campaign_id","adgroup_id","keyword_id","target_id","bid"]
+          .forEach(k=>{ if(c[k]) h[k]=c[k].name; });
+        sheetHeaders[sname]=h;
+      }
+      const ent=nrm(cv(cells,c,"entity"));
+      const cid=String(cv(cells,c,"campaign_id"));
+      const cname=String(cv(cells,c,"campaign_name") || cv(cells,c,"campaign_name_info") || "");
+
+      // active product ads -> campaign ASIN set
+      if((ent==="product ad"||ent==="product ads") && c.asin){
+        const st=[cv(cells,c,"state"),cv(cells,c,"campaign_state"),cv(cells,c,"adgroup_state")]
+                 .join(" ").toLowerCase();
+        const dead=["paused","archived","draft"].some(x=>st.indexOf(x)>=0);
+        const a=String(cv(cells,c,"asin")).trim();
+        if(a && !dead){ if(!campAsins.has(cid)) campAsins.set(cid,new Set()); campAsins.get(cid).add(a); }
+      }
+      // placement modifiers > 0
+      if((ent==="bidding adjustment"||ent==="bidding adjustments") && c.percentage){
+        const pct=numv(cv(cells,c,"percentage"));
+        if(pct>0){
+          const plc=String(cv(cells,c,"placement")).trim();
+          if(!campPlace.has(cid)) campPlace.set(cid,{});
+          const b=campPlace.get(cid);
+          if(b[plc]===undefined || pct>b[plc]) b[plc]=pct;
+        }
+      }
+      if(ent!=="keyword" && ent!=="product targeting") return;
+
+      const m={impr:numv(cv(cells,c,"impressions")), clicks:numv(cv(cells,c,"clicks")),
+               spend:numv(cv(cells,c,"spend")), sales:numv(cv(cells,c,"sales")),
+               orders:numv(cv(cells,c,"orders"))};
+      let cm=campMetrics.get(cid);
+      if(!cm){ cm={name:cname, periods:{}, state:""}; campMetrics.set(cid,cm); }
+      const cst=String(cv(cells,c,"campaign_state")).toLowerCase();
+      if(cst) cm.state=cst;
+      const cp=cm.periods[tag]||(cm.periods[tag]={spend:0,sales:0});
+      cp.spend+=m.spend; cp.sales+=m.sales;
+
+      const key=[cv(cells,c,"campaign_id"),cv(cells,c,"adgroup_id"),
+                 cv(cells,c,"keyword_id"),cv(cells,c,"target_id")].join("|");
+      let e=entities.get(key);
+      if(!e){
+        const kt=String(cv(cells,c,"keyword_text")).trim();
+        e={ product:String(cv(cells,c,"product")), entity:String(cv(cells,c,"entity")),
+            sheets:new Set(), campaign:cname, cid:cid,
+            agid:String(cv(cells,c,"adgroup_id")), kid:String(cv(cells,c,"keyword_id")),
+            tid:String(cv(cells,c,"target_id")),
+            kw: kt || String(cv(cells,c,"target_expr")).trim(),
+            match:String(cv(cells,c,"match_type")),
+            bid:numv(cv(cells,c,"bid")),
+            agname:(String(cv(cells,c,"adgroup_name")).trim() || String(cv(cells,c,"adgroup_name_info")).trim()),
+            state:[cv(cells,c,"state"),cv(cells,c,"campaign_state"),cv(cells,c,"adgroup_state")].join(" ").toLowerCase(),
+            periods:{} };
+        entities.set(key,e);
+      }
+      e.sheets.add(sname);
+      if(!e.bid) e.bid=numv(cv(cells,c,"bid"));
+      if(!e.agname) e.agname=(String(cv(cells,c,"adgroup_name")).trim() || String(cv(cells,c,"adgroup_name_info")).trim());
+      if(!e.campaign) e.campaign=cname;
+      e.periods[tag]=m;
+    }, async (sn,n)=>{ await onProgress(`Reading ${spec.file.name} (${tag}) — ${sn}: ${n.toLocaleString()} rows …`); });
+    spec._cols=null;
+  }
+
+  // ---- multi-ASIN flagging (mirrors flag_multi_asin_campaigns) ----
+  await onProgress("Flagging multi-ASIN campaigns …");
+  const topTier=P0.acos_reduce_tiers[0].acos_above;
+  const flagged={};
+  campMetrics.forEach((cm,cid)=>{
+    if((cm.state||"").indexOf("paused")>=0) return;
+    let n=(campAsins.get(cid)||new Set()).size;
+    if(n===0) n=asinsIn(cm.name).length;
+    if(n < P0.multi_asin_min_asins) return;
+    let spend=0,sales=0;
+    Object.values(cm.periods).forEach(x=>{spend+=x.spend; sales+=x.sales;});
+    if(spend < P0.multi_asin_min_spend) return;
+    const acos = sales>0 ? spend/sales : Infinity;
+    const acosBad = acos > topTier;
+    const wastedBad = (sales===0 && spend>=P0.multi_asin_min_spend) ||
+                      (acos > 1/Math.max(P0.multi_asin_wasted_share,1e-9));
+    if(acosBad && wastedBad)
+      flagged[cid]={name:cm.name, asins:n, spend:Math.round(spend*100)/100,
+                    sales:Math.round(sales*100)/100,
+                    acos: isFinite(acos)? Math.round(acos*10000)/10000 : null};
+  });
+
+  // ---- payload rows (mirrors build_payload_rows) ----
+  await onProgress("Building the bid table …");
+  const rankKw=(P0.rank_keyword||"RANK").toLowerCase();
+  const rows=[];
+  entities.forEach(e=>{
+    const pm=campPlace.get(e.cid);
+    const pmodDesc = pm ? Object.keys(pm).slice(0,4)
+      .map(k=>`${k.replace("Placement ","")} ${Math.round(pm[k])}%`).join(", ") : "";
+    const skip = e.state.indexOf("paused")>=0 || e.state.indexOf("draft")>=0 || !e.bid;
+    const ag=asinsIn(e.agname);
+    rows.push({ product:e.product, entity:e.entity, sheet:canonicalSheet([...e.sheets]),
+      campaign:e.campaign, cid:e.cid, agid:e.agid, kid:e.kid, tid:e.tid,
+      kw:e.kw, match:e.match, bid: e.bid?Math.round(e.bid*100)/100:0,
+      agname:e.agname, agasins:ag, perasin: ag.length>0,
+      skip:!!skip, rank:(e.campaign||"").toLowerCase().indexOf(rankKw)>=0,
+      pause: Object.prototype.hasOwnProperty.call(flagged,e.cid),
+      pmod:!!pm, pmodDesc:pmodDesc, periods:e.periods });
+  });
+  const review=Object.keys(flagged).map(cid=>Object.assign({cid:cid},flagged[cid]));
+  return { rows, review, sheetHeaders,
+           periods:[...new Set(periodsLoaded)],
+           campaigns:campMetrics.size };
+}
+
+const SHEET_PREFERENCE=["sb multi ad group campaigns","sponsored products campaigns",
+                        "sponsored display campaigns","sponsored brands campaigns"];
+function canonicalSheet(names){
+  const ns=names.filter(Boolean);
+  if(!ns.length) return "";
+  if(ns.length===1) return ns[0];
+  return ns.slice().sort((a,b)=>{
+    const ia=SHEET_PREFERENCE.indexOf(nrm(a)), ib=SHEET_PREFERENCE.indexOf(nrm(b));
+    return ((ia<0?99:ia)-(ib<0?99:ib)) || a.localeCompare(b);
+  })[0];
+}
+
+// ---------------- live analysis workbook -----------------------------------
+function exportAnalysis(){
+  if(!DATA.rows.length){ alert("Load your bulk files first."); return; }
+  const P=currentParams();
+  const cur=p_currency.value;
+  const head=["Product","Entity","Campaign","Campaign ID","Ad Group","Ad Group ID",
+    "Keyword/Target","Match Type","Current Bid","Primary Period"];
+  PRIO.forEach(t=>head.push(`${t} Clicks`,`${t} Spend`,`${t} Sales`,`${t} Orders`,`${t} ACOS`));
+  head.push("Primary Clicks","Primary Spend","Primary Sales","Primary Orders",
+            "New Bid","Bid Delta","Action","Notes");
+  const S=v=>({v:v==null?"":String(v),t:"s"});
+  const N=v=>(v==null||v===""||isNaN(v))?{v:"",t:"s"}:{v:Number(v),t:"n"};
+  const body=computed.map(r=>{
+    const K=kpiOf(r), d=bidDelta(r), out=[S(r.product),S(r.entity),S(r.campaign),S(r.cid),
+      S(r.agname),S(r.agid),S(r.kw),S(r.match),N(r.bid),S(r.primary)];
+    PRIO.forEach(t=>{ const m=r.periods[t];
+      if(!m){ out.push(S(""),S(""),S(""),S(""),S("")); return; }
+      const a=periodAcos(m);
+      out.push(N(m.clicks),N(m.spend),N(m.sales),N(m.orders||0),
+               isFinite(a)&&a>0?N(Math.round(a*10000)/10000):S(a===0?"":"no sales"));
+    });
+    out.push(N(K.clicks),N(K.spend),N(K.sales),N(K.orders),
+             r.newbid==null?S(""):N(r.newbid), d==null?S(""):N(Math.round(d*100)/100),
+             S(r.action),S(r.note));
+    return out;
+  });
+  const sheets=[{name:"Bid Changes", rows:[head.map(S),...body]}];
+  const rv=DATA.review||[];
+  sheets.push({name:"Campaigns to Review", rows:[
+    ["Campaign ID","Campaign","ASINs","Spend","Sales","ACOS"].map(S),
+    ...rv.map(c=>[S(c.cid),S(c.name),N(c.asins),N(c.spend),N(c.sales),
+                  c.acos==null?S("no sales"):N(c.acos)])]});
+  dl(makeXlsx(sheets), `${DATA.brand}_analysis_tACOS${p_tacos.value||"NA"}.xlsx`);
+}
+
+// ---------------- upload-pane wiring ---------------------------------------
+const PICKED=[];
+function fmtSize(n){ return n>1048576 ? (n/1048576).toFixed(1)+" MB" : Math.max(1,Math.round(n/1024))+" KB"; }
+function renderFileList(){
+  if(!PICKED.length){ fileList.innerHTML=""; runBtn.disabled=true; return; }
+  fileList.innerHTML=PICKED.map((f,i)=>`
+    <div class="filerow">
+      <span class="fx">XLSX</span>
+      <span class="fn" title="${esc(f.file.name)}">${esc(f.file.name)}</span>
+      <span class="fs">${fmtSize(f.file.size)}</span>
+      <select data-i="${i}" class="fp">
+        ${["7d","14d","30d","60d"].map(t=>`<option value="${t}"${f.period===t?" selected":""}>${t}</option>`).join("")}
+      </select>
+      <button class="fdel" data-i="${i}" title="Remove">&times;</button>
+    </div>`).join("");
+  fileList.querySelectorAll("select.fp").forEach(s=>s.onchange=()=>{
+    PICKED[+s.dataset.i].period=s.value; renderFileList(); });
+  fileList.querySelectorAll("button.fdel").forEach(b=>b.onclick=()=>{
+    PICKED.splice(+b.dataset.i,1); renderFileList(); });
+  const dup=new Set(), clash=[];
+  PICKED.forEach(f=>{ if(dup.has(f.period)) clash.push(f.period); dup.add(f.period); });
+  runBtn.disabled=false;
+  if(clash.length) fileList.insertAdjacentHTML("beforeend",
+    `<div class="warn">Two files are both set to <strong>${clash[0]}</strong> — the later one overwrites the earlier. Set a different window for each file.</div>`);
+}
+function addFiles(list){
+  [...list].forEach(f=>{
+    if(!/\.xlsx$/i.test(f.name)){
+      status(`Skipped ${f.name} — bulk files must be .xlsx (not CSV or XLS).`, true); return; }
+    PICKED.push({file:f, period:detectPeriod(f.name)||guessFreePeriod()});
+  });
+  renderFileList();
+}
+function guessFreePeriod(){
+  const used=new Set(PICKED.map(f=>f.period));
+  return ["7d","14d","30d","60d"].find(t=>!used.has(t)) || "30d";
+}
+function status(msg, warn){
+  loadStatus.style.display="block";
+  loadStatus.className="loadstatus"+(warn?" warn":"");
+  loadStatus.innerHTML=msg;
+}
+async function paint(msg){ status(msg); await new Promise(r=>setTimeout(r,0)); }
+
+pickBtn.onclick=()=>fileInput.click();
+fileInput.onchange=()=>{ addFiles(fileInput.files); fileInput.value=""; };
+drop.addEventListener("dragover",e=>{ e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave",()=>drop.classList.remove("over"));
+drop.addEventListener("drop",e=>{ e.preventDefault(); drop.classList.remove("over");
+  addFiles(e.dataTransfer.files); });
+drop.addEventListener("click",e=>{ if(e.target===drop||e.target.closest(".dz-main,.dz-ico")) fileInput.click(); });
+clearBtn.onclick=()=>{ PICKED.length=0; renderFileList(); loadStatus.style.display="none"; };
+
+runBtn.onclick=async ()=>{
+  if(!PICKED.length) return;
+  runBtn.disabled=true; clearBtn.disabled=true;
+  const t0=performance.now();
+  try{
+    const out=await buildPayload(PICKED, paint);
+    if(!out.rows.length){
+      status("No biddable rows found. These may not be Amazon <em>bulk</em> files — bulk operations exports contain sheets like <strong>Sponsored Products Campaigns</strong> with an <strong>Entity</strong> column. Report exports (search term, advertised product) won't work here.", true);
+      runBtn.disabled=false; clearBtn.disabled=false; return;
+    }
+    DATA.rows=out.rows; DATA.review=out.review; DATA.sheetHeaders=out.sheetHeaders;
+    const brand=(u_brand.value||"").trim() ||
+      PICKED[0].file.name.replace(/\.xlsx$/i,"").replace(/[_\-\s]*(7|14|30|60)\s*d(ay(s)?)?/ig,"")
+        .replace(/bulk|sheet|export|operations?/ig,"").replace(/[_\-]+/g," ").trim() || "Brand";
+    DATA.brand=brand; brandTitle.textContent=brand; document.title=brand+" — Bid Optimizer";
+    srcNote.textContent=`${out.periods.join(" · ")} · ${PICKED.length} file(s)`;
+    refreshAsinScope(); refreshBranded(); recompute();
+    const secs=((performance.now()-t0)/1000).toFixed(1);
+    status(`Loaded <strong>${out.rows.length.toLocaleString()}</strong> keyword/target rows across
+      <strong>${out.campaigns.toLocaleString()}</strong> campaigns · windows ${out.periods.join(", ")} · ${secs}s.
+      Set your strategy in <strong>Setup</strong> and <strong>Bid Rules</strong>, then export from <strong>Downloads</strong>.`);
+    switchTab("tBids");
+  }catch(err){
+    status("Could not read the files: "+esc(err.message||err), true);
+    console.error(err);
+  }
+  runBtn.disabled=false; clearBtn.disabled=false;
+};
+
+// ---------------- direction mode + high-spend guard ------------------------
+// Suppression is a post-pass: it only ever turns a change into a no-change, so
+// the cascade itself is untouched and the row still carries the decision it
+// would have taken.
+const _computeRow=computeRow;
+computeRow=function(r,P){
+  const o=_computeRow(r,P);
+  if(dirMode==="up" && o.action==="reduce")
+    return {...o, action:"maintain", newbid:null, suppressed:"reduce",
+      note:"Increase-only mode \u2014 cut suppressed. Would have been: "+(o.note||"reduce")};
+  if(dirMode==="down" && o.action==="increase")
+    return {...o, action:"maintain", newbid:null, suppressed:"increase",
+      note:"Decrease-only mode \u2014 raise suppressed. Would have been: "+(o.note||"increase")};
+  return o;
+};
+
+const DIR_BTN={dirBoth:"both",dirUp:"up",dirDown:"down"};
+const DIR_NOTE={both:"", up:" \u00b7 <strong>Increase only</strong> \u2014 cuts are held and kept out of the upload file.",
+                down:" \u00b7 <strong>Decrease only</strong> \u2014 raises are held and kept out of the upload file."};
+function setDir(mode){
+  dirMode=mode;
+  Object.keys(DIR_BTN).forEach(b=>document.getElementById(b).classList.toggle("on",DIR_BTN[b]===mode));
+  modeNote.innerHTML=DIR_NOTE[mode]||"";
+  // land the Output filter on the direction being worked
+  fAction.value = mode==="up" ? "increase" : mode==="down" ? "reduce" : "";
+  recompute();
+}
+Object.keys(DIR_BTN).forEach(b=>document.getElementById(b).onclick=()=>{
+  if(dirMode!==DIR_BTN[b]) setDir(DIR_BTN[b]); });
+
+function setHsGuard(hold){
+  hsHold=hold;
+  hsHoldBtn.classList.toggle("on",hold); hsRedBtn.classList.toggle("on",!hold);
+  ruleHighRed.classList.toggle("inert",hold);
+  recompute();
+}
+hsHoldBtn.onclick=()=>{ if(!hsHold) setHsGuard(true); };
+hsRedBtn.onclick=()=>{ if(hsHold) setHsGuard(false); };
+ruleHighRed.classList.add("inert");
+
+// settings export carries the new controls too
+dlSettings.onclick=()=>{
+  const P=currentParams();
+  P.min_clicks=P.low_clicks;                 // Min Clicks is stored as low_clicks
+  P.direction_mode=dirMode;
+  P.high_spend_no_orders=hsHold?"hold":"reduce";
+  dl(new Blob([JSON.stringify(P,null,2)],{type:"application/json"}), `${DATA.brand}_params.json`);
+};
+
+// analysis workbook is now built live from the on-screen strategy
+dlAnalysis.onclick=exportAnalysis;
+
+// empty state until bulk files are loaded
+const _render=render;
+render=function(){
+  _render();
+  if(!DATA.rows.length){
+    tbody.innerHTML='<tr><td class="empty" colspan="17">No bulk files loaded yet — open <strong>Bulk files</strong> in the sidebar and drop your 7d / 14d / 30d / 60d exports in.</td></tr>';
+    cards.innerHTML="";
+  }
+};
+render();
+
+</script></body></html>

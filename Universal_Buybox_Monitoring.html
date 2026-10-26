@@ -1,0 +1,2304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Universal Amazon Buy Box Impact Monitor v8</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+window.addEventListener("load",()=>{
+  if(!window.XLSX){
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    document.head.appendChild(s);
+  }
+});
+</script>
+<style>
+:root{
+  --bg:#f5f7fa;--panel:#fff;--text:#17202a;--muted:#67768a;--line:#dfe5ec;
+  --nav:#131a22;--nav2:#232f3e;--accent:#ff9900;--blue:#146eb4;
+  /* Buy Box uses an absolute scale, so it stays a muted band rather than a filled block. */
+  --good:#e6efe7;--goodt:#2c5638;--watch:#f4efdf;--watcht:#6f5b28;
+  --warn:#f3e3d2;--warnt:#7d5227;--crit:#f0d9d1;--critt:#8a4230;--severe:#e3c4bb;--severet:#6d2c1d;
+  --shadow:0 2px 10px rgba(15,23,42,.07)
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}
+.topbar{background:var(--nav);color:#fff;min-height:58px;display:flex;align-items:center;gap:18px;padding:0 20px;position:sticky;top:0;z-index:50}
+.brand{font-weight:800;font-size:17px;letter-spacing:.1px}.brand span{color:var(--accent)}
+.db-pill{margin-left:auto;background:#263548;border:1px solid #405168;border-radius:999px;padding:6px 10px;font-size:12px}
+.nav{background:var(--nav2);padding:0 16px;display:flex;gap:4px;overflow:auto;position:sticky;top:58px;z-index:45}
+.nav button{border:0;background:transparent;color:#dce5ef;padding:12px 13px;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent}
+.nav button.active{color:#fff;border-bottom-color:var(--accent);font-weight:700}
+.wrap{max-width:1600px;margin:auto;padding:18px}
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.pad{padding:18px}
+h1,h2,h3{margin:0}h1{font-size:25px}h2{font-size:18px}h3{font-size:14px}
+.sub{color:var(--muted);margin-top:5px}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}
+.upload-box{border:1.5px dashed #aeb9c8;border-radius:10px;padding:16px;background:#fbfcfe}
+.upload-box strong{display:block;margin-bottom:3px}
+.btn{border:1px solid #bdc7d4;border-radius:8px;padding:9px 13px;background:#fff;cursor:pointer;font-weight:650}
+.btn:hover{background:#f6f8fa}.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.accent{background:var(--accent);border-color:#e48a00;color:#1f2933}.btn.danger{border-color:#e5a5a5;color:#9b1c1c}
+.btn.sm{padding:6px 9px;font-size:12px}
+input[type=file]{display:none}
+.file-label{display:inline-block;margin-top:10px}
+.form-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=text],input[type=date],input[type=number],select{border:1px solid #cdd6e1;border-radius:7px;padding:8px 9px;background:#fff;min-height:36px}
+.settings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+label.field{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:12px}
+label.field input,label.field select{color:var(--text)}
+.status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.status-item{border:1px solid var(--line);border-radius:9px;padding:10px}.status-item small{display:block;color:var(--muted)}.status-item b{font-size:16px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.kpi{padding:14px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+.kpi .value{font-size:23px;font-weight:800;margin-top:5px}.kpi .hint{font-size:11px;color:var(--muted);margin-top:4px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.toolbar .grow{flex:1}.toolbar input{min-width:180px}
+.tab{display:none}.tab.active{display:block}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff;max-height:68vh}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:1100px}
+th,td{border-bottom:1px solid #e7ebf0;padding:8px 9px;text-align:right;white-space:nowrap}
+th{position:sticky;top:0;background:#f0f3f7;z-index:5;font-size:11px;text-transform:uppercase;letter-spacing:.35px;color:#4c5b6d;cursor:pointer}
+th.left,td.left{text-align:left}.sticky1{position:sticky;left:0;z-index:4;background:#fff;width:132px;min-width:132px;max-width:132px}
+.sticky2{position:sticky;left:132px;z-index:4;background:#fff}
+/* A td cannot clip its own overflow reliably, so long titles clip an inner block. */
+td.sticky1>*{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+/* Product names wrap onto a second line rather than being cut mid-word. */
+td.product-col>*{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;max-width:100%;line-height:1.35}
+td.product-col,th.product-col{overflow:hidden;white-space:normal;vertical-align:middle}
+th,td{vertical-align:middle}
+tbody td{padding-top:9px;padding-bottom:9px}
+td.sticky2.product-col{max-width:var(--product-col-width)}
+th.sticky1,th.sticky2{z-index:8;background:#f0f3f7}
+tr:hover td{background:#fbfcfe}tr:hover td.sticky1,tr:hover td.sticky2{background:#fbfcfe}
+.asin-link{color:var(--blue);font-weight:750;cursor:pointer}
+.bb{font-weight:750;border-radius:6px;padding:4px 8px;display:inline-block;min-width:62px;text-align:center;border:1px solid rgba(0,0,0,.05)}
+.bb.good{background:var(--good);color:var(--goodt)}.bb.watch{background:var(--watch);color:var(--watcht)}.bb.warn{background:var(--warn);color:var(--warnt)}.bb.crit{background:var(--crit);color:var(--critt)}.bb.severe{background:var(--severe);color:var(--severet)}.bb.na{background:#eef1f5;color:#788596}
+.delta.up{color:#167442;font-weight:800}.delta.down{color:#b42318;font-weight:800}.delta.flat{color:#687588}
+.badge{border-radius:999px;padding:4px 8px;font-size:11px;font-weight:750;display:inline-block}
+.badge.critical{background:#ffe0df;color:#9b1c1c}.badge.high{background:#ffe9cf;color:#8a4700}.badge.medium{background:#fff7df;color:#7a5a00}.badge.low{background:#e7f6ed;color:#176b3a}.badge.info{background:#e9f2ff;color:#145a96}
+.insights{display:grid;gap:7px;padding:0;margin:0;list-style:none}.insights li{padding:9px 10px;border-left:3px solid var(--blue);background:#f8fbff;border-radius:5px}
+.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
+.notice{border:1px solid #f1cf83;background:#fff9e8;color:#705000;border-radius:9px;padding:10px 12px;margin:10px 0}
+.error{border-color:#efb2b2;background:#fff1f1;color:#8f1c1c}
+.success{border-color:#a8d7b7;background:#f1fbf4;color:#176b3a}
+.period-card{display:grid;grid-template-columns:1.3fr 1fr 1fr 1.2fr auto;gap:8px;align-items:end;padding:10px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px}
+.period-card .filename{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chart{width:100%;height:300px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:min(620px,94vw);background:#fff;z-index:100;box-shadow:-10px 0 30px rgba(15,23,42,.22);transform:translateX(105%);transition:.2s ease;overflow:auto}
+.drawer.open{transform:translateX(0)}.drawer-head{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:15px;display:flex;justify-content:space-between;z-index:4}
+.drawer-body{padding:15px}.mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.mini{border:1px solid var(--line);border-radius:8px;padding:9px}.mini small{display:block;color:var(--muted)}.mini b{font-size:16px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.36);z-index:90}.overlay.open{display:block}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.footer-note{color:var(--muted);font-size:12px;margin-top:12px}
+@media(max-width:1100px){.hero{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(3,1fr)}.status-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.upload-grid,.settings-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}.period-card{grid-template-columns:1fr}.sticky2{left:0;position:static}.mini-grid{grid-template-columns:1fr 1fr}}
+
+/* v6 table navigation + sorting */
+.table-wrap{
+  overflow:auto;
+  scrollbar-gutter:stable both-edges;
+  overscroll-behavior:contain;
+  max-width:100%;
+  position:relative;
+}
+.table-wrap::-webkit-scrollbar{height:14px;width:14px}
+.table-wrap::-webkit-scrollbar-track{background:#eef2f6;border-radius:10px}
+.table-wrap::-webkit-scrollbar-thumb{background:#a9b4c2;border-radius:10px;border:3px solid #eef2f6}
+.table-wrap::-webkit-scrollbar-thumb:hover{background:#8593a5}
+table{width:max-content;min-width:100%}
+th,td{min-width:95px}
+th.left,td.left{min-width:120px}
+th.product-col,td.product-col{min-width:320px;max-width:420px}
+th.sortable{cursor:pointer;user-select:none;padding-right:22px;position:sticky}
+th.sortable::after{content:"↕";position:absolute;right:7px;opacity:.35;font-size:11px}
+th.sortable.sort-asc::after{content:"↑";opacity:1}
+th.sortable.sort-desc::after{content:"↓";opacity:1}
+.table-scroll-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.table-scroll-tools .sub{margin-right:auto}
+.scroll-btn{padding:6px 9px}
+.period-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;background:#eef4fb;color:#315b83;font-size:11px;font-weight:700}
+.pending-date-note{font-size:11px;color:#687588;margin-top:4px}
+
+
+/* v7 fixed identifier widths to prevent overlap */
+:root{
+  --asin-col-width:190px;
+  --product-col-width:460px;
+  --parent-col-width:165px;
+}
+table{
+  border-collapse:separate;
+  border-spacing:0;
+}
+th,td{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  vertical-align:middle;
+}
+th.sticky1,td.sticky1{
+  left:0 !important;
+  width:var(--asin-col-width) !important;
+  min-width:var(--asin-col-width) !important;
+  max-width:var(--asin-col-width) !important;
+}
+th.sticky2,td.sticky2{
+  left:var(--asin-col-width) !important;
+  width:var(--product-col-width) !important;
+  min-width:var(--product-col-width) !important;
+  max-width:var(--product-col-width) !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+  box-shadow:6px 0 8px -8px rgba(15,23,42,.35);
+}
+th.product-col,td.product-col{
+  width:var(--product-col-width) !important;
+  min-width:var(--product-col-width) !important;
+  max-width:var(--product-col-width) !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  white-space:nowrap !important;
+}
+td.parent-col,th.parent-col{
+  width:var(--parent-col-width);
+  min-width:var(--parent-col-width);
+  max-width:var(--parent-col-width);
+}
+.asin-link{
+  color:#146eb4;
+  text-decoration:none;
+  font-weight:800;
+}
+.asin-link:hover{
+  text-decoration:underline;
+}
+.product-detail-link{
+  cursor:pointer;
+}
+.product-detail-link:hover{
+  text-decoration:underline;
+  text-decoration-style:dotted;
+}
+.marketplace-warning{
+  margin-top:10px;
+  border:1px solid #f0c36a;
+  background:#fff8e5;
+  color:#72510d;
+  border-radius:8px;
+  padding:9px 10px;
+  font-size:12px;
+}
+
+
+/* v8 analytics UX */
+.analytics-toolbar{
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  background:#fff;border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;margin-bottom:10px;box-shadow:var(--shadow)
+}
+.analytics-toolbar .grow{flex:1}
+.filter-chip{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 8px;
+  border-radius:999px;background:#edf4fb;color:#315b83;font-size:11px;font-weight:700
+}
+.matrix{
+  display:grid;grid-template-columns:150px 1fr 1fr;gap:8px;align-items:stretch
+}
+.matrix .axis{
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.45px
+}
+.matrix-cell{
+  border:1px solid var(--line);background:#fff;border-radius:10px;padding:14px;
+  cursor:pointer;transition:.12s;min-height:105px
+}
+.matrix-cell:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.matrix-cell .big{font-size:24px;font-weight:850;margin-top:3px}
+.matrix-cell .sub2{font-size:11px;color:var(--muted);margin-top:2px}
+.matrix-cell.problem{border-color:#e6aaaa;background:#fff4f3}
+.matrix-cell.healthy{border-color:#b8dbc3;background:#f5fbf7}
+.matrix-cell.watch{border-color:#ead8a4;background:#fffaf0}
+.period-group-a{background:#f4f7fb !important}
+.period-group-b{background:#fff !important}
+.period-sep{border-left:3px solid #c9d3df !important}
+/* Heat map: soft nude tints, sitting inside the cell rather than filling it.
+   Down runs blush -> clay -> terracotta; up runs pale sage -> sage. */
+.heat{display:inline-block;min-width:78px;padding:4px 9px;border-radius:7px;font-variant-numeric:tabular-nums;line-height:1.3;text-align:right}
+.compact-table .heat{padding:2px 7px;min-width:66px}
+.heat.up3{background:#c5d6c6;color:#2c5638}
+.heat.up2{background:#dde8dd;color:#33613f}
+.heat.up1{background:#eff4ee;color:#3d6b47}
+.heat.flat{background:#f6f5f3;color:#6b6560}
+.heat.dn1{background:#faece6;color:#8a4b39}
+.heat.dn2{background:#f2dbd0;color:#8a4230}
+.heat.dn3{background:#eccabb;color:#7d3726}
+.heat.dn4{background:#d9b4a6;color:#6d2c1d}
+.heat.none{background:transparent;color:#9aa6b4}
+/* The change now rides under its value instead of owning a column. */
+.chg{display:block;font-size:10px;font-weight:650;margin-top:1px;letter-spacing:.2px;opacity:.85}
+.chg.up{color:#2f6b43}.chg.dn{color:#8a4230}.chg.flat{color:#8a8580}
+.bb-wrap{display:inline-block;text-align:center}
+.bb-wrap .chg{margin-top:2px}
+.delta-sort{display:inline-block;margin-left:5px;font-size:10px;font-weight:800;color:#93a1b2;border:1px solid #d3dbe5;border-radius:4px;padding:0 4px;cursor:pointer;line-height:15px}
+.delta-sort:hover{background:#e2e9f2;color:#17202a}
+.delta-sort.delta-on{background:#0f4c81;border-color:#0f4c81;color:#fff}
+.heat-legend{display:flex;gap:0;align-items:center;flex-wrap:wrap;margin:6px 0 10px;font-size:11px}
+.heat-legend i{font-style:normal;padding:4px 9px;border:1px solid rgba(0,0,0,.05);margin:0 1px;border-radius:5px;display:inline-block}
+.heat-legend .cap{padding:4px 8px;color:var(--muted)}
+.metric-major th.kpi-block{border-left:3px solid #9fb0c4 !important}
+.metric-major td.kpi-block{border-left:3px solid #b9c5d4 !important}
+.wk1{display:block;font-size:11px;color:#314052}
+.wk2{display:block;font-size:10px;color:#8a97a7;font-weight:600}
+.top-scroll{
+  overflow-x:auto;overflow-y:hidden;height:17px;margin-bottom:4px;
+  scrollbar-gutter:stable both-edges;
+}
+.top-scroll > div{height:1px}
+.top-scroll::-webkit-scrollbar{height:14px}
+.top-scroll::-webkit-scrollbar-track{background:#eef2f6}
+.top-scroll::-webkit-scrollbar-thumb{background:#a9b4c2;border-radius:10px;border:3px solid #eef2f6}
+.metric-toggle{
+  display:inline-flex;gap:4px;flex-wrap:wrap;padding:3px;border:1px solid var(--line);
+  border-radius:8px;background:#f8fafc
+}
+.metric-toggle label{
+  display:flex;gap:5px;align-items:center;padding:5px 7px;border-radius:6px;font-size:11px;color:#46566a
+}
+.metric-toggle label:hover{background:#fff}
+.saved-view-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.compact-table th,.compact-table td{padding:5px 7px;font-size:12px}
+.movers-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mover-card{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+.mover-card h3{padding:10px 12px;background:#f5f7fa;border-bottom:1px solid var(--line)}
+.mover-card .mover-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 10px;border-bottom:1px solid #edf0f4}
+.mover-card .mover-row:last-child{border-bottom:0}
+.mover-card .mover-row small{display:block;color:var(--muted)}
+.chart-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.relationship-box{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px
+}
+.relationship-box .mini{background:#fbfcfe}
+.warning-banner{
+  border:1px solid #efc977;background:#fff8e6;color:#73550d;border-radius:9px;padding:10px 12px;margin-bottom:10px
+}
+@media(max-width:1100px){.movers-grid{grid-template-columns:1fr 1fr}.matrix{grid-template-columns:120px 1fr 1fr}}
+@media(max-width:700px){.movers-grid{grid-template-columns:1fr}.matrix{grid-template-columns:1fr}.matrix .axis{justify-content:flex-start}}
+
+</style>
+</head>
+
+<!-- PPC LAB THEME -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<script>/* PPC Lab theme: Plum & Rose */document.documentElement.setAttribute("data-board","b5");</script>
+<style id="ppc-lab-theme">
+/* PPC Lab uniform theme · colors, type and surfaces only. Original layout and behaviour untouched. */
+html[data-board="b5"]{--tb-nav:#221432;--tb-act:#7A3E9D;--tb-hi:#E8A598;--tb-bg:#F6F4F8;--tb-ink:#1E1529}
+html[data-board]{
+  --tb-nav2:color-mix(in srgb,var(--tb-nav) 86%,#fff);--tb-nav3:color-mix(in srgb,var(--tb-nav) 74%,#fff);
+  --tb-card:#fff;--tb-sunk:color-mix(in srgb,var(--tb-bg) 55%,#fff);
+  --tb-line:color-mix(in srgb,var(--tb-ink) 14%,#fff);--tb-line2:color-mix(in srgb,var(--tb-ink) 7%,#fff);
+  --tb-ink2:color-mix(in srgb,var(--tb-ink) 74%,#fff);--tb-ink3:color-mix(in srgb,var(--tb-ink) 52%,#fff);--tb-muted:color-mix(in srgb,var(--tb-ink) 62%,#fff);
+  --tb-act-soft:color-mix(in srgb,var(--tb-act) 10%,#fff);--tb-act-line:color-mix(in srgb,var(--tb-act) 32%,#fff);--tb-act-dk:color-mix(in srgb,var(--tb-act) 78%,#000);
+  --tb-hi-soft:color-mix(in srgb,var(--tb-hi) 16%,#fff);
+  --tb-sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --tb-mono:"JetBrains Mono","IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  accent-color:var(--tb-act);color-scheme:light}
+html[data-board]{--bg:var(--tb-bg);--panel:var(--tb-card);--text:var(--tb-ink);--muted:var(--tb-muted);--line:var(--tb-line);--nav:var(--tb-nav);--nav2:var(--tb-nav2);--accent:var(--tb-act);--blue:var(--tb-act-dk);--shadow:0 1px 2px color-mix(in srgb,var(--tb-ink) 6%,transparent),0 6px 18px color-mix(in srgb,var(--tb-ink) 6%,transparent)}
+html[data-board] .brand span{color:var(--tb-hi)}html[data-board] .nav button.active{border-bottom-color:var(--tb-hi)}
+html[data-board] .btn.accent{background:var(--tb-act);border-color:var(--tb-act);color:#fff}
+html[data-board] body{font-family:var(--tb-sans);-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01","tnum"}
+html[data-board] ::selection{background:var(--tb-hi-soft)}
+html[data-board] *{scrollbar-color:color-mix(in srgb,var(--tb-ink) 24%,transparent) transparent}
+html[data-board] :focus-visible{outline-color:var(--tb-act)}
+</style>
+<body>
+<div class="topbar">
+  <div class="brand">Amazon <span>Buy Box</span> Monitor</div>
+  <div id="topBrand"></div>
+  <div class="db-pill" id="dbPill">Database: New</div>
+</div>
+<div class="nav" id="nav">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="comparison">Period Comparison</button>
+  <button data-tab="monitor">ASIN Monitor</button>
+  <button data-tab="impact">BB Sales Impact</button>
+  <button data-tab="risk">Revenue Exposure</button>
+  <button data-tab="parent">Parent ASIN View</button>
+  <button data-tab="history">Historical Trends</button>
+  <button data-tab="periods">Period Manager</button>
+  <button data-tab="quality">Data Quality</button>
+  <button data-tab="settings">Settings</button>
+</div>
+
+<div class="wrap">
+<section class="tab active" id="overview">
+  <div class="hero">
+    <div class="card pad">
+      <h1>Universal Buy Box vs Sales Impact Monitor</h1>
+      <div class="sub">Accumulate Amazon Business Reports over time and see whether Buy Box movement is happening alongside changes in Revenue and Units Ordered.</div>
+
+      <div class="upload-grid">
+        <div class="upload-box">
+          <strong>Continue Existing Database</strong>
+          <div class="sub">Upload an XLSX previously generated by this tool.</div>
+          <label class="btn file-label">Upload Accumulated Workbook<input type="file" id="dbFile" accept=".xlsx,.xls"></label>
+        </div>
+        <div class="upload-box">
+          <strong>Add New Business Reports</strong>
+          <div class="sub">Upload one or more Detail Page Sales and Traffic by Child Item reports. After upload, assign the reporting date or date range inside this HTML before adding the report to history. Select the Amazon marketplace as well so ASINs can link to the correct Amazon site.</div>
+          <label class="btn primary file-label">Upload New BSR<input type="file" id="bsrFiles" accept=".xlsx,.xls,.csv" multiple></label>
+        </div>
+      </div>
+
+      <div id="uploadMessage"></div>
+      <div class="form-row" style="margin-top:12px">
+        <button class="btn accent" id="confirmImports" disabled>Add Reports to Database</button>
+        <button class="btn" id="exportBtn">Download Updated Buy Box Database</button>
+        <button class="btn danger" id="resetBtn">Start New Database</button>
+      </div>
+      <div class="footer-note">The XLSX workbook is the portable history database. The HTML application itself remains brand independent.</div>
+    </div>
+
+    <div class="card pad">
+      <div class="section-head"><div><h2>Database Status</h2><div class="sub" id="dbStatusText">Starting new database</div></div></div>
+      <div class="settings-grid">
+        <label class="field">Brand Name <input id="brandInput" type="text" placeholder="Optional"></label>
+        <label class="field">Marketplace
+  <select id="marketInput">
+    <option value="">Select marketplace</option>
+    <option value="DE">Amazon.de · Germany</option>
+    <option value="FR">Amazon.fr · France</option>
+    <option value="UK">Amazon.co.uk · United Kingdom</option>
+    <option value="US">Amazon.com · United States</option>
+    <option value="IT">Amazon.it · Italy</option>
+    <option value="ES">Amazon.es · Spain</option>
+    <option value="NL">Amazon.nl · Netherlands</option>
+    <option value="SE">Amazon.se · Sweden</option>
+    <option value="PL">Amazon.pl · Poland</option>
+    <option value="BE">Amazon.com.be · Belgium</option>
+    <option value="CA">Amazon.ca · Canada</option>
+    <option value="AU">Amazon.com.au · Australia</option>
+    <option value="JP">Amazon.co.jp · Japan</option>
+  </select>
+</label>
+        <label class="field">Currency
+          <select id="currencyInput"><option>EUR</option><option>USD</option><option>GBP</option><option>CAD</option><option>AUD</option><option>JPY</option><option>PHP</option></select>
+        </label>
+      </div>
+      <div class="status-grid">
+        <div class="status-item"><small>Periods Stored</small><b id="sPeriods">0</b></div>
+        <div class="status-item"><small>Unique Child ASINs</small><b id="sAsins">0</b></div>
+        <div class="status-item"><small>Oldest Period</small><b id="sOldest">—</b></div>
+        <div class="status-item"><small>Latest Period</small><b id="sLatest">—</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+<div class="card pad" style="margin-bottom:14px">
+  <div class="section-head">
+    <div><h2>Buy Box Impact Matrix</h2><div class="sub">Click a box to filter the BB Sales Impact view.</div></div>
+  </div>
+  <div class="matrix" id="impactMatrix"></div>
+</div>
+
+<div class="movers-grid" id="moversGrid" style="margin-bottom:14px"></div>
+
+
+<div class="card pad" style="margin-bottom:14px">
+  <div class="section-head">
+    <div><h2>Current vs Previous Snapshot</h2><div class="sub">Revenue, Units and Buy Box move together here so the relationship is easy to read.</div></div>
+  </div>
+  <div class="toolbar">
+    <label>Current <select id="overviewCurrent"></select></label>
+    <label>Compare To <select id="overviewPrevious"></select></label>
+    <label><input type="checkbox" id="overviewNormalize"> Normalize by day</label>
+  </div>
+  <div class="table-wrap" style="max-height:420px"><table id="overviewComparisonTable"></table></div>
+</div>
+
+
+  <div class="card pad">
+    <div class="section-head"><div><h2>Overview Insights</h2><div class="sub">Factual observations from the latest stored period.</div></div></div>
+    <ul class="insights" id="insights"><li>Upload a Business Report to start monitoring Buy Box history.</li></ul>
+  </div>
+
+  <div class="card pad" style="margin-top:14px">
+    <div class="section-head">
+      <div><h2>Latest Buy Box Priorities</h2><div class="sub">High revenue, low Buy Box and large declines rank first.</div></div>
+      <button class="btn sm" onclick="showTab('monitor')">Open Full Monitor</button>
+    </div>
+    <div class="table-wrap" style="max-height:430px"><table id="priorityTable"></table></div>
+  </div>
+</section>
+
+
+<section class="tab" id="comparison">
+  <div class="section-head">
+    <div><h2>Period Comparison</h2><div class="sub">Compare two reporting periods using Revenue, Units Ordered and Buy Box % side by side.</div></div>
+  </div>
+  <div class="toolbar">
+    <label>Current Period <select id="compareCurrent"></select></label>
+    <label>Previous / Baseline <select id="comparePrevious"></select></label>
+    <label><input type="checkbox" id="normalizeByDay"> Normalize Revenue and Units per day (for unequal date ranges)</label>
+    <span class="grow"></span>
+    <button class="btn sm" id="comparisonExport">Download Database</button>
+  </div>
+  <div id="comparisonWarning"></div><div class="kpis" id="comparisonKpis"></div>
+  <div class="table-scroll-tools">
+  <div class="sub">Click any KPI header to sort. Click again to reverse direction.</div>
+  <button class="btn sm scroll-btn" data-scroll-target="comparisonTable" data-dir="-1">◀ Left</button>
+  <button class="btn sm scroll-btn" data-scroll-target="comparisonTable" data-dir="1">Right ▶</button>
+</div>
+<div class="table-wrap" id="comparisonTableWrap"><table id="comparisonTable"></table></div>
+</section>
+
+<section class="tab" id="impact">
+  <div class="section-head">
+    <div><h2>Buy Box vs Sales Impact</h2><div class="sub">ASINs classified by how Buy Box movement aligns with Revenue and Units movement.</div></div>
+  </div>
+  <div class="toolbar">
+    <select id="impactFilter">
+      <option value="all">All Assessments</option>
+      <option>BB + Sales Decline</option>
+      <option>Possible BB Impact</option>
+      <option>BB + Sales Recovery</option>
+      <option>Sales Decline, BB Healthy</option>
+      <option>BB Decline, Sales Stable</option>
+      <option>Stable / Mixed</option>
+      <option>Insufficient History</option>
+    </select>
+    <span class="grow"></span>
+    <div class="sub">This is directional analysis only. Business Reports alone cannot prove causation.</div>
+  </div>
+  <div class="kpis" id="impactKpis"></div>
+  <div class="table-scroll-tools">
+  <div class="sub">All KPI columns are sortable.</div>
+  <button class="btn sm scroll-btn" data-scroll-target="impactTable" data-dir="-1">◀ Left</button>
+  <button class="btn sm scroll-btn" data-scroll-target="impactTable" data-dir="1">Right ▶</button>
+</div>
+<div class="table-wrap" id="impactTableWrap"><table id="impactTable"></table></div>
+</section>
+
+<section class="tab" id="monitor">
+  <div class="section-head"><div><h2>ASIN Monitor</h2><div class="sub">Accumulated history. Switch between compact period groups and KPI specific history.</div></div></div>
+  <div class="analytics-toolbar">
+    <input id="searchInput" type="text" placeholder="Search ASIN, SKU or title">
+    <select id="parentFilter"><option value="all">All Parent ASINs</option></select>
+    <select id="assessmentFilter"><option value="all">All Assessments</option><option>BB + Sales Decline</option><option>Possible BB Impact</option><option>BB + Sales Recovery</option><option>Sales Decline, BB Healthy</option><option>BB Decline, Sales Stable</option><option>Stable / Mixed</option></select>
+    <select id="bbQuick"><option value="all">All Buy Box Levels</option><option value="95">BB Below 95%</option><option value="90">BB Below 90%</option><option value="80">BB Below 80%</option><option value="50">BB Below 50%</option></select>
+    <select id="trendFilter"><option value="all">All Trends</option><option>Declining</option><option>Strong Decline</option><option>Improving</option><option>Strong Improvement</option><option>Stable</option><option>New ASIN</option><option>Insufficient History</option></select>
+    <select id="priorityFilter"><option value="all">All Priorities</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select>
+    <select id="monitorMode" title="How the accumulated periods are laid out">
+      <option value="grouped">Period Grouped (period &rarr; its KPIs)</option>
+      <option value="metric" selected>KPI Grouped (KPI &rarr; its periods)</option>
+      <option value="single">Single KPI History</option>
+    </select>
+    <select id="monitorKpi"><option value="revenue">Revenue</option><option value="units">Units Ordered</option><option value="buyBox">Buy Box %</option></select>
+    <select id="periodWindow"><option value="4">Last 4 Periods</option><option value="8">Last 8 Periods</option><option value="12">Last 12 Periods</option><option value="999">Show All Periods</option></select>
+    <select id="densitySelect"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select>
+    <span class="grow"></span>
+    <button class="btn sm" id="saveViewBtn">Save View</button>
+    <select id="savedViews"><option value="">Saved Views</option></select>
+    <button class="btn sm" id="monitorExport">Download Database</button>
+  </div>
+  <div class="analytics-toolbar">
+    <div><b>Grouped KPI columns</b><div class="sub">Choose which KPIs appear under every accumulated period.</div></div>
+    <div class="metric-toggle" id="metricToggles">
+      <label><input type="checkbox" value="revenue" checked> Revenue</label>
+      <label><input type="checkbox" value="units" checked> Units Ordered</label>
+      <label><input type="checkbox" value="buyBox" checked> Buy Box</label>
+    </div>
+    <span class="grow"></span>
+    <div id="activeFilterChips"></div>
+  </div>
+  <div class="table-scroll-tools">
+  <div class="sub">Scroll horizontally to review accumulated periods. ASIN and Product stay visible while you move across KPI columns.</div>
+  <button class="btn sm scroll-btn" data-scroll-target="monitorTable" data-dir="-1">◀ Left</button>
+  <button class="btn sm scroll-btn" data-scroll-target="monitorTable" data-dir="1">Right ▶</button>
+</div>
+<div id="monitorHeatLegend"></div>
+<div class="top-scroll" id="monitorTopScroll"><div></div></div><div class="table-wrap" id="monitorTableWrap"><table id="monitorTable"></table></div>
+</section>
+
+<section class="tab" id="risk">
+  <div class="section-head">
+    <div><h2>Revenue Exposure</h2><div class="sub">Latest period revenue associated with ASINs below the selected Buy Box threshold. This is exposure, not estimated lost sales.</div></div>
+    <div class="form-row"><label>Threshold <input id="riskThreshold" type="number" min="0" max="100" step="1" value="90" style="width:80px"> %</label></div>
+  </div>
+  <div class="kpis" id="riskKpis"></div>
+  <div class="table-scroll-tools">
+  <div class="sub">All KPI columns are sortable.</div>
+  <button class="btn sm scroll-btn" data-scroll-target="riskTable" data-dir="-1">◀ Left</button>
+  <button class="btn sm scroll-btn" data-scroll-target="riskTable" data-dir="1">Right ▶</button>
+</div>
+<div class="table-wrap" id="riskTableWrap"><table id="riskTable"></table></div>
+</section>
+
+<section class="tab" id="parent">
+  <div class="section-head"><div><h2>Parent ASIN View</h2><div class="sub">Revenue weighted Buy Box at parent level, with child issue counts.</div></div></div>
+  <div class="table-scroll-tools">
+  <div class="sub">All KPI columns are sortable.</div>
+  <button class="btn sm scroll-btn" data-scroll-target="parentTable" data-dir="-1">◀ Left</button>
+  <button class="btn sm scroll-btn" data-scroll-target="parentTable" data-dir="1">Right ▶</button>
+</div>
+<div class="table-wrap" id="parentTableWrap"><table id="parentTable"></table></div>
+</section>
+
+<section class="tab" id="history">
+  <div class="section-head"><div><h2>Historical Trends</h2><div class="sub">Select a Child ASIN to view Buy Box movement through time.</div></div></div>
+  <div class="chart-controls">
+  <input id="historyAsin" list="asinList" style="min-width:420px" placeholder="Type an ASIN or part of a product name…" autocomplete="off">
+  <datalist id="asinList"></datalist>
+  <button class="btn sm" id="historyClear">Clear</button>
+  <span id="historyLink" class="sub"></span>
+  <label>Bars <select id="historyBarMetric"><option value="revenue">Revenue</option><option value="units">Units Ordered</option></select></label>
+  <label>Overlay <select id="historyOverlay"><option value="buyBox">Buy Box %</option></select></label>
+  <label><input type="checkbox" id="historyNormalize"> Normalize bars per day</label>
+</div>
+<div class="relationship-box" id="relationshipBox"></div>
+  <svg class="chart" id="historyChart" viewBox="0 0 1000 300" preserveAspectRatio="none"></svg>
+  <div class="table-wrap" style="margin-top:12px;max-height:420px"><table id="historyTable"></table></div>
+</section>
+
+<section class="tab" id="periods">
+  <div class="section-head"><div><h2>Period Manager</h2><div class="sub">Review, rename, reorder or remove stored reporting periods.</div></div></div>
+  <div id="pendingPeriods"></div>
+  <div class="card pad">
+    <h3>Stored Periods</h3><div class="sub" style="margin-bottom:10px">Deleting a period removes its historical rows from the current database.</div>
+    <div id="storedPeriods"></div>
+  </div>
+</section>
+
+<section class="tab" id="quality">
+  <div class="section-head"><div><h2>Data Quality</h2><div class="sub">Import warnings and database integrity checks.</div></div></div>
+  <div class="kpis" id="qualityKpis"></div>
+  <div class="card pad"><ul class="insights" id="qualityList"></ul></div>
+</section>
+
+<section class="tab" id="settings">
+  <div class="card pad">
+    <h2>Buy Box Threshold Settings</h2><div class="sub">Used for color coding. Revenue Exposure has its own adjustable threshold.</div>
+    <div class="settings-grid" style="margin-top:14px">
+      <label class="field">Healthy minimum % <input type="number" id="thHealthy" value="95"></label>
+      <label class="field">Monitor minimum % <input type="number" id="thMonitor" value="90"></label>
+      <label class="field">Warning minimum % <input type="number" id="thWarning" value="80"></label>
+      <label class="field">Critical minimum % <input type="number" id="thCritical" value="50"></label>
+    </div>
+    <button class="btn primary" id="applySettings" style="margin-top:12px">Apply Settings</button>
+  </div>
+</section>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head"><div><b id="drawerTitle">ASIN Detail</b><div class="sub" id="drawerSub"></div></div><button class="btn sm" id="drawerClose">Close</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<script>
+'use strict';
+
+const DB_VERSION='1.0';
+const SCHEMA_VERSION='1.0';
+const S = {
+  meta:{toolName:'Buy Box Monitor',dbVersion:DB_VERSION,schemaVersion:SCHEMA_VERSION,brand:'',marketplace:'',currency:'EUR',generatedAt:null},
+  periods:[],
+  rows:[],
+  pending:[],
+  quality:[],
+  thresholds:{healthy:95,monitor:90,warning:80,critical:50},
+  sort:{key:'priorityScore',dir:'desc'}
+};
+
+const $=id=>document.getElementById(id);
+const fmtN=(n,d=0)=>Number.isFinite(+n)?Number(n).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d}):'—';
+const fmtPct=n=>Number.isFinite(+n)?`${fmtN(n,1)}%`:'—';
+const fmtPP=n=>Number.isFinite(+n)?`${n>0?'+':''}${fmtN(n,1)} pp`:'—';
+const money=n=>Number.isFinite(+n)?new Intl.NumberFormat(undefined,{style:'currency',currency:S.meta.currency||'EUR',maximumFractionDigits:0}).format(n):'—';
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const uid=()=>Math.random().toString(36).slice(2,10);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+
+function foldDiacritics(s){
+  const t=String(s??'').replace(/\u00df/g,'ss');
+  return t.normalize?t.normalize('NFD').replace(/[\u0300-\u036f]/g,''):t;
+}
+function normalizeHeader(h){
+  // Umlauts are folded first so "(Übergeordnete) ASIN" survives as "ubergeordnete asin".
+  return foldDiacritics(h).toLowerCase().replace(/[%()]/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
+}
+const aliases={
+  childAsin:['child asin','asin child','childasin','untergeordnete asin','asin untergeordnet','asin enfant','asin hijo','asin figlio','asin'],
+  parentAsin:['parent asin','parentasin','ubergeordnete asin','asin ubergeordnet','asin parent','asin padre'],
+  sku:['sku','merchant sku','seller sku','msku'],
+  title:['product title','title','item name','titel','produkttitel','titre','titulo','nome do produto'],
+  sessions:['sessions total','sessions','sessions total total','sitzungen gesamt','sitzungen','sesiones'],
+  pageViews:['page views','pageviews','page views total','pageviews total'],
+  buyBox:[
+    'featured offer percentage','featured offer %','featured offer percentage total',
+    'featured offer buy box percentage','featured offer buybox percentage',
+    'featured offer buy box %','featured offer buybox %',
+    'buy box percentage','buy box %','buybox percentage','buybox %',
+    'featured offer percentage b2c','featured offer percentage total b2c',
+    'prozentsatz angebotsempfehlung','prozentsatz angebotsempfehlung buy box','angebotsempfehlung prozentsatz',
+    'buy box prozentsatz','einkaufswagen prozentsatz','prozentualer anteil am einkaufswagen',
+    'pourcentage offre en vedette','porcentaje de la buy box'
+  ],
+  units:['units ordered total','units ordered','units ordered b2c','bestellte einheiten gesamt','bestellte einheiten','unites commandees','unidades pedidas'],
+  b2bUnits:['units ordered b2b','units ordered business','units ordered - b2b','bestellte einheiten b2b'],
+  revenue:['ordered product sales total','ordered product sales','ordered product sales b2c','umsatz bestellter produkte','bestellter produktumsatz','produktumsatz','ventes de produits commandes','ventas de productos pedidos'],
+  b2bRevenue:['ordered product sales b2b','ordered product sales business','ordered product sales - b2b','umsatz bestellter produkte b2b'],
+  orders:['total order items','total order item','total order items total'],
+  b2bOrders:['total order items b2b','total order items - b2b'],
+  unitSession:['unit session percentage','unit session %','unit session percentage total'],
+  b2bUnitSession:['unit session percentage b2b','unit session % b2b','unit session percentage - b2b']
+};
+function findHeader(headers,key){
+  const hh=headers.map(normalizeHeader);
+  // 1) Exact normalized alias match.
+  for(const a of aliases[key]){
+    const idx=hh.indexOf(normalizeHeader(a));
+    if(idx>=0)return headers[idx];
+  }
+
+  // 2) Amazon Business Report fuzzy fallbacks.
+  const rules={
+    childAsin: h => h==='child asin' || (h.includes('child')&&h.includes('asin')),
+    parentAsin: h => h==='parent asin' || (h.includes('parent')&&h.includes('asin')),
+    title: h => h==='title' || h==='product title' || h==='item name',
+    sku: h => h==='sku' || h.includes('merchant sku') || h.includes('seller sku'),
+    sessions: h => h.includes('sessions') && h.includes('total') && !h.includes('b2b') && !h.includes('percentage'),
+    pageViews: h => h.includes('page views') && h.includes('total') && !h.includes('b2b') && !h.includes('percentage'),
+    buyBox: h => (h.includes('featured offer') || h.includes('buy box') || h.includes('buybox')) && h.includes('percentage') && !h.includes('b2b'),
+    units: h => h.startsWith('units ordered') && !h.includes('b2b'),
+    b2bUnits: h => h.startsWith('units ordered') && h.includes('b2b'),
+    revenue: h => h.includes('ordered product sales') && !h.includes('b2b'),
+    b2bRevenue: h => h.includes('ordered product sales') && h.includes('b2b'),
+    orders: h => h.includes('total order items') && !h.includes('b2b'),
+    b2bOrders: h => h.includes('total order items') && h.includes('b2b'),
+    unitSession: h => h.includes('unit session percentage') && !h.includes('b2b'),
+    b2bUnitSession: h => h.includes('unit session percentage') && h.includes('b2b')
+  };
+  const rule=rules[key];
+  if(rule){
+    const idx=hh.findIndex(rule);
+    if(idx>=0)return headers[idx];
+  }
+  return null;
+}
+/* ---------------------------------------------------------------
+   NUMBER PARSING
+   Amazon writes 1.234,56 on EU marketplaces and 1,234.56 elsewhere.
+   The locale is decided once per file by weighing every numeric cell,
+   because a lone "1.234" is genuinely ambiguous on its own.
+   --------------------------------------------------------------- */
+function stripMoney(v){
+  return String(v).trim()
+    .replace(/\u00a0/g,' ')
+    .replace(/[€£$¥₱₹]/g,'')
+    .replace(/\b(?:EUR|USD|GBP|CAD|AUD|JPY|PHP|INR|SEK|PLN|CHF|MXN|BRL|AED|SAR|SGD|TRY)\b/gi,'')
+    .replace(/\s/g,'');
+}
+function detectNumberLocale(aoa){
+  let eu=0, us=0;
+  const scan=v=>{
+    if(typeof v!=='string')return;
+    const t=stripMoney(v).replace(/[()]/g,'');
+    if(!t)return;
+    if(/^-?\d{1,3}(\.\d{3})+,\d+$/.test(t))eu+=3;        // 1.234.567,89
+    else if(/^-?\d{1,3}(,\d{3})+\.\d+$/.test(t))us+=3;   // 1,234,567.89
+    else if(/^-?\d+,\d{1,2}$/.test(t))eu+=2;             // 1234,56
+    else if(/^-?\d{1,3}(\.\d{3})+$/.test(t))eu+=2;       // 1.234
+    else if(/^-?\d{1,3}(,\d{3})+$/.test(t))us+=2;        // 1,234
+    else if(/^-?\d+\.\d{1,2}$/.test(t))us+=1;            // 1234.56 (weak: could be a ratio)
+  };
+  for(const row of (aoa||[]))for(const cell of (row||[]))scan(cell);
+  if(!eu&&!us)return null;
+  return eu>us?'eu':'us';
+}
+// Locale of the file currently being imported. Null means fall back to guessing.
+let ACTIVE_LOCALE=null;
+function parseNum(v,localeOverride){
+  if(v===null||v===undefined||v==='')return null;
+  if(typeof v==='number')return Number.isFinite(v)?v:null;
+  let s=stripMoney(v);
+  if(!s)return null;
+  const neg=s.startsWith('(')&&s.endsWith(')');
+  s=s.replace(/[()]/g,'');
+  const locale=localeOverride!==undefined?localeOverride:ACTIVE_LOCALE;
+  if(locale==='eu')      s=s.replace(/\./g,'').replace(',','.');
+  else if(locale==='us') s=s.replace(/,/g,'');
+  else {
+    const lastComma=s.lastIndexOf(','), lastDot=s.lastIndexOf('.');
+    if(lastComma>-1 && lastDot>-1){
+      if(lastComma>lastDot)s=s.replace(/\./g,'').replace(',','.');
+      else s=s.replace(/,/g,'');
+    }else if(lastComma>-1){
+      const tail=s.length-lastComma-1;
+      if(tail===1||tail===2)s=s.replace(/\./g,'').replace(',','.');
+      else s=s.replace(/,/g,'');
+    }else if(lastDot>-1 && /^[+-]?[1-9]\d{0,2}(\.\d{3})+$/.test(s)){
+      s=s.replace(/\./g,'');   // 1.234 / 1.234.567 is a thousands group
+    }else{
+      s=s.replace(/,/g,'');
+    }
+  }
+  s=s.replace(/[^0-9.+\-eE]/g,'');
+  let n=Number(s);
+  if(neg)n=-Math.abs(n);
+  return Number.isFinite(n)?n:null;
+}
+function parsePct(v){
+  if(v===null||v===undefined||v==='')return null;
+  if(typeof v==='number')return (v>=0&&v<=1)?v*100:v;
+  const raw=String(v);
+  // A percentage never carries a thousands separator, so only the decimal mark matters.
+  let s=raw.trim().replace(/[^\d.,\-]/g,'');
+  if(!s)return null;
+  s=ACTIVE_LOCALE==='eu'?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');
+  const n=Number(s);
+  if(!Number.isFinite(n))return null;
+  if(raw.includes('%'))return n;
+  if(n>=0&&n<=1)return n*100;
+  return n;
+}
+/* CSV is parsed here rather than by the spreadsheet engine, which would
+   coerce "1.234" to the number 1.234 before the locale is known. */
+function sniffDelimiter(text){
+  const sample=text.split(/\r?\n/).slice(0,10).join('\n');
+  const counts=[',',';','\t','|'].map(d=>[d,(sample.match(new RegExp(d==='|'?'\\|':d,'g'))||[]).length]);
+  counts.sort((a,b)=>b[1]-a[1]);
+  return counts[0][1]>0?counts[0][0]:',';
+}
+function parseCSV(text,delim){
+  const rows=[]; let row=[], field='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++} else q=false }
+      else field+=c;
+    }else if(c==='"')q=true;
+    else if(c===delim){row.push(field);field=''}
+    else if(c==='\n'){row.push(field);rows.push(row);row=[];field=''}
+    else if(c!=='\r')field+=c;
+  }
+  if(field!==''||row.length){row.push(field);rows.push(row)}
+  return rows;
+}
+function dateISO(v){
+  if(!v)return '';
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  if(typeof v==='number' && window.XLSX){
+    const d=XLSX.SSF.parse_date_code(v);
+    if(d)return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+  }
+  const d=new Date(v); return isNaN(d)?'':d.toISOString().slice(0,10);
+}
+function addDaysISO(iso,n){
+  const t=Date.parse(iso+'T00:00:00Z');
+  return isNaN(t)?'':new Date(t+n*864e5).toISOString().slice(0,10);
+}
+function periodSort(a,b){
+  // Sort on the end date first so a short period nested inside a longer one
+  // does not outrank it just because it starts later.
+  const ae=a.end||a.start||'', be=b.end||b.start||'';
+  if(ae&&be&&ae!==be)return ae.localeCompare(be);
+  const as=a.start||'', bs=b.start||'';
+  if(as&&bs&&as!==bs)return as.localeCompare(bs);
+  return (a.order??999)-(b.order??999);
+}
+// Weekly reports are labelled by their start date across the dashboard.
+function periodShort(p){return p?.start||p?.label||'—'}
+function latestPeriod(){return [...S.periods].sort(periodSort).at(-1)||null}
+function orderedPeriods(){return [...S.periods].sort(periodSort)}
+function rowsForPeriod(id){return S.rows.filter(r=>r.periodId===id)}
+function uniqueAsins(){return [...new Set(S.rows.map(r=>r.childAsin).filter(Boolean))]}
+function safeLabel(p){return p?.label||[p?.start,p?.end].filter(Boolean).join(' to ')||'Unlabeled Period'}
+
+function detectPeriodFromFilename(name){
+  const base=name.replace(/\.[^.]+$/,'');
+  // Only trust a filename automatically when it clearly contains TWO dates/range endpoints.
+  let m=base.match(/(20\d{2})[-_ ]?(\d{2})[-_ ]?(\d{2}).*?(20\d{2})[-_ ]?(\d{2})[-_ ]?(\d{2})/);
+  if(m)return {start:`${m[1]}-${m[2]}-${m[3]}`,end:`${m[4]}-${m[5]}-${m[6]}`,label:`${m[1]}-${m[2]}-${m[3]} to ${m[4]}-${m[5]}-${m[6]}`,source:'filename range'};
+  // DD-MM-YYYY ... DD-MM-YYYY
+  m=base.match(/(\d{2})[-_](\d{2})[-_](20\d{2}).*?(\d{2})[-_](\d{2})[-_](20\d{2})/);
+  if(m)return {start:`${m[3]}-${m[2]}-${m[1]}`,end:`${m[6]}-${m[5]}-${m[4]}`,label:`${m[3]}-${m[2]}-${m[1]} to ${m[6]}-${m[5]}-${m[4]}`,source:'filename range'};
+  // A single date in Amazon's generic BusinessReport filename is normally the export date,
+  // not proof of the selected report range. Keep it only as a hint.
+  let one=base.match(/\b(\d{2})[-_](\d{2})[-_](20\d{2})\b/);
+  if(one)return {start:'',end:'',label:base.slice(0,50),source:'filename export-date hint',exportDateHint:`${one[3]}-${one[2]}-${one[1]}`};
+  one=base.match(/\b(20\d{2})[-_](\d{2})[-_](\d{2})\b/);
+  if(one)return {start:'',end:'',label:base.slice(0,50),source:'filename export-date hint',exportDateHint:`${one[1]}-${one[2]}-${one[3]}`};
+  return {start:'',end:'',label:base.slice(0,50),source:'none',exportDateHint:''};
+}
+
+
+function headerMatchScore(row){
+  if(!Array.isArray(row))return 0;
+  const cells=row.map(normalizeHeader);
+  const has=(key)=>aliases[key].some(a=>cells.includes(normalizeHeader(a)));
+  let score=0;
+  if(has('childAsin'))score+=6;
+  if(has('parentAsin'))score+=2;
+  if(has('title'))score+=2;
+  if(has('buyBox'))score+=5;
+  if(has('revenue'))score+=4;
+  if(has('units'))score+=3;
+  if(has('b2bUnits'))score+=1;
+  if(has('b2bRevenue'))score+=1;
+  return score;
+}
+
+function findBusinessReportTable(wb){
+  let best=null;
+  for(const sheetName of wb.SheetNames){
+    const ws=wb.Sheets[sheetName];
+    const matrix=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+    const scan=Math.min(matrix.length,80);
+    for(let i=0;i<scan;i++){
+      const score=headerMatchScore(matrix[i]);
+      if(!best||score>best.score)best={sheetName,matrix,headerRow:i,score};
+    }
+  }
+  if(!best||best.score<9){
+    const seen=best?` Best candidate was sheet "${best.sheetName}", row ${best.headerRow+1}, score ${best.score}.`:'';
+    throw new Error('Could not find the Amazon Business Report header row.'+seen);
+  }
+  const headers=best.matrix[best.headerRow].map(v=>String(v??'').trim());
+  const rows=[];
+  for(let r=best.headerRow+1;r<best.matrix.length;r++){
+    const values=best.matrix[r];
+    if(!values||values.every(v=>String(v??'').trim()===''))continue;
+    const obj={};
+    headers.forEach((h,c)=>{if(h)obj[h]=values[c]??''});
+    rows.push(obj);
+  }
+  return {json:rows,sheetName:best.sheetName,headerRow:best.headerRow,headers,score:best.score,matrix:best.matrix};
+}
+
+function toISODateParts(y,m,d){
+  y=Number(y);m=Number(m);d=Number(d);
+  if(y<100)y+=2000;
+  const dt=new Date(Date.UTC(y,m-1,d));
+  if(dt.getUTCFullYear()!==y||dt.getUTCMonth()!==m-1||dt.getUTCDate()!==d)return '';
+  return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function parseDateToken(s){
+  s=String(s??'').trim();
+  let m=s.match(/\b(20\d{2})[-\/.](\d{1,2})[-\/.](\d{1,2})\b/);
+  if(m)return toISODateParts(m[1],m[2],m[3]);
+  m=s.match(/\b(\d{1,2})[-\/.](\d{1,2})[-\/.](20\d{2})\b/);
+  if(m){
+    const a=Number(m[1]),b=Number(m[2]);
+    // Amazon exports are commonly US-style when slash-delimited.
+    // If one side is >12, infer day/month unambiguously.
+    if(a>12)return toISODateParts(m[3],b,a);
+    if(b>12)return toISODateParts(m[3],a,b);
+    return toISODateParts(m[3],a,b);
+  }
+  const months={jan:1,january:1,feb:2,february:2,mar:3,march:3,apr:4,april:4,may:5,jun:6,june:6,jul:7,july:7,aug:8,august:8,sep:9,september:9,oct:10,october:10,nov:11,november:11,dec:12,december:12};
+  m=s.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2}),?\s+(20\d{2})\b/i);
+  if(m)return toISODateParts(m[3],months[m[1].toLowerCase()],m[2]);
+  m=s.match(/\b(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(20\d{2})\b/i);
+  if(m)return toISODateParts(m[3],months[m[2].toLowerCase()],m[1]);
+  return '';
+}
+function extractDatesFromText(text){
+  const s=String(text??'');
+  const patterns=[
+    /\b20\d{2}[-\/.]\d{1,2}[-\/.]\d{1,2}\b/g,
+    /\b\d{1,2}[-\/.]\d{1,2}[-\/.]20\d{2}\b/g,
+    /\b(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+20\d{2}\b/gi,
+    /\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+20\d{2}\b/gi
+  ];
+  const out=[];
+  for(const re of patterns){
+    for(const token of (s.match(re)||[])){
+      const d=parseDateToken(token);
+      if(d&&!out.includes(d))out.push(d);
+    }
+  }
+  return out;
+}
+function detectReportPeriod(wb,fileName,tableInfo){
+  const sources=[];
+  sources.push(fileName);
+  wb.SheetNames.forEach(n=>sources.push(n));
+  if(wb.Props){
+    ['Title','Subject','Comments','Keywords','Author','Company'].forEach(k=>{if(wb.Props[k])sources.push(wb.Props[k])});
+  }
+  // Scan report content around the header and top metadata area.
+  for(const sheetName of wb.SheetNames){
+    const matrix=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:'',raw:false});
+    const maxRows=Math.min(matrix.length,60);
+    for(let r=0;r<maxRows;r++)sources.push((matrix[r]||[]).slice(0,20).join(' | '));
+  }
+  let all=[];
+  for(const src of sources){
+    const ds=extractDatesFromText(src);
+    ds.forEach(d=>{if(!all.includes(d))all.push(d)});
+  }
+  all=all.sort();
+  let start='',end='',confidence='none';
+  if(all.length>=2){
+    start=all[0];end=all[all.length-1];confidence='report date range detected';
+    return {start,end,label:`${start} to ${end}`,confidence,datesFound:all,exportDateHint:''};
+  }
+  // One date alone is not enough to prove the selected Business Report range.
+  // It may only be an export date.
+  const guess=detectPeriodFromFilename(fileName);
+  return {
+    start:'',end:'',label:guess.label||fileName.replace(/\.[^.]+$/,''),
+    confidence:'manual report period required',
+    datesFound:all,
+    exportDateHint:guess.exportDateHint||(all.length===1?all[0]:'')
+  };
+}
+
+function getDetectedColumns(headers){
+  const out={};
+  Object.keys(aliases).forEach(k=>out[k]=findHeader(headers,k));
+  return out;
+}
+
+function aggregateBusinessRows(json, filename, period){
+  if(!json.length)throw new Error('No rows detected.');
+  const headers=Object.keys(json[0]);
+  const map={}; Object.keys(aliases).forEach(k=>map[k]=findHeader(headers,k));
+  if(!map.childAsin)throw new Error('Child ASIN column was not found.');
+  if(!map.buyBox)S.quality.push(`${filename}: Buy Box / Featured Offer Percentage column not found.`);
+  if(!map.revenue)S.quality.push(`${filename}: Ordered Product Sales column not found.`);
+  const buckets=new Map();
+  let blankAsin=0, badPct=0;
+  for(const rr of json){
+    const asin=String(rr[map.childAsin]??'').trim().toUpperCase();
+    if(!asin){blankAsin++;continue}
+    if(!buckets.has(asin)) buckets.set(asin,[]);
+    buckets.get(asin).push(rr);
+  }
+  const out=[];
+  for(const [asin,list] of buckets){
+    const sum=k=>list.reduce((a,r)=>a+(parseNum(map[k]?r[map[k]]:null)||0),0);
+    const first=k=>{for(const r of list){const v=map[k]?r[map[k]]:null;if(v!==null&&v!==undefined&&String(v).trim()!=='')return String(v).trim()}return ''};
+    const pcts=list.map(r=>parsePct(map.buyBox?r[map.buyBox]:null)).filter(v=>v!==null&&v>=0&&v<=1000);
+    let bb=null;
+    if(pcts.length===1)bb=pcts[0];
+    else if(pcts.length>1){
+      const revs=list.map(r=>parseNum(map.revenue?r[map.revenue]:null)||0);
+      const den=revs.reduce((a,b)=>a+b,0);
+      bb=den>0?pcts.reduce((a,p,i)=>a+p*revs[i],0)/den:pcts.reduce((a,b)=>a+b,0)/pcts.length;
+      S.quality.push(`${filename}: ${asin} had ${pcts.length} rows; Buy Box was ${den>0?'revenue weighted':'averaged'} within the period.`);
+    }
+    if(bb!==null && (bb<0||bb>100)){badPct++; bb=clamp(bb,0,100)}
+    const revenue=sum('revenue'), b2bRevenue=sum('b2bRevenue'), units=sum('units'), b2bUnits=sum('b2bUnits');
+    out.push({
+      periodId:period.id,periodLabel:period.label,periodStart:period.start,periodEnd:period.end,sourceFile:filename,
+      parentAsin:first('parentAsin').toUpperCase(),childAsin:asin,sku:first('sku'),title:first('title'),
+      revenue,b2bRevenue,nonB2bRevenue:Math.max(0,revenue-b2bRevenue),units,b2bUnits,nonB2bUnits:Math.max(0,units-b2bUnits),
+      buyBox:bb,sessions:sum('sessions'),pageViews:sum('pageViews'),
+      unitSession:list.length?parsePct(map.unitSession?list[0][map.unitSession]:null):null,
+      b2bUnitSession:list.length?parsePct(map.b2bUnitSession?list[0][map.b2bUnitSession]:null):null,
+      importDate:new Date().toISOString()
+    });
+  }
+  if(blankAsin)S.quality.push(`${filename}: ${blankAsin} rows ignored because Child ASIN was blank.`);
+  if(badPct)S.quality.push(`${filename}: ${badPct} Buy Box values were outside 0–100 and were clamped.`);
+  if(buckets.size<json.length)S.quality.push(`${filename}: duplicate Child ASIN rows were aggregated within the reporting period.`);
+  return out;
+}
+
+async function readWorkbookFile(file){
+  if(!window.XLSX)throw new Error('Excel engine did not load. Connect to the internet and reopen this HTML.');
+  const ab=await file.arrayBuffer();
+  return XLSX.read(ab,{type:'array',cellDates:true});
+}
+async function readBusinessFile(file){
+  if(!window.XLSX)throw new Error('Excel engine did not load. Please keep internet access on when opening the HTML, then reopen it.');
+  let wb;
+  const name=file.name.toLowerCase();
+  if(name.endsWith('.csv')||name.endsWith('.txt')||name.endsWith('.tsv')){
+    let text=await file.text();
+    if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
+    const FS=name.endsWith('.tsv')?'\t':sniffDelimiter(text);
+    // Keep every cell as raw text so the locale decides how numbers are read.
+    const aoa=parseCSV(text,FS);
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    wb={SheetNames:['Sheet1'],Sheets:{Sheet1:ws}};
+    wb._rawAOA=aoa;
+  }else{
+    wb=await readWorkbookFile(file);
+  }
+  const table=findBusinessReportTable(wb);
+  const period=detectReportPeriod(wb,file.name,table);
+  const aoaForLocale=wb._rawAOA||(table&&table.sheetName
+    ? XLSX.utils.sheet_to_json(wb.Sheets[table.sheetName],{header:1,defval:'',raw:false})
+    : null);
+  const locale=detectNumberLocale(aoaForLocale);
+  return {wb,table,period,locale};
+}
+
+function sheetObjects(wb,name){
+  if(!wb.Sheets[name])return [];
+  return XLSX.utils.sheet_to_json(wb.Sheets[name],{defval:''});
+}
+async function importDatabase(file){
+  const wb=await readWorkbookFile(file);
+  if(!wb.Sheets['_SYSTEM']||!wb.Sheets['Master Historical Data'])throw new Error('This workbook does not appear to be a valid Buy Box Monitor database.');
+  const sys=sheetObjects(wb,'_SYSTEM');
+  const m={};sys.forEach(r=>{const k=r['Field']??r['field']??Object.values(r)[0],v=r['Value']??r['value']??Object.values(r)[1];if(k)m[String(k)]=v});
+  const raw=sheetObjects(wb,'Master Historical Data');
+  const pRows=sheetObjects(wb,'Period Summary');
+  S.meta.brand=String(m['Brand Name']||'');
+  S.meta.marketplace=normalizeMarketplace(String(m['Marketplace']||''));
+  S.meta.currency=String(m['Currency']||'EUR');
+  S.periods=pRows.map((r,i)=>({
+    id:String(r['Period ID']||r['Period']||uid()),
+    label:String(r['Period']||r['Period Label']||'Period '+(i+1)),
+    start:dateISO(r['Start Date']||r['Period Start']),
+    end:dateISO(r['End Date']||r['Period End']),
+    filename:String(r['Source Filename']||r['Uploaded Filename']||''),
+    importDate:String(r['Import Date']||''),
+    overlap:String(r['Overlap Warning']||'').toLowerCase()==='yes',
+    order:i
+  }));
+  const periodByLabel=new Map(S.periods.map(p=>[p.label,p]));
+  S.rows=raw.map(r=>{
+    let pid=String(r['Period ID']||'');
+    if(!pid){const p=periodByLabel.get(String(r['Period Label']||'')); pid=p?.id||''}
+    return {
+      periodId:pid,periodLabel:String(r['Period Label']||''),periodStart:dateISO(r['Period Start']),periodEnd:dateISO(r['Period End']),
+      sourceFile:String(r['Uploaded Filename']||r['Source Filename']||''),parentAsin:String(r['Parent ASIN']||'').toUpperCase(),
+      childAsin:String(r['Child ASIN']||'').toUpperCase(),sku:String(r['SKU']||''),title:String(r['Product Title']||''),
+      revenue:parseNum(r['Revenue'])||0,b2bRevenue:parseNum(r['B2B Revenue'])||0,nonB2bRevenue:parseNum(r['Non B2B Revenue'])||0,
+      units:parseNum(r['Units Ordered'])||0,b2bUnits:parseNum(r['B2B Units'])||0,nonB2bUnits:parseNum(r['Non B2B Units'])||0,
+      buyBox:parsePct(r['Buy Box %']),sessions:parseNum(r['Sessions'])||0,pageViews:parseNum(r['Page Views'])||0,
+      unitSession:parsePct(r['Unit Session %']),b2bUnitSession:parsePct(r['Unit Session % B2B']),importDate:String(r['Import Date']||'')
+    }
+  }).filter(r=>r.childAsin&&r.periodId);
+  S.pending=[];
+  S.quality.push(`Loaded historical database from ${file.name}.`);
+  syncMetaInputs(); renderAll();
+}
+
+async function stageBusinessFiles(files){
+  for(const file of files){
+    try{
+      const parsed=await readBusinessFile(file);
+      const detected=parsed.period;
+      const period={
+        id:uid(),label:detected.label||file.name.replace(/\.[^.]+$/,'').slice(0,50),
+        start:detected.start||'',end:detected.end||'',filename:file.name,
+        importDate:new Date().toISOString(),order:S.periods.length+S.pending.length,
+        detection:detected.confidence||''
+      };
+      // The whole file shares one number format; set it while aggregating.
+      ACTIVE_LOCALE=parsed.locale||null;
+      const rows=aggregateBusinessRows(parsed.table.json,file.name,period);
+      ACTIVE_LOCALE=null;
+      const cols=getDetectedColumns(parsed.table.headers);
+      const fileRevenue=rows.reduce((a,r)=>a+(r.revenue||0),0);
+      const fileUnits=rows.reduce((a,r)=>a+(r.units||0),0);
+      const requiredMissing=[];
+      if(!cols.childAsin)requiredMissing.push('Child ASIN');
+      if(!cols.buyBox)requiredMissing.push('Featured Offer / Buy Box %');
+      if(!cols.revenue)requiredMissing.push('Ordered Product Sales');
+      if(!cols.units)requiredMissing.push('Units Ordered');
+      S.pending.push({
+        period,rows,
+        diagnostics:{
+          sheet:parsed.table.sheetName,
+          headerRow:parsed.table.headerRow+1,
+          rowCount:parsed.table.json.length,
+          uniqueAsins:rows.length,
+          detection:detected.confidence,
+          datesFound:detected.datesFound||[],
+          exportDateHint:detected.exportDateHint||'',
+          missing:requiredMissing,
+          matchedColumns:cols,
+          locale:parsed.locale||'',
+          fileRevenue,fileUnits,
+          sample:rows[0]||null
+        }
+      });
+      S.quality.push(`${file.name}: detected Business Report table on sheet "${parsed.table.sheetName}", header row ${parsed.table.headerRow+1}, ${rows.length} unique Child ASINs.`);
+      if(period.start&&period.end)S.quality.push(`${file.name}: reporting period detected as ${period.start} to ${period.end} (${detected.confidence}).`);
+      else S.quality.push(`${file.name}: reporting dates could not be detected automatically; manual period dates required.`);
+    }catch(e){
+      S.quality.push(`${file.name}: import failed — ${e.message}`);
+      showMsg(`${file.name}: ${e.message}`,'error');
+    }
+  }
+  renderPending(); renderQuality();
+  $('confirmImports').disabled=S.pending.length===0;
+  if(S.pending.length){
+    const dated=S.pending.filter(x=>x.period.start&&x.period.end).length;
+    showMsg(`${S.pending.length} report${S.pending.length>1?'s':''} read successfully. Dates auto-detected for ${dated}/${S.pending.length}. Review the detected periods, then click “Add Reports to Database”.`,'success');
+  }
+}
+
+function rangesOverlap(a,b){
+  if(!a.start||!a.end||!b.start||!b.end)return false;
+  return a.start<=b.end && b.start<=a.end;
+}
+function confirmImports(){
+  if(!S.pending.length)return;
+  if(!ensureMarketplaceBeforeImport())return;
+  for(const item of S.pending){
+    const p=item.period;
+    if(!p.start||!p.end){showMsg(`Set both Start Date and End Date for ${p.filename}.`,'error');showTab('periods');return}
+    if(p.end<p.start){showMsg(`End Date cannot be earlier than Start Date for ${p.filename}.`,'error');return}
+    const same=S.periods.find(x=>x.start===p.start&&x.end===p.end);
+    if(same){
+      const replace=confirm(`Reporting period ${safeLabel(same)} already exists.\n\nOK = Replace existing period\nCancel = Keep existing and stop this import`);
+      if(!replace)return;
+      S.rows=S.rows.filter(r=>r.periodId!==same.id);
+      S.periods=S.periods.filter(x=>x.id!==same.id);
+      S.quality.push(`Existing period ${safeLabel(same)} was replaced by ${p.filename}.`);
+    }
+    const overlaps=S.periods.filter(x=>rangesOverlap(x,p));
+    if(overlaps.length){
+      const ok=confirm(`Warning: ${safeLabel(p)} overlaps ${overlaps.map(safeLabel).join(', ')}.\n\nContinue import?`);
+      if(!ok)return;
+      p.overlap=true; S.quality.push(`${safeLabel(p)} overlaps an existing reporting period.`);
+    }
+    S.periods.push(p); S.rows.push(...item.rows);
+  }
+  S.pending=[];
+  showMsg('Reports added to the historical database. Dashboard recalculated.','success');
+  renderAll();
+}
+
+function asinSummaries(){
+  const periods=orderedPeriods();
+  const pIndex=new Map(periods.map((p,i)=>[p.id,i]));
+  const by=new Map();
+  for(const r of S.rows){
+    if(!by.has(r.childAsin))by.set(r.childAsin,[]);
+    by.get(r.childAsin).push(r);
+  }
+  const latest=latestPeriod();
+  const res=[];
+  for(const [asin,arr0] of by){
+    const arr=[...arr0].sort((a,b)=>(pIndex.get(a.periodId)??999)-(pIndex.get(b.periodId)??999));
+    const validBB=arr.filter(r=>r.buyBox!==null&&r.buyBox!==undefined);
+    const latestRow=latest?arr.find(r=>r.periodId===latest.id):null;
+    let prevRow=null;
+    if(latestRow){
+      const idx=arr.indexOf(latestRow);
+      for(let i=idx-1;i>=0;i--){if(arr[i].buyBox!==null){prevRow=arr[i];break}}
+    }
+    const firstBB=validBB[0]?.buyBox??null, lastBB=latestRow?.buyBox??null, prevBB=prevRow?.buyBox??null;
+    const delta=(lastBB!==null&&prevBB!==null)?lastBB-prevBB:null;
+    const overall=(lastBB!==null&&firstBB!==null)?lastBB-firstBB:null;
+    const av=validBB.length?validBB.reduce((a,r)=>a+r.buyBox,0)/validBB.length:null;
+    const trend=trendName(delta,validBB.length,latestRow);
+    const revenue=latestRow?.revenue??null;
+    const bb=lastBB;
+    const revRankBase=revenue??0;
+    const severity=bb===null?0:Math.max(0,100-bb);
+    const decline=delta===null?0:Math.max(0,-delta);
+    const priorityScore=Math.round((Math.log10(revRankBase+1)*12)+(severity*.8)+(decline*1.4));
+    let priority='LOW';
+    if(bb!==null && ((bb<50&&revRankBase>0)||priorityScore>=110))priority='CRITICAL';
+    else if(bb!==null && (bb<80||priorityScore>=85))priority='HIGH';
+    else if(bb!==null && (bb<90||delta<-5))priority='MEDIUM';
+    const meta=[...arr].reverse().find(r=>r.title||r.sku||r.parentAsin)||arr.at(-1);
+    res.push({
+      asin,parentAsin:meta?.parentAsin||'',sku:meta?.sku||'',title:meta?.title||'',arr,
+      latestRow,latestRevenue:revenue,latestUnits:latestRow?.units??null,b2bUnits:latestRow?.b2bUnits??null,nonB2bUnits:latestRow?.nonB2bUnits??null,
+      latestBB:bb,previousBB:prevBB,delta,overall,avgBB:av,minBB:validBB.length?Math.min(...validBB.map(r=>r.buyBox)):null,
+      maxBB:validBB.length?Math.max(...validBB.map(r=>r.buyBox)):null,periodsPresent:arr.length,trend,priority,priorityScore,
+      latestStatus:latestRow?(arr.length===1?'NEW ASIN':'Present'):'NOT PRESENT IN LATEST REPORT'
+    });
+  }
+  return res;
+}
+function trendName(delta,count,latestRow){
+  if(!latestRow)return 'Missing Latest';
+  if(count<=1)return 'New ASIN';
+  if(delta===null)return 'Insufficient History';
+  if(delta>=10)return 'Strong Improvement';
+  if(delta>=2)return 'Improving';
+  if(delta<=-10)return 'Strong Decline';
+  if(delta<=-2)return 'Declining';
+  return 'Stable';
+}
+function bbClass(v){
+  if(v===null||v===undefined)return 'na';
+  if(v>=S.thresholds.healthy)return 'good';
+  if(v>=S.thresholds.monitor)return 'watch';
+  if(v>=S.thresholds.warning)return 'warn';
+  if(v>=S.thresholds.critical)return 'crit';
+  return 'severe';
+}
+const HEAT_STOPS=[[25,'up3'],[10,'up2'],[2,'up1'],[-2,'flat'],[-10,'dn1'],[-25,'dn2'],[-50,'dn3']];
+function heatClass(pct){
+  if(pct===null||pct===undefined||!Number.isFinite(pct))return 'none';
+  for(const [floor,cls] of HEAT_STOPS)if(pct>=floor)return cls;
+  return 'dn4';
+}
+// A value with its own change riding underneath, so no separate Δ column is needed.
+function changeTag(pct,suffix){
+  if(pct===null||pct===undefined||!Number.isFinite(pct))return '';
+  const c=pct>2?'up':pct<-2?'dn':'flat';
+  return `<span class="chg ${c}">${pct>0?'+':''}${fmtN(pct,1)}${suffix||'%'}</span>`;
+}
+function ppTag(v){
+  if(v===null||v===undefined||!Number.isFinite(v))return '';
+  const c=v>1?'up':v<-1?'dn':'flat';
+  return `<span class="chg ${c}">${v>0?'+':''}${fmtN(v,1)} pp</span>`;
+}
+function heatValue(html,pct,tip){
+  return `<span class="heat ${heatClass(pct)}"${tip?` title="${esc(tip)}"`:''}>${html}${changeTag(pct)}</span>`;
+}
+function bbValue(bb,deltaPP){
+  return `<span class="bb-wrap"><span class="bb ${bbClass(bb)}">${fmtPct(bb)}</span>${ppTag(deltaPP)}</span>`;
+}
+function heatCell(html,pct,tip){
+  return `<span class="heat ${heatClass(pct)}"${tip?` title="${esc(tip)}"`:''}>${html}</span>`;
+}
+function heatLegend(){
+  return `<div class="heat-legend"><span class="cap">vs previous period:</span>`+
+    [['dn4','\u2264 \u221250%'],['dn3','\u221225%'],['dn2','\u221210%'],['dn1','\u22122%'],['flat','flat'],['up1','+2%'],['up2','+10%'],['up3','+25% or more']]
+      .map(([c,l])=>`<i class="heat ${c}">${l}</i>`).join('')+
+    `<span class="cap">grey = nothing earlier to compare</span></div>`;
+}
+function bbCell(v){return `<span class="bb ${bbClass(v)}">${fmtPct(v)}</span>`}
+function deltaCell(v){const c=v===null?'flat':v>1?'up':v<-1?'down':'flat';return `<span class="delta ${c}">${fmtPP(v)}</span>`}
+function priorityBadge(p){return `<span class="badge ${p.toLowerCase()}">${p}</span>`}
+
+
+function periodDays(p){
+  if(!p?.start||!p?.end)return 1;
+  const a=new Date(p.start+'T00:00:00Z'), b=new Date(p.end+'T00:00:00Z');
+  const d=Math.round((b-a)/86400000)+1;
+  return d>0?d:1;
+}
+function getRowForAsinPeriod(asin,periodId){
+  return S.rows.find(r=>r.childAsin===asin&&r.periodId===periodId)||null;
+}
+function pctChange(current,previous){
+  if(current===null||current===undefined||previous===null||previous===undefined)return null;
+  if(Number(previous)===0)return Number(current)===0?0:null;
+  return (Number(current)-Number(previous))/Math.abs(Number(previous))*100;
+}
+function compareValue(v,p,period,normalize){
+  if(v===null||v===undefined)return null;
+  if(!normalize)return Number(v);
+  const days=periodDays(period);
+  if(['revenue','units','sessions','b2bRevenue','b2bUnits'].includes(p))return Number(v)/days;
+  return Number(v);
+}
+function assessmentForPair(currentRow,previousRow,currentPeriod,previousPeriod,normalize=false){
+  if(!currentRow||!previousRow||currentRow.buyBox===null||previousRow.buyBox===null)return 'Insufficient History';
+  const bbDelta=currentRow.buyBox-previousRow.buyBox;
+  const revC=compareValue(currentRow.revenue,'revenue',currentPeriod,normalize), revP=compareValue(previousRow.revenue,'revenue',previousPeriod,normalize);
+  const unitC=compareValue(currentRow.units,'units',currentPeriod,normalize), unitP=compareValue(previousRow.units,'units',previousPeriod,normalize);
+  const revDelta=pctChange(revC,revP), unitDelta=pctChange(unitC,unitP);
+  const salesDown=(revDelta!==null&&revDelta<=-5) && (unitDelta!==null&&unitDelta<=-5);
+  const salesUp=(revDelta!==null&&revDelta>=5) && (unitDelta!==null&&unitDelta>=5);
+  const oneDown=(revDelta!==null&&revDelta<=-5)||(unitDelta!==null&&unitDelta<=-5);
+  const salesStable=(Math.abs(revDelta??0)<5)&&(Math.abs(unitDelta??0)<5);
+
+  if(bbDelta<=-5 && salesDown)return 'BB + Sales Decline';
+  if(bbDelta<=-5 && oneDown)return 'Possible BB Impact';
+  if(bbDelta>=5 && salesUp)return 'BB + Sales Recovery';
+  if(bbDelta>-5 && salesDown && currentRow.buyBox>=90)return 'Sales Decline, BB Healthy';
+  if(bbDelta<=-5 && salesStable)return 'BB Decline, Sales Stable';
+  return 'Stable / Mixed';
+}
+function assessmentBadge(a){
+  const map={
+    'BB + Sales Decline':'critical','Possible BB Impact':'high','BB + Sales Recovery':'low',
+    'Sales Decline, BB Healthy':'info','BB Decline, Sales Stable':'medium',
+    'Stable / Mixed':'info','Insufficient History':'info'
+  };
+  return `<span class="badge ${map[a]||'info'}">${esc(a)}</span>`;
+}
+function selectedComparePeriods(prefix='compare'){
+  const curId=$(prefix+'Current')?.value||orderedPeriods().at(-1)?.id||'';
+  const prevId=$(prefix+'Previous')?.value||orderedPeriods().at(-2)?.id||'';
+  return {current:S.periods.find(p=>p.id===curId)||null,previous:S.periods.find(p=>p.id===prevId)||null};
+}
+function populatePeriodSelectors(){
+  const ps=orderedPeriods();
+  const options=ps.map(p=>`<option value="${p.id}">${esc(safeLabel(p))} · ${periodDays(p)}d</option>`).join('');
+  ['compareCurrent','comparePrevious','overviewCurrent','overviewPrevious'].forEach(id=>{
+    const el=$(id); if(!el)return;
+    const old=el.value; el.innerHTML=options;
+    if(ps.some(p=>p.id===old))el.value=old;
+  });
+  const latest=ps.at(-1), prev=ps.at(-2);
+  if(latest){
+    if(!$('compareCurrent').dataset.touched)$('compareCurrent').value=latest.id;
+    if(!$('overviewCurrent').dataset.touched)$('overviewCurrent').value=latest.id;
+  }
+  if(prev){
+    if(!$('comparePrevious').dataset.touched)$('comparePrevious').value=prev.id;
+    if(!$('overviewPrevious').dataset.touched)$('overviewPrevious').value=prev.id;
+  }else if(latest){
+    $('comparePrevious').value=latest.id;$('overviewPrevious').value=latest.id;
+  }
+}
+function comparisonRows(current,previous,normalize=false){
+  if(!current||!previous)return [];
+  const asins=[...new Set([...rowsForPeriod(current.id).map(r=>r.childAsin),...rowsForPeriod(previous.id).map(r=>r.childAsin)])];
+  return asins.map(asin=>{
+    const c=getRowForAsinPeriod(asin,current.id), p=getRowForAsinPeriod(asin,previous.id);
+    const meta=c||p||{};
+    const revC=c?compareValue(c.revenue,'revenue',current,normalize):null, revP=p?compareValue(p.revenue,'revenue',previous,normalize):null;
+    const unitC=c?compareValue(c.units,'units',current,normalize):null, unitP=p?compareValue(p.units,'units',previous,normalize):null;
+    const sesC=c?compareValue(c.sessions,'sessions',current,normalize):null, sesP=p?compareValue(p.sessions,'sessions',previous,normalize):null;
+    return {
+      asin,parentAsin:meta.parentAsin||'',sku:meta.sku||'',title:meta.title||'',
+      c,p,revC,revP,revDelta:pctChange(revC,revP),
+      unitC,unitP,unitDelta:pctChange(unitC,unitP),
+      bbC:c?.buyBox??null,bbP:p?.buyBox??null,bbDelta:(c?.buyBox!=null&&p?.buyBox!=null)?c.buyBox-p.buyBox:null,
+      sesC,sesP,sesDelta:pctChange(sesC,sesP),
+      cvrC:c?.unitSession??null,cvrP:p?.unitSession??null,cvrDelta:(c?.unitSession!=null&&p?.unitSession!=null)?c.unitSession-p.unitSession:null,
+      assessment:assessmentForPair(c,p,current,previous,normalize)
+    };
+  }).sort((a,b)=>{
+    const weight=x=>{
+      let s=0;
+      if(x.assessment==='BB + Sales Decline')s+=1000;
+      if(x.assessment==='Possible BB Impact')s+=700;
+      s+=(x.revC||0);
+      return s;
+    };
+    return weight(b)-weight(a);
+  });
+}
+function renderComparison(){
+  populatePeriodSelectors();
+  const {current,previous}=selectedComparePeriods('compare');
+  const normalize=$('normalizeByDay')?.checked||false;
+  const accessors={
+    asin:x=>x.asin,title:x=>x.title,revP:x=>x.revP,revC:x=>x.revC,revDelta:x=>x.revDelta,
+    unitP:x=>x.unitP,unitC:x=>x.unitC,unitDelta:x=>x.unitDelta,bbP:x=>x.bbP,bbC:x=>x.bbC,bbDelta:x=>x.bbDelta,
+    sesDelta:x=>x.sesDelta,cvrDelta:x=>x.cvrDelta,assessment:x=>x.assessment
+  };
+  const rows=applySort(comparisonRows(current,previous,normalize),'comparison',accessors);
+  const suffix=normalize?' / day':'';
+  const diffLen=current&&previous&&periodDays(current)!==periodDays(previous);
+  $('comparisonWarning').innerHTML=diffLen&&!normalize?`<div class="warning-banner"><b>Different period lengths:</b> ${safeLabel(previous)} is ${periodDays(previous)} days and ${safeLabel(current)} is ${periodDays(current)} days. Raw Revenue and Units are not directly comparable. Turn on “Normalize per day” for a fair comparison.</div>`:'';
+  const totalCur=rows.reduce((a,x)=>a+(x.revC||0),0), totalPrev=rows.reduce((a,x)=>a+(x.revP||0),0);
+  const bbSales=rows.filter(x=>x.assessment==='BB + Sales Decline');
+  $('comparisonKpis').innerHTML=[
+    ['Current Revenue'+suffix,money(totalCur),current?safeLabel(current):'—'],
+    ['Previous Revenue'+suffix,money(totalPrev),previous?safeLabel(previous):'—'],
+    ['Revenue Change',fmtPct(pctChange(totalCur,totalPrev)),'Current vs previous'],
+    ['BB + Sales Decline',bbSales.length,'ASINs with aligned decline'],
+    ['Revenue in BB + Sales Decline',money(bbSales.reduce((a,x)=>a+(x.revC||0),0)),'Directional exposure'],
+    ['Different Period Lengths',current&&previous&&periodDays(current)!==periodDays(previous)?'Yes':'No',normalize?'Normalized per day':'Consider normalization']
+  ].map(x=>`<div class="kpi"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="hint">${x[2]}</div></div>`).join('');
+
+  $('comparisonTable').innerHTML=`<tr>${sortableTh('ASIN','asin','comparison','left')}${sortableTh('Product','title','comparison','left product-col')}${sortableTh(`<span class="wk1">${esc(periodShort(previous||{}))}</span><span class="wk2">Revenue${suffix}</span>`,'revP','comparison')}${sortableThDual(`<span class="wk1">${esc(periodShort(current||{}))}</span><span class="wk2">Revenue${suffix}</span>`,'revC','revDelta','comparison','','Sort by revenue change')}${sortableTh(`<span class="wk1">${esc(periodShort(previous||{}))}</span><span class="wk2">Units${suffix}</span>`,'unitP','comparison')}${sortableThDual(`<span class="wk1">${esc(periodShort(current||{}))}</span><span class="wk2">Units${suffix}</span>`,'unitC','unitDelta','comparison','','Sort by units change')}${sortableTh(`<span class="wk1">${esc(periodShort(previous||{}))}</span><span class="wk2">Buy Box</span>`,'bbP','comparison')}${sortableThDual(`<span class="wk1">${esc(periodShort(current||{}))}</span><span class="wk2">Buy Box</span>`,'bbC','bbDelta','comparison','','Sort by Buy Box change')}${sortableTh('Assessment','assessment','comparison','left')}</tr>`+
+  (rows.map(x=>`<tr><td class="left">${asinAnchor(x.asin)}</td><td class="left product-col product-detail-link" data-detail-asin="${esc(x.asin)}" title="${esc(x.title||'')}"><span>${esc(x.title||'')}</span></td><td>${money(x.revP)}</td><td>${heatValue(money(x.revC),x.revDelta)}</td><td>${fmtN(x.unitP,normalize?1:0)}</td><td>${heatValue(fmtN(x.unitC,normalize?1:0),x.unitDelta)}</td><td>${bbCell(x.bbP)}</td><td>${bbValue(x.bbC,x.bbDelta)}</td><td class="left">${assessmentBadge(x.assessment)}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">Select two periods to compare.</td></tr>');
+  
+  bindSortHeaders();bindScrollButtons();bindProductDetailLinks();
+}
+function renderOverviewComparison(){
+  populatePeriodSelectors();
+  const current=S.periods.find(p=>p.id===$('overviewCurrent')?.value), previous=S.periods.find(p=>p.id===$('overviewPrevious')?.value);
+  const normalize=$('overviewNormalize')?.checked||false;
+  const rows=comparisonRows(current,previous,normalize).slice(0,20);
+  const suffix=normalize?' / day':'';
+  $('overviewComparisonTable').innerHTML=`<tr><th class="left">ASIN</th><th class="left">Product</th><th>Prev Revenue${suffix}</th><th>Current Revenue${suffix}</th><th>Rev Δ</th><th>Prev Units${suffix}</th><th>Current Units${suffix}</th><th>Units Δ</th><th>Prev BB</th><th>Current BB</th><th>BB Δ</th><th class="left">Assessment</th></tr>`+
+  (rows.map(x=>`<tr><td class="left">${asinAnchor(x.asin)}</td><td class="left">${esc((x.title||'').slice(0,55))}</td><td>${money(x.revP)}</td><td>${heatCell(money(x.revC),x.revDelta)}</td><td>${x.revDelta===null?'—':heatCell(`${x.revDelta>0?'+':''}${fmtN(x.revDelta,1)}%`,x.revDelta)}</td><td>${fmtN(x.unitP,normalize?1:0)}</td><td>${heatCell(fmtN(x.unitC,normalize?1:0),x.unitDelta)}</td><td>${x.unitDelta===null?'—':heatCell(`${x.unitDelta>0?'+':''}${fmtN(x.unitDelta,1)}%`,x.unitDelta)}</td><td>${bbCell(x.bbP)}</td><td>${bbCell(x.bbC)}</td><td>${deltaCell(x.bbDelta)}</td><td class="left">${assessmentBadge(x.assessment)}</td></tr>`).join('')||'<tr><td colspan="12" class="empty">Upload at least two reporting periods to compare.</td></tr>');
+  
+}
+function renderImpact(){
+  populatePeriodSelectors();
+  const {current,previous}=selectedComparePeriods('compare');
+  const normalize=$('normalizeByDay')?.checked||false;
+  let rows=comparisonRows(current,previous,normalize);
+  const f=$('impactFilter')?.value||'all';
+  if(f!=='all')rows=rows.filter(x=>x.assessment===f);
+  const accessors={asin:x=>x.asin,title:x=>x.title,revC:x=>x.revC,revDelta:x=>x.revDelta,unitC:x=>x.unitC,unitDelta:x=>x.unitDelta,bbC:x=>x.bbC,bbDelta:x=>x.bbDelta,sesDelta:x=>x.sesDelta,cvrDelta:x=>x.cvrDelta,assessment:x=>x.assessment};
+  rows=applySort(rows,'impact',accessors);
+  const all=comparisonRows(current,previous,normalize);
+  const bbSales=all.filter(x=>x.assessment==='BB + Sales Decline');
+  const healthyDecline=all.filter(x=>x.assessment==='Sales Decline, BB Healthy');
+  $('impactKpis').innerHTML=[
+    ['BB + Sales Decline',bbSales.length,'Potential BB related issue'],
+    ['Revenue in Those ASINs',money(bbSales.reduce((a,x)=>a+(x.revC||0),0)),'Current period'],
+    ['Sales Decline, BB Healthy',healthyDecline.length,'Investigate other causes'],
+    ['BB + Sales Recovery',all.filter(x=>x.assessment==='BB + Sales Recovery').length,'Recovery pattern']
+  ].map(x=>`<div class="kpi"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="hint">${x[2]}</div></div>`).join('');
+
+  $('impactTable').innerHTML=`<tr>${sortableTh('ASIN','asin','impact','left')}${sortableTh('Product','title','impact','left product-col')}${sortableThDual('Revenue','revC','revDelta','impact','','Sort by revenue change')}${sortableThDual('Units Ordered','unitC','unitDelta','impact','','Sort by units change')}${sortableThDual('Buy Box','bbC','bbDelta','impact','','Sort by Buy Box change')}${sortableTh('Assessment','assessment','impact','left')}</tr>`+
+  (rows.map(x=>`<tr><td class="left">${asinAnchor(x.asin)}</td><td class="left product-col product-detail-link" data-detail-asin="${esc(x.asin)}" title="${esc(x.title||'')}"><span>${esc(x.title||'')}</span></td><td>${heatValue(money(x.revC),x.revDelta)}</td><td>${heatValue(fmtN(x.unitC,normalize?1:0),x.unitDelta)}</td><td>${bbValue(x.bbC,x.bbDelta)}</td><td class="left">${assessmentBadge(x.assessment)}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No ASINs match this assessment.</td></tr>');
+  
+  bindSortHeaders();bindScrollButtons();bindProductDetailLinks();
+}
+
+
+const VISIBLE_GROUPED_METRICS={revenue:true,units:true,buyBox:true,sessions:false,unitSession:false,b2bRevenue:false,b2bUnits:false};
+
+function metricMeta(key){
+  return {
+    revenue:{label:'Revenue',fmt:money},
+    units:{label:'Units',fmt:v=>fmtN(v)},
+    buyBox:{label:'BB %',fmt:bbCell},
+    sessions:{label:'Sessions',fmt:v=>fmtN(v)},
+    unitSession:{label:'CVR',fmt:bbCell},
+    b2bRevenue:{label:'B2B Revenue',fmt:money},
+    b2bUnits:{label:'B2B Units',fmt:v=>fmtN(v)}
+  }[key];
+}
+function currentGroupedMetrics(){
+  const checks=[...document.querySelectorAll('#metricToggles input[type=checkbox]')];
+  if(!checks.length)return ['revenue','units','buyBox'];
+  return checks.filter(x=>x.checked).map(x=>x.value);
+}
+function populateParentFilter(){
+  const el=$('parentFilter'); if(!el)return;
+  const old=el.value;
+  const parents=[...new Set(asinSummaries().map(x=>x.parentAsin).filter(Boolean))].sort();
+  el.innerHTML='<option value="all">All Parent ASINs</option>'+parents.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  if(parents.includes(old))el.value=old;
+}
+function latestPairAssessment(x){
+  const ps=orderedPeriods(),cur=ps.at(-1),prev=ps.at(-2);
+  if(!cur||!prev)return 'Insufficient History';
+  const m=new Map(x.arr.map(r=>[r.periodId,r]));
+  return assessmentForPair(m.get(cur.id),m.get(prev.id),cur,prev,periodDays(cur)!==periodDays(prev));
+}
+function renderFilterChips(){
+  const chips=[];
+  if($('searchInput')?.value)chips.push(`Search: ${$('searchInput').value}`);
+  if($('parentFilter')?.value&&$('parentFilter').value!=='all')chips.push(`Parent: ${$('parentFilter').value}`);
+  if($('assessmentFilter')?.value&&$('assessmentFilter').value!=='all')chips.push($('assessmentFilter').value);
+  if($('bbQuick')?.value&&$('bbQuick').value!=='all')chips.push(`BB < ${$('bbQuick').value}%`);
+  if($('priorityFilter')?.value&&$('priorityFilter').value!=='all')chips.push(`Priority: ${$('priorityFilter').value}`);
+  $('activeFilterChips').innerHTML=chips.map(c=>`<span class="filter-chip">${esc(c)}</span>`).join('');
+}
+function renderImpactMatrix(){
+  const ps=orderedPeriods(),cur=ps.at(-1),prev=ps.at(-2);
+  if(!cur||!prev){$('impactMatrix').innerHTML='<div class="empty" style="grid-column:1/-1">Upload at least two periods to build the impact matrix.</div>';return}
+  const rows=comparisonRows(cur,prev,periodDays(cur)!==periodDays(prev));
+  const buckets={
+    healthyGrow:rows.filter(x=>x.bbDelta!==null&&x.bbDelta>=-5&&((x.revDelta??0)>=-5||(x.unitDelta??0)>=-5)),
+    healthyDown:rows.filter(x=>x.assessment==='Sales Decline, BB Healthy'),
+    weakStable:rows.filter(x=>['BB Decline, Sales Stable','Possible BB Impact'].includes(x.assessment)),
+    weakDown:rows.filter(x=>x.assessment==='BB + Sales Decline')
+  };
+  const revenue=a=>a.reduce((s,x)=>s+(x.revC||0),0);
+  $('impactMatrix').innerHTML=`
+    <div></div><div class="axis">Sales Up / Stable</div><div class="axis">Sales Down</div>
+    <div class="axis">BB Healthy / Improved</div>
+    <div class="matrix-cell healthy" data-matrix-filter="healthyGrow"><b>Healthy / Growing</b><div class="big">${buckets.healthyGrow.length}</div><div class="sub2">${money(revenue(buckets.healthyGrow))} current revenue</div></div>
+    <div class="matrix-cell watch" data-matrix-filter="healthyDown"><b>Investigate Other Cause</b><div class="big">${buckets.healthyDown.length}</div><div class="sub2">${money(revenue(buckets.healthyDown))} current revenue</div></div>
+    <div class="axis">BB Weak / Declined</div>
+    <div class="matrix-cell watch" data-matrix-filter="weakStable"><b>Monitor</b><div class="big">${buckets.weakStable.length}</div><div class="sub2">${money(revenue(buckets.weakStable))} current revenue</div></div>
+    <div class="matrix-cell problem" data-matrix-filter="weakDown"><b>Priority BB Issue</b><div class="big">${buckets.weakDown.length}</div><div class="sub2">${money(revenue(buckets.weakDown))} current revenue</div></div>`;
+  document.querySelectorAll('[data-matrix-filter]').forEach(el=>el.onclick=()=>{
+    const f=el.dataset.matrixFilter;
+    if(f==='healthyDown')$('impactFilter').value='Sales Decline, BB Healthy';
+    else if(f==='weakDown')$('impactFilter').value='BB + Sales Decline';
+    else if(f==='weakStable')$('impactFilter').value='Possible BB Impact';
+    else $('impactFilter').value='all';
+    showTab('impact');renderImpact();
+  });
+}
+function renderMovers(){
+  const ps=orderedPeriods(),cur=ps.at(-1),prev=ps.at(-2);
+  if(!cur||!prev){$('moversGrid').innerHTML='';return}
+  const rows=comparisonRows(cur,prev,periodDays(cur)!==periodDays(prev));
+  const take=(arr,key,dir='asc')=>[...arr].filter(x=>x[key]!==null).sort((a,b)=>dir==='asc'?a[key]-b[key]:b[key]-a[key]).slice(0,5);
+  const cards=[
+    ['Largest BB Declines',take(rows,'bbDelta','asc'),x=>fmtPP(x.bbDelta)],
+    ['Largest Revenue Declines',take(rows,'revDelta','asc'),x=>`${fmtN(x.revDelta,1)}%`],
+    ['Largest BB Recoveries',take(rows,'bbDelta','desc'),x=>fmtPP(x.bbDelta)],
+    ['Combined Decliners',[...rows].filter(x=>x.assessment==='BB + Sales Decline').sort((a,b)=>(a.bbDelta??0)-(b.bbDelta??0)).slice(0,5),x=>`${fmtPP(x.bbDelta)} · ${fmtN(x.revDelta,1)}% Rev`]
+  ];
+  $('moversGrid').innerHTML=cards.map(([title,arr,fmt])=>`<div class="mover-card"><h3>${title}</h3>${arr.map(x=>`<div class="mover-row"><div><b>${asinAnchor(x.asin)}</b><small>${esc((x.title||'').slice(0,38))}</small></div><b>${fmt(x)}</b></div>`).join('')||'<div class="empty">No data</div>'}</div>`).join('');
+}
+function pearson(xs,ys){
+  const pairs=xs.map((x,i)=>[x,ys[i]]).filter(([x,y])=>Number.isFinite(x)&&Number.isFinite(y));
+  if(pairs.length<3)return null;
+  const mx=pairs.reduce((a,p)=>a+p[0],0)/pairs.length,my=pairs.reduce((a,p)=>a+p[1],0)/pairs.length;
+  let num=0,dx=0,dy=0;
+  pairs.forEach(([x,y])=>{const ax=x-mx,ay=y-my;num+=ax*ay;dx+=ax*ax;dy+=ay*ay});
+  return dx&&dy?num/Math.sqrt(dx*dy):null;
+}
+function relationshipLabel(r){
+  if(r===null)return 'Insufficient Data';
+  if(r>=.7)return 'Strong Positive';
+  if(r>=.4)return 'Moderate Positive';
+  if(r>=.15)return 'Weak Positive';
+  if(r<=-.4)return 'Inverse Relationship';
+  return 'Weak / Mixed';
+}
+function resolveHistoryAsin(){
+  const raw=($('historyAsin')?.value||'').trim();
+  if(!raw)return null;
+  const sums=asinSummaries();
+  const exact=sums.find(z=>z.asin.toUpperCase()===raw.toUpperCase());
+  if(exact)return exact;
+  const q=raw.toLowerCase();
+  const hits=sums.filter(z=>z.asin.toLowerCase().includes(q)||(z.title||'').toLowerCase().includes(q));
+  return hits.length===1?hits[0]:null;
+}
+function renderRelationship(){
+  const x=resolveHistoryAsin();
+  if(!x){$('relationshipBox').innerHTML='';return}
+  const pts=x.arr.filter(r=>r.buyBox!=null);
+  const rRev=pearson(pts.map(r=>r.buyBox),pts.map(r=>r.revenue));
+  const rUnits=pearson(pts.map(r=>r.buyBox),pts.map(r=>r.units));
+  $('relationshipBox').innerHTML=`
+    <div class="mini"><small>BB vs Revenue</small><b>${relationshipLabel(rRev)}</b><div class="sub">${rRev===null?'—':'r = '+fmtN(rRev,2)}</div></div>
+    <div class="mini"><small>BB vs Units</small><b>${relationshipLabel(rUnits)}</b><div class="sub">${rUnits===null?'—':'r = '+fmtN(rUnits,2)}</div></div>
+    <div class="mini"><small>Periods Analyzed</small><b>${pts.length}</b><div class="sub">Relationship does not prove causation.</div></div>`;
+}
+function syncTopScrollbar(){
+  const top=$('monitorTopScroll'),wrap=$('monitorTableWrap'),table=$('monitorTable');
+  if(!top||!wrap||!table)return;
+  const filler=top.firstElementChild;
+  filler.style.width=table.scrollWidth+'px';
+  if(!top.dataset.bound){
+    top.addEventListener('scroll',()=>{if(Math.abs(wrap.scrollLeft-top.scrollLeft)>2)wrap.scrollLeft=top.scrollLeft});
+    wrap.addEventListener('scroll',()=>{if(Math.abs(top.scrollLeft-wrap.scrollLeft)>2)top.scrollLeft=wrap.scrollLeft});
+    top.dataset.bound='1';
+  }
+}
+function saveCurrentView(){
+  const name=prompt('Name this view:'); if(!name)return;
+  const view={
+    search:$('searchInput').value,parent:$('parentFilter').value,assessment:$('assessmentFilter').value,bb:$('bbQuick').value,
+    trend:$('trendFilter').value,priority:$('priorityFilter').value,mode:$('monitorMode').value,kpi:$('monitorKpi').value,
+    window:$('periodWindow').value,density:$('densitySelect').value,metrics:currentGroupedMetrics()
+  };
+  const all=JSON.parse(localStorage.getItem('buyboxSavedViews')||'{}');all[name]=view;
+  localStorage.setItem('buyboxSavedViews',JSON.stringify(all));populateSavedViews();$('savedViews').value=name;
+}
+function populateSavedViews(){
+  const el=$('savedViews');if(!el)return;
+  const all=JSON.parse(localStorage.getItem('buyboxSavedViews')||'{}');
+  el.innerHTML='<option value="">Saved Views</option>'+Object.keys(all).sort().map(n=>`<option>${esc(n)}</option>`).join('');
+}
+function loadSavedView(name){
+  if(!name)return;
+  const all=JSON.parse(localStorage.getItem('buyboxSavedViews')||'{}'),v=all[name];if(!v)return;
+  $('searchInput').value=v.search||'';$('parentFilter').value=v.parent||'all';$('assessmentFilter').value=v.assessment||'all';
+  $('bbQuick').value=v.bb||'all';$('trendFilter').value=v.trend||'all';$('priorityFilter').value=v.priority||'all';
+  $('monitorMode').value=v.mode||'grouped';$('monitorKpi').value=v.kpi||'revenue';$('periodWindow').value=v.window||'4';$('densitySelect').value=v.density||'comfortable';
+  document.querySelectorAll('#metricToggles input').forEach(c=>c.checked=(v.metrics||[]).includes(c.value));
+  renderMonitor();
+}
+
+function latestMetrics(threshold=90){
+  const latest=latestPeriod();
+  if(!latest)return {latest:null,rows:[],revenue:0,units:0,weightedBB:null,below95:0,below90:0,below80:0,below50:0,declining:0,risk:0,riskPct:0,newAsins:0,missing:0};
+  const rr=rowsForPeriod(latest.id), sums=asinSummaries(), revenue=rr.reduce((a,r)=>a+r.revenue,0),units=rr.reduce((a,r)=>a+r.units,0);
+  const valid=rr.filter(r=>r.buyBox!==null);
+  const den=valid.reduce((a,r)=>a+r.revenue,0);
+  const weightedBB=den>0?valid.reduce((a,r)=>a+r.revenue*r.buyBox,0)/den:(valid.length?valid.reduce((a,r)=>a+r.buyBox,0)/valid.length:null);
+  const risk=rr.filter(r=>r.buyBox!==null&&r.buyBox<threshold).reduce((a,r)=>a+r.revenue,0);
+  return {
+    latest,rows:rr,revenue,units,weightedBB,
+    below95:rr.filter(r=>r.buyBox!==null&&r.buyBox<95).length,below90:rr.filter(r=>r.buyBox!==null&&r.buyBox<90).length,
+    below80:rr.filter(r=>r.buyBox!==null&&r.buyBox<80).length,below50:rr.filter(r=>r.buyBox!==null&&r.buyBox<50).length,
+    declining:sums.filter(x=>x.latestRow&&(x.trend==='Declining'||x.trend==='Strong Decline')).length,
+    risk,riskPct:revenue?risk/revenue*100:0,newAsins:sums.filter(x=>x.latestStatus==='NEW ASIN').length,
+    missing:sums.filter(x=>x.latestStatus==='NOT PRESENT IN LATEST REPORT').length
+  }
+}
+
+
+
+const MARKETPLACE_DOMAINS={
+  DE:'amazon.de',
+  FR:'amazon.fr',
+  UK:'amazon.co.uk',
+  US:'amazon.com',
+  IT:'amazon.it',
+  ES:'amazon.es',
+  NL:'amazon.nl',
+  SE:'amazon.se',
+  PL:'amazon.pl',
+  BE:'amazon.com.be',
+  CA:'amazon.ca',
+  AU:'amazon.com.au',
+  JP:'amazon.co.jp'
+};
+function normalizeMarketplace(v){
+  const s=String(v||'').trim().toUpperCase();
+  if(MARKETPLACE_DOMAINS[s])return s;
+  const low=String(v||'').toLowerCase();
+  for(const [code,domain] of Object.entries(MARKETPLACE_DOMAINS)){
+    if(low.includes(domain))return code;
+  }
+  return '';
+}
+function amazonAsinUrl(asin){
+  const code=normalizeMarketplace(S.meta.marketplace||$('marketInput')?.value||'');
+  const domain=MARKETPLACE_DOMAINS[code];
+  if(!domain||!asin)return '#';
+  return `https://www.${domain}/dp/${encodeURIComponent(asin)}`;
+}
+function asinAnchor(asin){
+  const url=amazonAsinUrl(asin);
+  if(url==='#')return `<span class="asin-link" title="Select a marketplace to enable Amazon links">${esc(asin)}</span>`;
+  return `<a class="asin-link" href="${url}" target="_blank" rel="noopener noreferrer" title="Open ${esc(asin)} on ${MARKETPLACE_DOMAINS[normalizeMarketplace(S.meta.marketplace||$('marketInput')?.value||'')]}">${esc(asin)}</a>`;
+}
+function ensureMarketplaceBeforeImport(){
+  const mp=normalizeMarketplace($('marketInput')?.value||S.meta.marketplace);
+  if(!mp){
+    showMsg('Select the Amazon marketplace before adding reports to the database. This is required so ASIN links point to the correct Amazon site.','error');
+    showTab('overview');
+    $('marketInput')?.focus();
+    return false;
+  }
+  S.meta.marketplace=mp;
+  return true;
+}
+
+const TABLE_SORTS={};
+
+function sortPrimitive(v){
+  if(v===null||v===undefined)return -Infinity;
+  if(typeof v==='number')return v;
+  const n=Number(v);
+  if(Number.isFinite(n))return n;
+  return String(v).toLowerCase();
+}
+function applySort(arr, tableKey, accessors){
+  const st=TABLE_SORTS[tableKey];
+  if(!st||!accessors[st.key])return arr;
+  const get=accessors[st.key];
+  return [...arr].sort((a,b)=>{
+    const av=sortPrimitive(get(a)), bv=sortPrimitive(get(b));
+    let cmp=0;
+    if(typeof av==='number'&&typeof bv==='number')cmp=av-bv;
+    else cmp=String(av).localeCompare(String(bv),undefined,{numeric:true,sensitivity:'base'});
+    return st.dir==='asc'?cmp:-cmp;
+  });
+}
+function sortableTh(label,key,tableKey,extra=''){
+  const st=TABLE_SORTS[tableKey];
+  const cls=st?.key===key?(st.dir==='asc'?' sort-asc':' sort-desc'):'';
+  return `<th class="sortable${cls} ${extra}" data-sort-table="${tableKey}" data-sort-key="${key}">${label}</th>`;
+}
+// Two sort handles in one heading: the label sorts by value, the Δ by change.
+function sortableThDual(label,key,deltaKey,tableKey,extra='',deltaHint='Sort by change'){
+  const st=TABLE_SORTS[tableKey];
+  const on=st?.key===key?(st.dir==='asc'?' sort-asc':' sort-desc'):'';
+  const dOn=st?.key===deltaKey?' delta-on':'';
+  return `<th class="sortable${on} ${extra}" data-sort-table="${tableKey}" data-sort-key="${key}">${label}`+
+    `<span class="delta-sort${dOn}" data-sort-table="${tableKey}" data-sort-key="${deltaKey}" title="${esc(deltaHint)}">Δ</span></th>`;
+}
+function applySortChoice(table,key){
+  const old=TABLE_SORTS[table];
+  TABLE_SORTS[table]={key,dir:old?.key===key&&old.dir==='desc'?'asc':'desc'};
+  if(table==='comparison')renderComparison();
+  else if(table==='impact')renderImpact();
+  else if(table==='monitor')renderMonitor();
+  else if(table==='risk')renderRisk();
+  else if(table==='parent')renderParent();
+}
+function bindSortHeaders(){
+  document.querySelectorAll('.delta-sort[data-sort-table]').forEach(el=>{
+    el.onclick=ev=>{ev.stopPropagation();applySortChoice(el.dataset.sortTable,el.dataset.sortKey)};
+  });
+  document.querySelectorAll('th[data-sort-table]').forEach(th=>{
+    th.onclick=()=>{
+      const table=th.dataset.sortTable,key=th.dataset.sortKey;
+      const old=TABLE_SORTS[table];
+      TABLE_SORTS[table]={key,dir:old?.key===key&&old.dir==='desc'?'asc':'desc'};
+      if(table==='comparison')renderComparison();
+      else if(table==='impact')renderImpact();
+      else if(table==='monitor')renderMonitor();
+      else if(table==='risk')renderRisk();
+      else if(table==='parent')renderParent();
+    };
+  });
+}
+
+function bindProductDetailLinks(){
+  document.querySelectorAll('.product-detail-link').forEach(el=>{
+    el.style.cursor='pointer';
+    el.onclick=()=>openAsin(el.dataset.detailAsin);
+  });
+}
+
+function bindScrollButtons(){
+  document.querySelectorAll('[data-scroll-target]').forEach(btn=>{
+    btn.onclick=()=>{
+      const table=$(btn.dataset.scrollTarget);
+      const wrap=table?.closest('.table-wrap');
+      if(wrap)wrap.scrollBy({left:Number(btn.dataset.dir)*Math.max(420,wrap.clientWidth*.7),behavior:'smooth'});
+    };
+  });
+}
+
+function renderAll(){
+  S.meta.brand=$('brandInput').value||S.meta.brand;
+  S.meta.marketplace=$('marketInput').value||S.meta.marketplace;
+  S.meta.currency=$('currencyInput').value||S.meta.currency;
+  renderStatus();renderKpis();renderInsights();renderImpactMatrix();renderMovers();populatePeriodSelectors();renderOverviewComparison();renderComparison();renderImpact();renderMonitor();renderPriority();renderRisk();renderParent();renderHistorySelector();renderPeriodManager();renderQuality();populateSavedViews();bindSortHeaders();bindScrollButtons();bindProductDetailLinks();syncTopScrollbar();bindProductDetailLinks();
+}
+function renderStatus(){
+  const ps=orderedPeriods();const latest=ps.at(-1),oldest=ps[0];
+  const mp=normalizeMarketplace(S.meta.marketplace);
+  $('dbPill').textContent=`Database: ${S.rows.length?'Loaded':'New'} · ${ps.length} period${ps.length===1?'':'s'}${mp?' · '+MARKETPLACE_DOMAINS[mp]:''}`;
+  $('dbStatusText').textContent=S.rows.length?'Historical database active':'Starting new database';
+  if(!normalizeMarketplace(S.meta.marketplace)) $('dbStatusText').innerHTML += ' · <strong>Select marketplace</strong>';
+  $('sPeriods').textContent=ps.length;$('sAsins').textContent=uniqueAsins().length;$('sOldest').textContent=oldest?safeLabel(oldest):'—';$('sLatest').textContent=latest?safeLabel(latest):'—';
+  $('topBrand').textContent=S.meta.brand?`| ${S.meta.brand}`:'';
+}
+function renderKpis(){
+  const m=latestMetrics();
+  const ps=orderedPeriods(), cur=ps.at(-1), prev=ps.at(-2);
+  const comp=(cur&&prev)?comparisonRows(cur,prev,false):[];
+  const bbSales=comp.filter(x=>x.assessment==='BB + Sales Decline');
+  const healthyDecline=comp.filter(x=>x.assessment==='Sales Decline, BB Healthy');
+  // Every KPI names the week it belongs to, since history accumulates over time.
+  const wk=cur?`Week of ${periodShort(cur)}`:'No period';
+  const range=cur&&cur.start&&cur.end?`${cur.start} → ${cur.end}${periodDays(cur)&&periodDays(cur)!==7?` · ${periodDays(cur)} days`:''}`:wk;
+  const vs=prev?`vs week of ${periodShort(prev)}`:'first week on record';
+  const pm=prev?rowsForPeriod(prev.id):[];
+  const prevRev=pm.reduce((a,r)=>a+(r.revenue||0),0), prevUnits=pm.reduce((a,r)=>a+(r.units||0),0);
+  const chg=(now,before)=>(before>0)?`${now>=before?'▲ +':'▼ '}${fmtN((now-before)/before*100,1)}% ${vs}`:range;
+  const list=[
+    [`Revenue · ${periodShort(cur)}`,money(m.revenue),prev?chg(m.revenue,prevRev):range],
+    [`Units Ordered · ${periodShort(cur)}`,fmtN(m.units),prev?chg(m.units,prevUnits):range],
+    [`Weighted Buy Box · ${periodShort(cur)}`,fmtPct(m.weightedBB),`Revenue weighted · ${range}`],
+    ['BB + Sales Decline',bbSales.length,vs],
+    ['Revenue in BB + Sales Decline',money(bbSales.reduce((a,x)=>a+(x.revC||0),0)),'Directional exposure'],
+    ['Sales ↓, BB Healthy',healthyDecline.length,'Investigate other causes'],
+    ['ASINs Below 90%',fmtN(m.below90),range],
+    ['Revenue Exposure',money(m.risk),`${fmtPct(m.riskPct)} of this week`],
+    ['Declining BB',fmtN(m.declining),vs],
+    ['New ASINs',fmtN(m.newAsins),range],
+    ['Child ASINs',uniqueAsins().length,'Unique across all weeks'],
+    ['Weeks Stored',fmtN(S.periods.length),ps.length?`${periodShort(ps[0])} → ${periodShort(cur)}`:'—']
+  ];
+  $('kpis').innerHTML=list.map(x=>`<div class="kpi"><div class="label">${esc(String(x[0]))}</div><div class="value">${x[1]}</div><div class="hint">${esc(String(x[2]))}</div></div>`).join('');
+}
+function renderInsights(){
+  const m=latestMetrics(), sums=asinSummaries();
+  if(!m.latest){$('insights').innerHTML='<li>Upload a Business Report to start monitoring Buy Box history.</li>';return}
+  const topDecl=[...sums].filter(x=>x.delta!==null).sort((a,b)=>a.delta-b.delta)[0];
+  const topImprove=[...sums].filter(x=>x.delta!==null).sort((a,b)=>b.delta-a.delta)[0];
+  const top10=[...sums].filter(x=>x.latestRevenue!==null).sort((a,b)=>(b.latestRevenue||0)-(a.latestRevenue||0)).slice(0,10);
+  const top10low=top10.filter(x=>x.latestBB!==null&&x.latestBB<90).length;
+  const lines=[
+    `${m.below90} ASINs are below 90% Buy Box in ${safeLabel(m.latest)}.`,
+    `${money(m.risk)} or ${fmtPct(m.riskPct)} of latest period revenue is associated with ASINs below 90% Buy Box.`,
+    `${top10low} of the top ${top10.length} revenue ASINs are below 90% Buy Box.`,
+    `${m.newAsins} ASINs appear for the first time in the latest period; ${m.missing} historical ASINs are not present in the latest report.`
+  ];
+  if(topDecl&&topDecl.delta<0)lines.push(`${topDecl.asin} has the largest recent Buy Box decline: ${fmtPct(topDecl.previousBB)} → ${fmtPct(topDecl.latestBB)} (${fmtPP(topDecl.delta)}).`);
+  if(topImprove&&topImprove.delta>0)lines.push(`${topImprove.asin} has the largest recent recovery: ${fmtPct(topImprove.previousBB)} → ${fmtPct(topImprove.latestBB)} (${fmtPP(topImprove.delta)}).`);
+  $('insights').innerHTML=lines.map(x=>`<li>${esc(x)}</li>`).join('');
+}
+function getFilteredSummaries(){
+  let arr=asinSummaries();
+  const q=$('searchInput')?.value?.trim().toLowerCase()||'';
+  const bbq=$('bbQuick')?.value||'all', tr=$('trendFilter')?.value||'all', pr=$('priorityFilter')?.value||'all';
+  const parent=$('parentFilter')?.value||'all', assessment=$('assessmentFilter')?.value||'all';
+  if(q)arr=arr.filter(x=>[x.asin,x.parentAsin,x.sku,x.title].some(v=>String(v).toLowerCase().includes(q)));
+  if(parent!=='all')arr=arr.filter(x=>x.parentAsin===parent);
+  if(assessment!=='all')arr=arr.filter(x=>latestPairAssessment(x)===assessment);
+  if(bbq!=='all')arr=arr.filter(x=>x.latestBB!==null&&x.latestBB<Number(bbq));
+  if(tr!=='all')arr=arr.filter(x=>x.trend===tr);
+  if(pr!=='all')arr=arr.filter(x=>x.priority===pr);
+  renderFilterChips();
+  return arr.sort((a,b)=>(b.priorityScore-a.priorityScore)||((b.latestRevenue||0)-(a.latestRevenue||0)));
+}
+function renderMonitor(){
+  populateParentFilter();populateSavedViews();
+  const ps=orderedPeriods(), n=Number($('periodWindow')?.value||4), shown=ps.slice(-n);
+  let arr=getFilteredSummaries();
+  const mode=$('monitorMode')?.value||'grouped';
+  const kpi=$('monitorKpi')?.value||'revenue';
+  const density=$('densitySelect')?.value||'comfortable';
+  $('monitorTable').classList.toggle('compact-table',density==='compact');
+
+  const accessors={asin:x=>x.asin,title:x=>x.title,parent:x=>x.parentAsin,priority:x=>x.priorityScore,trend:x=>x.trend};
+  const psAll=orderedPeriods();
+  shown.forEach(p=>{
+    const idx=psAll.findIndex(q=>q.id===p.id);
+    const prior=idx>0?psAll[idx-1]:null;
+    ['revenue','units','buyBox','sessions','unitSession','b2bRevenue','b2bUnits'].forEach(metric=>{
+      accessors[`${metric}_${p.id}`]=x=>new Map(x.arr.map(r=>[r.periodId,r])).get(p.id)?.[metric]??null;
+      // Δ handle in the heading sorts on the change into that period.
+      accessors[`${metric}_d_${p.id}`]=x=>{
+        const m=new Map(x.arr.map(r=>[r.periodId,r]));
+        const c=m.get(p.id), pr=prior?m.get(prior.id):null;
+        if(!c||!pr)return null;
+        const a=c[metric], b=pr[metric];
+        if(a==null||b==null)return null;
+        if(metric==='buyBox')return a-b;
+        return b>0?(a-b)/b*100:null;
+      };
+    });
+  });
+  const cur=shown.at(-1), prev=shown.at(-2);
+  accessors.revDelta=x=>{const m=new Map(x.arr.map(r=>[r.periodId,r])),c=cur?m.get(cur.id):null,p=prev?m.get(prev.id):null;return c&&p?pctChange(c.revenue,p.revenue):null};
+  accessors.unitDelta=x=>{const m=new Map(x.arr.map(r=>[r.periodId,r])),c=cur?m.get(cur.id):null,p=prev?m.get(prev.id):null;return c&&p?pctChange(c.units,p.units):null};
+  accessors.bbDelta=x=>{const m=new Map(x.arr.map(r=>[r.periodId,r])),c=cur?m.get(cur.id):null,p=prev?m.get(prev.id):null;return c&&p&&c.buyBox!=null&&p.buyBox!=null?c.buyBox-p.buyBox:null};
+  accessors.sessionsDelta=x=>{const m=new Map(x.arr.map(r=>[r.periodId,r])),c=cur?m.get(cur.id):null,p=prev?m.get(prev.id):null;return c&&p?pctChange(c.sessions,p.sessions):null};
+  arr=applySort(arr,'monitor',accessors);
+
+  // Heat shading needs each cell's own previous period, so build an index once.
+  const priorOf=new Map();
+  ps.forEach((p,i)=>priorOf.set(p.id,i>0?ps[i-1]:null));
+  const heatFor=(x,p,metric)=>{
+    const map=new Map(x.arr.map(r=>[r.periodId,r]));
+    const cur=map.get(p.id); if(!cur)return null;
+    const prior=priorOf.get(p.id); if(!prior)return null;
+    const prev=map.get(prior.id); if(!prev)return null;
+    const a=cur[metric], b=prev[metric];
+    if(a===null||a===undefined||b===null||b===undefined||!(b>0))return null;
+    return (a-b)/b*100;
+  };
+  const legendEl=$('monitorHeatLegend');
+  if(legendEl)legendEl.innerHTML=(mode==='metric'||mode==='single')?heatLegend():'';
+
+  if(mode==='metric'){
+    // KPI major: every period for Revenue sits together, then Units, then Buy Box.
+    const metrics=currentGroupedMetrics();
+    $('monitorTable').classList.add('metric-major');
+    const headTop=`<tr><th class="left sticky1" rowspan="2">Child ASIN</th><th class="left sticky2 product-col" rowspan="2">Product Title</th><th class="left parent-col" rowspan="2">Parent ASIN</th>`+
+      metrics.map(mk=>`<th colspan="${shown.length}" class="kpi-block"><span class="period-badge">${esc(metricMeta(mk).label)}</span></th>`).join('')+
+      `<th rowspan="2" class="kpi-block">Assessment</th></tr>`;
+    const headBottom='<tr>'+
+      metrics.map(mk=>shown.map((p,i)=>sortableThDual(
+        `<span class="wk1">${esc(periodShort(p))}</span><span class="wk2">${esc(p.end||'')}${periodDays(p)&&periodDays(p)!==7?` · ${periodDays(p)}d`:''}</span>`,
+        `${mk}_${p.id}`,`${mk}_d_${p.id}`,'monitor',(i===0?'kpi-block ':'')+'period-sep','Sort by change into this week')).join('')).join('')+
+      '</tr>';
+    const cur2=shown.at(-1), prev2=shown.at(-2);
+    const body=arr.map(x=>{
+      const map=new Map(x.arr.map(r=>[r.periodId,r]));
+      const c=cur2?map.get(cur2.id):null, pr=prev2?map.get(prev2.id):null;
+      const revD=(c&&pr)?pctChange(c.revenue,pr.revenue):null;
+      const unitD=(c&&pr)?pctChange(c.units,pr.units):null;
+      const bbD=(c&&pr&&c.buyBox!=null&&pr.buyBox!=null)?c.buyBox-pr.buyBox:null;
+      const normalize=cur2&&prev2&&periodDays(cur2)!==periodDays(prev2);
+      const ass=(cur2&&prev2)?assessmentForPair(c,pr,cur2,prev2,normalize):'Insufficient History';
+      const cells=metrics.map(mk=>shown.map((p,i)=>{
+        const r=map.get(p.id);
+        const klass=(i===0?'kpi-block ':'')+'period-sep';
+        if(!r)return `<td class="${klass}">—</td>`;
+        const v=r[mk];
+        const prior=priorOf.get(p.id);
+        const prevRow=prior?new Map(x.arr.map(z=>[z.periodId,z])).get(prior.id):null;
+        if(mk==='buyBox'){
+          const pp=(prevRow&&v!=null&&prevRow.buyBox!=null)?v-prevRow.buyBox:null;
+          return `<td class="${klass}">${bbValue(v,pp)}</td>`;
+        }
+        const pct=heatFor(x,p,mk);
+        const tip=pct===null?`${periodShort(p)}: nothing earlier to compare`
+          :`${periodShort(prior)} → ${periodShort(p)}: ${pct>0?'+':''}${fmtN(pct,1)}%`;
+        return `<td class="${klass}">${heatValue(metricMeta(mk).fmt(v),pct,tip)}</td>`;
+      }).join('')).join('');
+      return `<tr><td class="left sticky1">${asinAnchor(x.asin)}</td>`+
+        `<td class="left sticky2 product-col product-detail-link" data-detail-asin="${esc(x.asin)}" title="${esc(x.title||'')}"><span>${esc(x.title||'')}</span></td>`+
+        `<td class="left parent-col">${esc(x.parentAsin)}</td>${cells}`+
+        `<td class="kpi-block">${assessmentBadge(ass)}</td></tr>`;
+    }).join('');
+    $('monitorTable').innerHTML=headTop+headBottom+(body||'<tr><td colspan="30" class="empty">No ASINs match the current filters.</td></tr>');
+  }else if(mode==='single'){
+    $('monitorTable').classList.remove('metric-major');
+    const meta=metricMeta(kpi);
+    const head=`<tr>${sortableTh('Child ASIN','asin','monitor','left sticky1')}${sortableTh('Product Title','title','monitor','left sticky2 product-col')}${sortableTh('Parent ASIN','parent','monitor','left parent-col')}${shown.map((p,i)=>sortableThDual(`<span class="wk1">${esc(periodShort(p))}</span><span class="wk2">${esc(p.end||'')}</span>`,`${kpi}_${p.id}`,`${kpi}_d_${p.id}`,'monitor',i%2?'period-group-b period-sep':'period-group-a period-sep','Sort by change into this week')).join('')}${sortableTh('Trend','trend','monitor')}${sortableTh('Priority','priority','monitor')}</tr>`;
+    const body=arr.map(x=>{
+      const map=new Map(x.arr.map(r=>[r.periodId,r]));
+      return `<tr><td class="left sticky1">${asinAnchor(x.asin)}</td><td class="left sticky2 product-col product-detail-link" data-detail-asin="${esc(x.asin)}" title="${esc(x.title||'')}"><span>${esc(x.title||'')}</span></td><td class="left parent-col">${esc(x.parentAsin)}</td>${shown.map((p,i)=>{
+        const v=map.get(p.id)?.[kpi]??null;
+        const cellCls=`${i%2?'period-group-b':'period-group-a'} period-sep`;
+        const prior=priorOf.get(p.id), prevRow=prior?map.get(prior.id):null;
+        if(kpi==='buyBox'){
+          const pp=(prevRow&&v!=null&&prevRow.buyBox!=null)?v-prevRow.buyBox:null;
+          return `<td class="${cellCls}">${v===null?'—':bbValue(v,pp)}</td>`;
+        }
+        const pct=heatFor(x,p,kpi);
+        const tip=pct===null?`${periodShort(p)}: nothing earlier to compare`:`${periodShort(prior)} → ${periodShort(p)}: ${pct>0?'+':''}${fmtN(pct,1)}%`;
+        return `<td class="${cellCls}">${v===null?'—':heatValue(meta.fmt(v),pct,tip)}</td>`;
+      }).join('')}<td class="left">${esc(x.trend)}</td><td>${priorityBadge(x.priority)}</td></tr>`;
+    }).join('');
+    $('monitorTable').innerHTML=head+(body||'<tr><td colspan="20" class="empty">No ASINs match the current filters.</td></tr>');
+  }else{
+    $('monitorTable').classList.remove('metric-major');
+    const metrics=currentGroupedMetrics();
+    const metricCount=Math.max(1,metrics.length);
+    const headTop=`<tr><th class="left sticky1" rowspan="2">Child ASIN</th><th class="left sticky2 product-col" rowspan="2">Product Title</th><th class="left parent-col" rowspan="2">Parent ASIN</th>${shown.map((p,i)=>`<th colspan="${metricCount}" class="${i%2?'period-group-b':'period-group-a'} period-sep"><span class="period-badge">${esc(safeLabel(p))} · ${periodDays(p)}d</span></th>`).join('')}<th rowspan="2">Assessment</th></tr>`;
+    const headBottom=`<tr>${shown.map((p,i)=>metrics.map(metric=>sortableThDual(metricMeta(metric).label,`${metric}_${p.id}`,`${metric}_d_${p.id}`,'monitor',`${i%2?'period-group-b':'period-group-a'} period-sep`,'Sort by change into this week')).join('')).join('')}</tr>`;
+    const comparisonCurrent=shown.at(-1),comparisonPrevious=shown.at(-2);
+    const body=arr.map(x=>{
+      const map=new Map(x.arr.map(r=>[r.periodId,r]));
+      const c=comparisonCurrent?map.get(comparisonCurrent.id):null,p=comparisonPrevious?map.get(comparisonPrevious.id):null;
+      const revD=(c&&p)?pctChange(c.revenue,p.revenue):null,unitD=(c&&p)?pctChange(c.units,p.units):null,bbD=(c&&p&&c.buyBox!=null&&p.buyBox!=null)?c.buyBox-p.buyBox:null,sesD=(c&&p)?pctChange(c.sessions,p.sessions):null;
+      const normalize=comparisonCurrent&&comparisonPrevious&&periodDays(comparisonCurrent)!==periodDays(comparisonPrevious);
+      const ass=(comparisonCurrent&&comparisonPrevious)?assessmentForPair(c,p,comparisonCurrent,comparisonPrevious,normalize):'Insufficient History';
+      return `<tr><td class="left sticky1">${asinAnchor(x.asin)}</td><td class="left sticky2 product-col product-detail-link" data-detail-asin="${esc(x.asin)}" title="${esc(x.title||'')}"><span>${esc(x.title||'')}</span></td><td class="left parent-col">${esc(x.parentAsin)}</td>${shown.map((p0,i)=>{
+        const r=map.get(p0.id), prior=priorOf.get(p0.id), prevRow=prior?map.get(prior.id):null;
+        return metrics.map(metric=>{
+          const cellCls=`${i%2?'period-group-b':'period-group-a'} period-sep`;
+          if(!r)return `<td class="${cellCls}">—</td>`;
+          if(metric==='buyBox'){
+            const pp=(prevRow&&r.buyBox!=null&&prevRow.buyBox!=null)?r.buyBox-prevRow.buyBox:null;
+            return `<td class="${cellCls}">${bbValue(r.buyBox,pp)}</td>`;
+          }
+          const pct=heatFor(x,p0,metric);
+          const tip=pct===null?`${periodShort(p0)}: nothing earlier to compare`:`${periodShort(prior)} → ${periodShort(p0)}: ${pct>0?'+':''}${fmtN(pct,1)}%`;
+          return `<td class="${cellCls}">${heatValue(metricMeta(metric).fmt(r[metric]),pct,tip)}</td>`;
+        }).join('');
+      }).join('')}<td>${assessmentBadge(ass)}</td></tr>`;
+    }).join('');
+    $('monitorTable').innerHTML=headTop+headBottom+(body||'<tr><td colspan="30" class="empty">No ASINs match the current filters.</td></tr>');
+  }
+  bindSortHeaders();bindScrollButtons();bindProductDetailLinks();renderFilterChips();syncTopScrollbar();
+}
+function renderPriority(){
+  const arr=asinSummaries().sort((a,b)=>b.priorityScore-a.priorityScore).slice(0,15);
+  $('priorityTable').innerHTML=`<tr><th class="left">ASIN</th><th class="left">Product</th><th>Revenue</th><th>Latest BB</th><th>Change</th><th>Priority</th><th>Score</th></tr>`+
+  (arr.map(x=>`<tr><td class="left">${asinAnchor(x.asin)}</td><td class="left">${esc((x.title||'').slice(0,65))}</td><td>${money(x.latestRevenue)}</td><td>${bbCell(x.latestBB)}</td><td>${deltaCell(x.delta)}</td><td>${priorityBadge(x.priority)}</td><td>${x.priorityScore}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No data yet.</td></tr>');
+  
+}
+function renderRisk(){
+  const th=Number($('riskThreshold')?.value||90), m=latestMetrics(th);
+  let sums=asinSummaries().filter(x=>x.latestRow&&x.latestBB!==null&&x.latestBB<th);
+  const accessors={asin:x=>x.asin,title:x=>x.title,revenue:x=>x.latestRevenue,revenueShare:x=>m.revenue?(x.latestRevenue/m.revenue*100):0,latestBB:x=>x.latestBB,previousBB:x=>x.previousBB,delta:x=>x.delta,units:x=>x.latestUnits,priority:x=>x.priorityScore};
+  sums=applySort(sums,'risk',accessors);
+  if(!TABLE_SORTS.risk)sums.sort((a,b)=>(b.latestRevenue||0)-(a.latestRevenue||0));
+  $('riskKpis').innerHTML=[
+    ['Revenue Exposure',money(m.risk),`BB below ${th}%`],['Exposure Share',fmtPct(m.riskPct),'of latest period revenue'],['Affected ASINs',fmtN(sums.length),`BB below ${th}%`],['Latest Revenue',money(m.revenue),m.latest?safeLabel(m.latest):'—']
+  ].map(x=>`<div class="kpi"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="hint">${x[2]}</div></div>`).join('');
+  $('riskTable').innerHTML=`<tr>${sortableTh('ASIN','asin','risk','left')}${sortableTh('Product','title','risk','left product-col')}${sortableTh('Revenue','revenue','risk')}${sortableTh('Revenue Share','revenueShare','risk')}${sortableTh('Latest BB','latestBB','risk')}${sortableTh('Previous BB','previousBB','risk')}${sortableTh('Change','delta','risk')}${sortableTh('Units','units','risk')}${sortableTh('Priority','priority','risk')}</tr>`+
+  (sums.map(x=>`<tr><td class="left">${asinAnchor(x.asin)}</td><td class="left product-col product-detail-link" data-detail-asin="${esc(x.asin)}" title="${esc(x.title||'')}"><span>${esc(x.title||'')}</span></td><td>${money(x.latestRevenue)}</td><td>${fmtPct(m.revenue?(x.latestRevenue/m.revenue*100):0)}</td><td>${bbCell(x.latestBB)}</td><td>${bbCell(x.previousBB)}</td><td>${deltaCell(x.delta)}</td><td>${fmtN(x.latestUnits)}</td><td>${priorityBadge(x.priority)}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">No ASINs below this threshold.</td></tr>');
+  
+  bindSortHeaders();bindScrollButtons();bindProductDetailLinks();
+}
+function renderParent(){
+  const sums=asinSummaries(), groups=new Map();
+  for(const x of sums){
+    const p=x.parentAsin||'(No Parent ASIN)';
+    if(!groups.has(p))groups.set(p,[]);
+    groups.get(p).push(x);
+  }
+  let data=[...groups].map(([parent,children])=>{
+    const present=children.filter(x=>x.latestRow), rev=present.reduce((a,x)=>a+(x.latestRevenue||0),0);
+    const valid=present.filter(x=>x.latestBB!==null), den=valid.reduce((a,x)=>a+(x.latestRevenue||0),0);
+    const wbb=den?valid.reduce((a,x)=>a+(x.latestRevenue||0)*x.latestBB,0)/den:(valid.length?valid.reduce((a,x)=>a+x.latestBB,0)/valid.length:null);
+    return {parent,children,rev,wbb,below:valid.filter(x=>x.latestBB<90).length,declining:children.filter(x=>x.trend==='Declining'||x.trend==='Strong Decline').length,risk:valid.filter(x=>x.latestBB<90).reduce((a,x)=>a+(x.latestRevenue||0),0)};
+  });
+  const accessors={parent:x=>x.parent,children:x=>x.children.length,rev:x=>x.rev,wbb:x=>x.wbb,below:x=>x.below,declining:x=>x.declining,risk:x=>x.risk};
+  data=applySort(data,'parent',accessors);
+  if(!TABLE_SORTS.parent)data.sort((a,b)=>b.rev-a.rev);
+  $('parentTable').innerHTML=`<tr>${sortableTh('Parent ASIN','parent','parent','left')}${sortableTh('Children','children','parent')}${sortableTh('Latest Revenue','rev','parent')}${sortableTh('Weighted BB','wbb','parent')}${sortableTh('Children Below 90%','below','parent')}${sortableTh('Children Declining','declining','parent')}${sortableTh('Revenue Exposure','risk','parent')}</tr>`+
+    (data.map(x=>`<tr><td class="left">${esc(x.parent)}</td><td>${x.children.length}</td><td>${money(x.rev)}</td><td>${bbCell(x.wbb)}</td><td>${x.below}</td><td>${x.declining}</td><td>${money(x.risk)}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No data yet.</td></tr>');
+  bindSortHeaders();bindScrollButtons();bindProductDetailLinks();
+}
+function renderHistorySelector(){
+  const dl=$('asinList'); if(!dl)return;
+  const arr=asinSummaries().sort((a,b)=>(b.latestRevenue||0)-(a.latestRevenue||0));
+  dl.innerHTML=arr.map(x=>`<option value="${esc(x.asin)}">${esc((x.title||'').slice(0,70))}</option>`).join('');
+  renderHistory();
+}
+function openHistoryFor(asin){
+  showTab('history');
+  const el=$('historyAsin'); if(el)el.value=asin;
+  renderHistorySelector();
+}
+function renderHistory(){
+  const raw=($('historyAsin')?.value||'').trim();
+  const sums=asinSummaries();
+  let x=sums.find(z=>z.asin.toUpperCase()===raw.toUpperCase());
+  if(!x&&raw.length>=2){
+    const q=raw.toLowerCase();
+    const hits=sums.filter(z=>z.asin.toLowerCase().includes(q)||(z.title||'').toLowerCase().includes(q));
+    if(hits.length===1)x=hits[0];
+    else if(hits.length>1){
+      $('historyChart').innerHTML='';$('relationshipBox').innerHTML='';$('historyLink').innerHTML=`${hits.length} matches`;
+      $('historyTable').innerHTML=`<tr><th class="left">ASIN</th><th class="left">Product</th><th>Revenue</th><th>Buy Box</th></tr>`+
+        hits.slice(0,25).map(z=>`<tr><td class="left"><span class="asin-pick" data-pick="${esc(z.asin)}" style="color:var(--blue);cursor:pointer;font-weight:700">${esc(z.asin)}</span></td><td class="left">${esc((z.title||'').slice(0,70))}</td><td>${money(z.latestRevenue)}</td><td>${bbCell(z.latestBB)}</td></tr>`).join('');
+      $('historyTable').querySelectorAll('.asin-pick').forEach(a=>a.onclick=()=>{$('historyAsin').value=a.dataset.pick;renderHistory()});
+      return;
+    }
+  }
+  if(!x){
+    $('historyChart').innerHTML='';$('relationshipBox').innerHTML='';$('historyLink').innerHTML='';
+    $('historyTable').innerHTML='<tr><td class="empty">Type an ASIN or part of a product name, or click a product title anywhere in the dashboard.</td></tr>';
+    return;
+  }
+  $('historyLink').innerHTML=`${asinAnchor(x.asin)} · ${esc((x.title||'').slice(0,70))}`;
+  const ps=orderedPeriods(),map=new Map(x.arr.map(r=>[r.periodId,r]));
+  drawComboChart(ps,map);
+  renderRelationship();
+  $('historyTable').innerHTML=`<tr><th class="left">Week Starting</th><th class="left">Week Ending</th><th>Days</th><th>Revenue</th><th>Revenue Δ</th><th>Units Ordered</th><th>Units Δ</th><th>Buy Box</th><th>Buy Box Δ</th></tr>`+
+    ps.map((p,i)=>{
+      const r=map.get(p.id), d=periodDays(p), prev=i>0?map.get(ps[i-1].id):null;
+      const rd=(r&&prev&&prev.revenue>0)?(r.revenue-prev.revenue)/prev.revenue*100:null;
+      const ud=(r&&prev&&prev.units>0)?(r.units-prev.units)/prev.units*100:null;
+      const bd=(r&&prev&&r.buyBox!=null&&prev.buyBox!=null)?r.buyBox-prev.buyBox:null;
+      return `<tr><td class="left"><b>${esc(periodShort(p))}</b></td><td class="left">${esc(p.end||'—')}</td><td>${d||'—'}</td>`+
+        `<td>${r?heatCell(money(r.revenue),rd):'—'}</td><td>${rd===null?'—':`${rd>0?'+':''}${fmtN(rd,1)}%`}</td>`+
+        `<td>${r?heatCell(fmtN(r.units),ud):'—'}</td><td>${ud===null?'—':`${ud>0?'+':''}${fmtN(ud,1)}%`}</td>`+
+        `<td>${r?bbCell(r.buyBox):'—'}</td><td>${deltaCell(bd)}</td></tr>`;
+    }).join('')+`<tr><td colspan="9">${heatLegend()}</td></tr>`;
+}
+function drawComboChart(ps,map){
+  const svg=$('historyChart'),W=1000,H=300,L=58,R=55,T=20,B=55;
+  const barMetric=$('historyBarMetric')?.value||'revenue',overlay=$('historyOverlay')?.value||'buyBox',normalize=$('historyNormalize')?.checked||false;
+  const pts=ps.map(p=>({p,r:map.get(p.id)||null})).filter(x=>x.r);
+  let out=`<rect x="0" y="0" width="${W}" height="${H}" fill="white"/>`;
+  if(!pts.length){svg.innerHTML=out+`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#687588">No history available.</text>`;return}
+  const barVals=pts.map(o=>{const v=o.r[barMetric]??0;return normalize&&['revenue','units','sessions','b2bRevenue'].includes(barMetric)?v/periodDays(o.p):v});
+  const lineVals=pts.map(o=>o.r[overlay]??null);
+  const maxBar=Math.max(...barVals,1),barArea=H-T-B;
+  [0,.25,.5,.75,1].forEach(fr=>{const y=T+(1-fr)*barArea;out+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#e6ebf1"/>`});
+  const step=(W-L-R)/pts.length,barW=Math.max(12,Math.min(42,step*.48));
+  pts.forEach((o,i)=>{
+    const x=L+i*step+step/2,bar=barVals[i],h=(bar/maxBar)*barArea,y=T+barArea-h;
+    out+=`<rect x="${x-barW/2}" y="${y}" width="${barW}" height="${h}" fill="#dce8f5" stroke="#b8c8da"/>`;
+    out+=`<text x="${x}" y="${H-22}" text-anchor="middle" font-size="10" fill="#687588">${esc(safeLabel(o.p).slice(0,13))}</text>`;
+  });
+  const valid=lineVals.filter(v=>v!=null);
+  if(valid.length){
+    const lineMin=0,lineMax=100;
+    const coords=[];
+    pts.forEach((o,i)=>{
+      const v=lineVals[i];if(v==null)return;
+      const x=L+i*step+step/2,y=T+(lineMax-clamp(v,lineMin,lineMax))/(lineMax-lineMin)*barArea;
+      coords.push([x,y,v]);
+    });
+    out+=`<polyline points="${coords.map(p=>`${p[0]},${p[1]}`).join(' ')}" fill="none" stroke="#146eb4" stroke-width="3"/>`;
+    coords.forEach(([x,y,v])=>out+=`<circle cx="${x}" cy="${y}" r="4.5" fill="#ff9900" stroke="#fff" stroke-width="2"/><text x="${x}" y="${y-9}" text-anchor="middle" font-size="11" font-weight="700" fill="#17202a">${fmtN(v,1)}%</text>`);
+  }
+  out+=`<text x="${L}" y="14" font-size="11" fill="#687588">${metricMeta(barMetric)?.label||barMetric}${normalize?' / day':''} bars</text>`;
+  out+=`<text x="${W-R}" y="14" text-anchor="end" font-size="11" fill="#146eb4">${overlay==='buyBox'?'Buy Box %':'CVR'} line</text>`;
+  svg.innerHTML=out;
+}
+function renderPending(){
+  const c=$('pendingPeriods');
+  if(!S.pending.length){c.innerHTML='';return}
+  c.innerHTML=`<div class="card pad" style="margin-bottom:14px"><h3>New Reports Waiting for Import</h3><div class="sub" style="margin-bottom:10px">Confirm dates before adding them to history.</div>`+
+    S.pending.map((item,i)=>`<div class="period-card"><div><small>Source file</small><div class="filename"><b>${esc(item.period.filename)}</b></div><div class="sub">${item.rows.length} unique ASINs staged</div><div class="sub">Sheet: ${esc(item.diagnostics?.sheet||'—')} · Header row: ${item.diagnostics?.headerRow||'—'}</div><div class="sub">${item.period.start?`Assigned reporting period: ${esc(item.period.start)} → ${esc(item.period.end)}`:`Assign the BSR reporting date or date range below before import.${item.diagnostics?.exportDateHint?` Export-date hint: ${esc(item.diagnostics.exportDateHint)}.`:''}`}</div>
+<div class="pending-date-note">This assigned date becomes the official BSR date shown across the dashboard and exported workbook.</div>
+<div class="sub">Mapped columns: Revenue = ${esc(item.diagnostics?.matchedColumns?.revenue||'NOT FOUND')} · Buy Box = ${esc(item.diagnostics?.matchedColumns?.buyBox||'NOT FOUND')} · Units = ${esc(item.diagnostics?.matchedColumns?.units||'NOT FOUND')} · B2B Units = ${esc(item.diagnostics?.matchedColumns?.b2bUnits||'NOT FOUND')}</div>
+<div class="sub">Sample parsed values: Revenue = ${item.diagnostics?.sample?money(item.diagnostics.sample.revenue):'—'} · Buy Box = ${item.diagnostics?.sample?fmtPct(item.diagnostics.sample.buyBox):'—'} · Units = ${item.diagnostics?.sample?fmtN(item.diagnostics.sample.units):'—'}</div>
+<div class="sub" style="font-weight:700">File totals: Revenue = ${money(item.diagnostics?.fileRevenue)} · Units = ${fmtN(item.diagnostics?.fileUnits)}${item.diagnostics?.locale?` · numbers read as ${item.diagnostics.locale==='eu'?'1.234,56':'1,234.56'}`:''}</div>
+<div class="sub">Check that total against Seller Central before importing.</div>
+${item.diagnostics?.missing?.length?`<div class="sub" style="color:#9b1c1c">Missing: ${esc(item.diagnostics.missing.join(', '))}</div>`:''}</div><label class="field">Period Label<input data-pending="${i}" data-field="label" value="${esc(item.period.label)}"></label><label class="field">Week Starting <b>(set this)</b><input type="date" data-pending="${i}" data-field="start" value="${item.period.start}"></label><label class="field">Week Ending (auto, +6d)<input type="date" data-pending="${i}" data-field="end" value="${item.period.end}"></label><button class="btn danger sm" data-remove-pending="${i}">Remove</button></div>`).join('')+'</div>';
+  c.querySelectorAll('[data-pending]').forEach(el=>el.onchange=()=>{
+    const i=+el.dataset.pending, item=S.pending[i], field=el.dataset.field;
+    item.period[field]=el.value;
+    if(field==='start' && el.value){
+      // Business Reports cover a 7 day range, so the end date follows the start.
+      item.period.end=addDaysISO(el.value,6);
+      const endEl=c.querySelector(`[data-pending="${i}"][data-field="end"]`);
+      if(endEl)endEl.value=item.period.end;
+    }
+    if((field==='start'||field==='end') && item.period.start){
+      if(!item.period.end)item.period.end=item.period.start;
+      const autoLabel=item.period.start===item.period.end?item.period.start:`${item.period.start} to ${item.period.end}`;
+      if(!item.period.label || item.period.label===item.period.filename.replace(/\.[^.]+$/,'').slice(0,50) || item.period.label.startsWith('BusinessReport-')){
+        item.period.label=autoLabel;
+      }
+    }
+    item.rows.forEach(r=>{r.periodLabel=item.period.label;r.periodStart=item.period.start;r.periodEnd=item.period.end});
+    renderPending();
+  });
+  c.querySelectorAll('[data-remove-pending]').forEach(el=>el.onclick=()=>{S.pending.splice(+el.dataset.removePending,1);renderPending();$('confirmImports').disabled=!S.pending.length});
+}
+function renderPeriodManager(){
+  renderPending();
+  const ps=orderedPeriods(), c=$('storedPeriods');
+  c.innerHTML=ps.length?ps.map((p,i)=>`<div class="period-card"><div><small>Source file</small><div class="filename"><b>${esc(p.filename||'Historical database')}</b></div><div class="sub">${rowsForPeriod(p.id).length} ASINs · ${p.overlap?'Overlap warning':''}</div></div><label class="field">Period Label<input data-stored="${p.id}" data-field="label" value="${esc(p.label)}"></label><label class="field">Start Date<input type="date" data-stored="${p.id}" data-field="start" value="${p.start||''}"></label><label class="field">End Date<input type="date" data-stored="${p.id}" data-field="end" value="${p.end||''}"></label><button class="btn danger sm" data-delete="${p.id}">Delete</button></div>`).join(''):'<div class="empty">No stored periods yet.</div>';
+  c.querySelectorAll('[data-stored]').forEach(el=>el.onchange=()=>{const p=S.periods.find(x=>x.id===el.dataset.stored);if(p){p[el.dataset.field]=el.value;S.rows.filter(r=>r.periodId===p.id).forEach(r=>{r.periodLabel=p.label;r.periodStart=p.start;r.periodEnd=p.end});renderAll()}});
+  c.querySelectorAll('[data-delete]').forEach(el=>el.onclick=()=>{const p=S.periods.find(x=>x.id===el.dataset.delete);if(p&&confirm(`Delete ${safeLabel(p)} and all of its historical rows?`)){S.rows=S.rows.filter(r=>r.periodId!==p.id);S.periods=S.periods.filter(x=>x.id!==p.id);renderAll()}});
+}
+function renderQuality(){
+  const missingBB=S.rows.filter(r=>r.buyBox===null).length, missingRev=S.rows.filter(r=>r.revenue===null).length, overlap=S.periods.filter(p=>p.overlap).length;
+  $('qualityKpis').innerHTML=[
+    ['Files / Periods',S.periods.length,'Stored periods'],['Historical Rows',S.rows.length,'ASIN × period rows'],['Missing Buy Box',missingBB,'Historical rows'],['Overlap Warnings',overlap,'Stored periods']
+  ].map(x=>`<div class="kpi"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="hint">${x[2]}</div></div>`).join('');
+  const lines=[...S.quality];
+  if(!lines.length)lines.push('No data quality warnings recorded in this session.');
+  $('qualityList').innerHTML=lines.slice(-100).map(x=>`<li>${esc(x)}</li>`).join('');
+}
+function openAsin(asin){
+  const x=asinSummaries().find(z=>z.asin===asin);if(!x)return;
+  $('drawerTitle').textContent=asin;$('drawerSub').textContent=x.title||'ASIN detail';
+  const ps=orderedPeriods(), map=new Map(x.arr.map(r=>[r.periodId,r]));
+  $('drawerBody').innerHTML=`<div class="mini-grid">
+    <div class="mini"><small>Latest Revenue</small><b>${money(x.latestRevenue)}</b></div><div class="mini"><small>Latest BB</small><b>${fmtPct(x.latestBB)}</b></div><div class="mini"><small>Latest Change</small><b>${fmtPP(x.delta)}</b></div>
+    <div class="mini"><small>Average BB</small><b>${fmtPct(x.avgBB)}</b></div><div class="mini"><small>Lowest BB</small><b>${fmtPct(x.minBB)}</b></div><div class="mini"><small>Priority</small><b>${x.priority}</b></div></div>
+    <div class="sub">Parent: ${esc(x.parentAsin||'—')} · SKU: ${esc(x.sku||'—')} · Status: ${esc(x.latestStatus)}</div>
+    <div class="table-wrap" style="margin-top:12px;max-height:55vh"><table><tr><th class="left">Period</th><th>Revenue</th><th>Units</th><th>B2B Units</th><th>Buy Box</th></tr>${ps.map(p=>{const r=map.get(p.id);return `<tr><td class="left">${esc(safeLabel(p))}</td><td>${r?money(r.revenue):'—'}</td><td>${r?fmtN(r.units):'—'}</td><td>${r?fmtN(r.b2bUnits):'—'}</td><td>${r?bbCell(r.buyBox):'—'}</td></tr>`}).join('')}</table></div>`;
+  $('overlay').classList.add('open');$('drawer').classList.add('open');
+}
+
+function buildPeriodSummary(){
+  return orderedPeriods().map(p=>{
+    const rr=rowsForPeriod(p.id),rev=rr.reduce((a,r)=>a+r.revenue,0),units=rr.reduce((a,r)=>a+r.units,0),b2b=rr.reduce((a,r)=>a+r.b2bUnits,0),valid=rr.filter(r=>r.buyBox!==null),den=valid.reduce((a,r)=>a+r.revenue,0),w=den?valid.reduce((a,r)=>a+r.revenue*r.buyBox,0)/den:(valid.length?valid.reduce((a,r)=>a+r.buyBox,0)/valid.length:null),risk=rr.filter(r=>r.buyBox!==null&&r.buyBox<90).reduce((a,r)=>a+r.revenue,0);
+    return {'Period ID':p.id,'Period':safeLabel(p),'Start Date':p.start,'End Date':p.end,'Days in Period':periodDays(p),'Source Filename':p.filename,'Unique Child ASINs':rr.length,'Total Revenue':rev,'Total Units':units,'B2B Units':b2b,'Weighted Buy Box %':w,'ASINs Below 90%':rr.filter(r=>r.buyBox!==null&&r.buyBox<90).length,'Revenue Exposure':risk,'Revenue Exposure %':rev?risk/rev*100:0,'Import Date':p.importDate,'Overlap Warning':p.overlap?'Yes':'No'};
+  });
+}
+function wideMonitoringRows(){
+  const ps=orderedPeriods();
+  return asinSummaries().map(x=>{
+    const m=new Map(x.arr.map(r=>[r.periodId,r]));
+    const o={'Parent ASIN':x.parentAsin,'Child ASIN':x.asin,'Amazon Link':amazonAsinUrl(x.asin)==='#'?'':amazonAsinUrl(x.asin),'SKU':x.sku,'Product Title':x.title};
+    ps.forEach(p=>{
+      const r=m.get(p.id);
+      o[`${safeLabel(p)} Revenue`]=r?.revenue??null;
+      o[`${safeLabel(p)} Units Ordered`]=r?.units??null;
+      o[`${safeLabel(p)} Buy Box %`]=r?.buyBox??null;
+      o[`${safeLabel(p)} Sessions`]=r?.sessions??null;
+      o[`${safeLabel(p)} Unit Session %`]=r?.unitSession??null;
+      o[`${safeLabel(p)} B2B Revenue`]=r?.b2bRevenue??null;
+      o[`${safeLabel(p)} B2B Units`]=r?.b2bUnits??null;
+    });
+    const cur=ps.at(-1), prev=ps.at(-2), c=cur?m.get(cur.id):null, p=prev?m.get(prev.id):null;
+    Object.assign(o,{
+      'Previous BB %':x.previousBB,'Latest BB %':x.latestBB,'Latest BB Change pp':x.delta,
+      'Latest Revenue Change %':c&&p?pctChange(c.revenue,p.revenue):null,
+      'Latest Units Change %':c&&p?pctChange(c.units,p.units):null,
+      'Latest Sessions Change %':c&&p?pctChange(c.sessions,p.sessions):null,
+      'Latest CVR Change pp':c&&p&&c.unitSession!=null&&p.unitSession!=null?c.unitSession-p.unitSession:null,
+      'Assessment':cur&&prev?assessmentForPair(c,p,cur,prev,false):'Insufficient History',
+      'Overall BB Change pp':x.overall,'Average BB %':x.avgBB,'Lowest BB %':x.minBB,'Highest BB %':x.maxBB,
+      'Trend':x.trend,'Priority':x.priority,'Priority Score':x.priorityScore,'Latest Status':x.latestStatus
+    });
+    return o;
+  });
+}
+function historicalRowsExport(){
+  return S.rows.map(r=>({'Period ID':r.periodId,'Period Label':r.periodLabel,'Period Start':r.periodStart,'Period End':r.periodEnd,'Uploaded Filename':r.sourceFile,'Parent ASIN':r.parentAsin,'Child ASIN':r.childAsin,'SKU':r.sku,'Product Title':r.title,'Revenue':r.revenue,'B2B Revenue':r.b2bRevenue,'Non B2B Revenue':r.nonB2bRevenue,'Units Ordered':r.units,'B2B Units':r.b2bUnits,'Non B2B Units':r.nonB2bUnits,'Buy Box %':r.buyBox,'Sessions':r.sessions,'Page Views':r.pageViews,'Unit Session %':r.unitSession,'Unit Session % B2B':r.b2bUnitSession,'Import Date':r.importDate}));
+}
+function exportWorkbook(){
+  if(!window.XLSX){alert('Excel engine did not load. Connect to the internet and reopen this HTML.');return}
+  S.meta.brand=$('brandInput').value.trim();S.meta.marketplace=normalizeMarketplace($('marketInput').value);S.meta.currency=$('currencyInput').value;
+  const wb=XLSX.utils.book_new(), m=latestMetrics(Number($('riskThreshold').value||90)), sums=asinSummaries();
+  const sys=[
+    ['Field','Value'],['Tool Name','Buy Box Monitor'],['Database Version',DB_VERSION],['Schema Version',SCHEMA_VERSION],['Generated Date',new Date().toISOString()],
+    ['Brand Name',S.meta.brand],['Marketplace',S.meta.marketplace],['Currency',S.meta.currency],['Number of Reporting Periods',S.periods.length],
+    ['Oldest Period',S.periods.length?safeLabel(orderedPeriods()[0]):''],['Latest Period',S.periods.length?safeLabel(orderedPeriods().at(-1)):''],['Unique Child ASINs',uniqueAsins().length],['Historical Row Count',S.rows.length]
+  ];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sys),'_SYSTEM');
+
+  const exec=[
+    ['Metric','Value'],['Brand',S.meta.brand],['Marketplace',S.meta.marketplace],['Currency',S.meta.currency],['Latest Period',m.latest?safeLabel(m.latest):''],
+    ['Total Revenue',m.revenue],['Total Units',m.units],['Weighted Buy Box %',m.weightedBB],['Unique Child ASINs',uniqueAsins().length],
+    ['ASINs Below 95%',m.below95],['ASINs Below 90%',m.below90],['ASINs Below 80%',m.below80],['ASINs Below 50%',m.below50],
+    ['Revenue Exposure',m.risk],['Revenue Exposure %',m.riskPct],['New ASINs Latest Period',m.newAsins],['Missing ASINs Latest Period',m.missing]
+  ];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(exec),'Executive Summary');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(wideMonitoringRows()),'Buy Box Monitoring');
+  const bbWs=wb.Sheets['Buy Box Monitoring'];
+  if(bbWs&&bbWs['!ref']){
+    const range=XLSX.utils.decode_range(bbWs['!ref']);
+    let linkCol=-1;
+    for(let c=0;c<=range.e.c;c++){const v=bbWs[XLSX.utils.encode_cell({r:0,c})]?.v;if(v==='Amazon Link'){linkCol=c;break}}
+    if(linkCol>=0){
+      for(let r=1;r<=range.e.r;r++){
+        const cell=bbWs[XLSX.utils.encode_cell({r,c:linkCol})];
+        if(cell?.v)cell.l={Target:cell.v,Tooltip:'Open on Amazon'};
+      }
+    }
+  }
+  const psExp=orderedPeriods(), curExp=psExp.at(-1), prevExp=psExp.at(-2);
+  const compExp=(curExp&&prevExp)?comparisonRows(curExp,prevExp,false):[];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(compExp.map(x=>({
+    'Child ASIN':x.asin,'Parent ASIN':x.parentAsin,'SKU':x.sku,'Product Title':x.title,
+    'Previous Period':prevExp?safeLabel(prevExp):'','Previous Revenue':x.revP,'Current Period':curExp?safeLabel(curExp):'','Current Revenue':x.revC,'Revenue Change %':x.revDelta,
+    'Previous Units':x.unitP,'Current Units':x.unitC,'Units Change %':x.unitDelta,
+    'Previous Buy Box %':x.bbP,'Current Buy Box %':x.bbC,'Buy Box Change pp':x.bbDelta,
+    'Sessions Change %':x.sesDelta,'CVR Change pp':x.cvrDelta,'Assessment':x.assessment
+  }))),'Period Comparison');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(compExp.filter(x=>x.assessment!=='Stable / Mixed').map(x=>({
+    'Child ASIN':x.asin,'Parent ASIN':x.parentAsin,'Product Title':x.title,'Current Revenue':x.revC,'Revenue Change %':x.revDelta,
+    'Current Units':x.unitC,'Units Change %':x.unitDelta,'Current Buy Box %':x.bbC,'Buy Box Change pp':x.bbDelta,
+    'Sessions Change %':x.sesDelta,'CVR Change pp':x.cvrDelta,'Assessment':x.assessment
+  }))),'BB Sales Impact');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(historicalRowsExport()),'Master Historical Data');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(buildPeriodSummary()),'Period Summary');
+
+  const risk=sums.filter(x=>x.latestRow&&x.latestBB!==null&&x.latestBB<Number($('riskThreshold').value||90)).map(x=>({'Parent ASIN':x.parentAsin,'Child ASIN':x.asin,'SKU':x.sku,'Product Title':x.title,'Latest Revenue':x.latestRevenue,'Latest Units':x.latestUnits,'Latest Buy Box %':x.latestBB,'Previous Buy Box %':x.previousBB,'BB Change pp':x.delta,'Priority':x.priority,'Priority Score':x.priorityScore}));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(risk),'Revenue Exposure');
+
+
+
+  const parentData=[]; const groups=new Map();
+  sums.forEach(x=>{const p=x.parentAsin||'(No Parent ASIN)';if(!groups.has(p))groups.set(p,[]);groups.get(p).push(x)});
+  groups.forEach((children,parent)=>{const present=children.filter(x=>x.latestRow),rev=present.reduce((a,x)=>a+(x.latestRevenue||0),0),valid=present.filter(x=>x.latestBB!==null),den=valid.reduce((a,x)=>a+(x.latestRevenue||0),0),w=den?valid.reduce((a,x)=>a+(x.latestRevenue||0)*x.latestBB,0)/den:null;parentData.push({'Parent ASIN':parent,'Children':children.length,'Latest Revenue':rev,'Weighted Buy Box %':w,'Children Below 90%':valid.filter(x=>x.latestBB<90).length,'Children Declining':children.filter(x=>['Declining','Strong Decline'].includes(x.trend)).length,'Revenue Exposure':valid.filter(x=>x.latestBB<90).reduce((a,x)=>a+(x.latestRevenue||0),0)})});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(parentData),'Parent ASIN Summary');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(S.quality.map((x,i)=>({ID:i+1,Warning:x}))),'Data Quality');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Setting','Value'],['Healthy minimum %',S.thresholds.healthy],['Monitor minimum %',S.thresholds.monitor],['Warning minimum %',S.thresholds.warning],['Critical minimum %',S.thresholds.critical],['Revenue Exposure threshold %',Number($('riskThreshold').value||90)]]),'Settings');
+
+  // Basic readable widths and filters.
+  wb.SheetNames.forEach(name=>{
+    const ws=wb.Sheets[name]; if(!ws['!ref'])return;
+    const range=XLSX.utils.decode_range(ws['!ref']);
+    ws['!cols']=Array.from({length:range.e.c+1},(_,c)=>({wch:Math.min(45,Math.max(12, ...Array.from({length:Math.min(range.e.r+1,80)},(_,r)=>String(ws[XLSX.utils.encode_cell({r,c})]?.v??'').length+2)))}));
+    if(range.e.r>0)ws['!autofilter']={ref:XLSX.utils.encode_range({r:0,c:0},{r:range.e.r,c:range.e.c})};
+    ws['!freeze']={xSplit:0,ySplit:1};
+  });
+  const brand=(S.meta.brand||'').replace(/[\\/:*?"<>|]+/g,'_').trim();
+  const lp=latestPeriod(); const stamp=lp?.end||new Date().toISOString().slice(0,10);
+  const filename=`BuyBox_Monitor_${brand?brand+'_':''}${stamp}.xlsx`;
+  XLSX.writeFile(wb,filename);
+}
+function syncMetaInputs(){
+  $('brandInput').value=S.meta.brand||'';$('marketInput').value=normalizeMarketplace(S.meta.marketplace)||'';$('currencyInput').value=S.meta.currency||'EUR';
+}
+function resetAll(){
+  if(!confirm('Start a new database? This clears the current session. Download the accumulated workbook first if you need to keep this history.'))return;
+  S.periods=[];S.rows=[];S.pending=[];S.quality=[];S.meta={toolName:'Buy Box Monitor',dbVersion:DB_VERSION,schemaVersion:SCHEMA_VERSION,brand:'',marketplace:'',currency:'EUR',generatedAt:null};
+  syncMetaInputs();renderAll();showMsg('New empty database started.','success');
+}
+function showMsg(msg,type='notice'){$('uploadMessage').innerHTML=`<div class="notice ${type}">${esc(msg)}</div>`}
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.id===id));
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));
+  if(id==='history')renderHistory();
+  if(id==='comparison')renderComparison();
+  if(id==='impact')renderImpact();
+}
+
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+$('dbFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{showMsg('Reading accumulated workbook...');await importDatabase(f);showMsg(`Historical database loaded from ${f.name}.`,'success')}catch(err){showMsg(err.message,'error')}finally{e.target.value=''}};
+$('bsrFiles').onchange=async e=>{if(!e.target.files.length)return;showMsg('Reading new Business Reports...');await stageBusinessFiles([...e.target.files]);e.target.value=''};
+$('confirmImports').onclick=confirmImports;
+$('exportBtn').onclick=exportWorkbook;$('monitorExport').onclick=exportWorkbook;$('resetBtn').onclick=resetAll;
+['searchInput','bbQuick','trendFilter','priorityFilter','periodWindow'].forEach(id=>$(id).addEventListener(id==='searchInput'?'input':'change',renderMonitor));
+$('riskThreshold').addEventListener('input',()=>{renderRisk();renderInsights()});
+$('historyAsin').addEventListener('input',renderHistory);
+$('historyClear').onclick=()=>{$('historyAsin').value='';renderHistory()};
+['compareCurrent','comparePrevious','normalizeByDay'].forEach(id=>$(id).addEventListener('change',()=>{ $(id).dataset.touched='1'; renderComparison(); renderImpact(); }));
+['overviewCurrent','overviewPrevious','overviewNormalize'].forEach(id=>$(id).addEventListener('change',()=>{ $(id).dataset.touched='1'; renderOverviewComparison(); }));
+$('impactFilter').addEventListener('change',renderImpact);
+['monitorMode','monitorKpi'].forEach(id=>$(id).addEventListener('change',renderMonitor));
+$('comparisonExport').onclick=exportWorkbook;
+$('parentFilter').addEventListener('change',renderMonitor);
+$('assessmentFilter').addEventListener('change',renderMonitor);
+$('densitySelect').addEventListener('change',renderMonitor);
+document.querySelectorAll('#metricToggles input').forEach(c=>c.addEventListener('change',renderMonitor));
+$('saveViewBtn').onclick=saveCurrentView;
+$('savedViews').addEventListener('change',()=>loadSavedView($('savedViews').value));
+['historyBarMetric','historyOverlay','historyNormalize'].forEach(id=>$(id).addEventListener('change',renderHistory));
+
+
+$('drawerClose').onclick=()=>{$('drawer').classList.remove('open');$('overlay').classList.remove('open')};$('overlay').onclick=$('drawerClose').onclick;
+$('brandInput').oninput=()=>{S.meta.brand=$('brandInput').value;renderStatus()};
+$('marketInput').onchange=()=>{S.meta.marketplace=normalizeMarketplace($('marketInput').value);renderAll()};
+$('currencyInput').onchange=()=>{S.meta.currency=$('currencyInput').value;renderAll()};
+$('applySettings').onclick=()=>{S.thresholds={healthy:+$('thHealthy').value,monitor:+$('thMonitor').value,warning:+$('thWarning').value,critical:+$('thCritical').value};renderAll();showMsg('Buy Box thresholds updated.','success')};
+
+syncMetaInputs();renderAll();
+</script>
+</body>
+</html>

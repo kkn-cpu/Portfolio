@@ -1,0 +1,3048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campaign Naming Console — bulk file in, renamed bulk out</title>
+<style>
+:root{
+  --ink:#0f1420; --ink2:#192033; --ink3:#252f47;
+  --wash:#eceff4; --paper:#ffffff; --line:#d6dce6; --line2:#e8ecf2;
+  --text:#161d2b; --muted:#65718a; --faint:#8d97ad;
+  --accent:#3b3fbb; --accent-soft:#e9e9fb;
+  --change:#9a6400; --change-soft:#fdf0d6; --change-line:#e6c583;
+  --ok:#0d6b5f; --ok-soft:#dff2ee;
+  --flag:#a32a1f; --flag-soft:#fbe4e1;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--wash);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.app{display:flex;min-height:100vh}
+
+/* ---------- sidebar ---------- */
+.rail{width:250px;flex:0 0 250px;background:var(--ink);color:#c3cbdc;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:22px 20px 18px;border-bottom:1px solid #222b40}
+.brand h1{font-family:var(--mono);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#fff;margin:0 0 6px;font-weight:600}
+.brand p{margin:0;font-size:12px;color:#7e8aa3;line-height:1.4}
+.steps{padding:14px 10px;flex:1;overflow:auto}
+.step{display:flex;gap:11px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;color:#aab4c9;padding:11px 12px;border-radius:8px;cursor:pointer;font-family:var(--sans);font-size:13.5px}
+.step:hover{background:#18203200;background:#171e2f;color:#e8ecf5}
+.step.on{background:var(--ink3);color:#fff}
+.step .n{font-family:var(--mono);font-size:11px;color:#727f9b;padding-top:2px;min-width:16px}
+.step.on .n{color:#9aa6ff}
+.step small{display:block;color:#6f7b95;font-size:11.5px}
+.step.on small{color:#96a2bd}
+.railfoot{padding:14px 16px;border-top:1px solid #222b40;font-size:11.5px;color:#616d87}
+.pill{display:inline-block;background:#212a3f;color:#9fb0d6;border-radius:20px;padding:2px 9px;font-family:var(--mono);font-size:11px;margin-right:5px}
+
+/* ---------- workspace ---------- */
+.work{flex:1;min-width:0;padding:26px 30px 80px}
+.panel{display:none}
+.panel.on{display:block}
+h2{font-size:20px;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 20px;max-width:70ch}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px}
+.card h3{margin:0 0 3px;font-size:14px;letter-spacing:.02em}
+.card .hint{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+
+label.f{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;letter-spacing:.02em}
+input[type=text],input[type=number],select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:#fff;font-family:var(--mono);font-size:12.5px;color:var(--text)}
+textarea{line-height:1.5;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+select{font-family:var(--sans)}
+.check{display:flex;gap:9px;align-items:flex-start;padding:8px 0;font-size:13px}
+.check input{margin-top:2px}
+.check span small{display:block;color:var(--muted);font-size:11.5px}
+
+button{font-family:var(--sans);font-size:13px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--text);padding:8px 14px;cursor:pointer}
+button:hover{background:#f4f6fa}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{filter:brightness(1.08)}
+button.ghost{background:transparent;border-color:transparent;color:var(--accent);padding:6px 8px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,.step:focus-visible,.tab:focus-visible{outline:2px solid #6f7bff;outline-offset:2px}
+
+/* drop zone */
+.drop{border:2px dashed var(--line);border-radius:12px;background:#fbfcfe;padding:40px 20px;text-align:center;cursor:pointer}
+.drop.hot{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{display:block;font-size:15px;margin-bottom:4px}
+.drop span{color:var(--muted);font-size:12.5px}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--line2);border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+.stat{background:#fff;padding:13px 14px}
+.stat b{display:block;font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:-.02em}
+.stat span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+/* sub tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+.tab{background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:9px 13px;color:var(--muted);font-size:13px;cursor:pointer}
+.tab.on{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--line2);vertical-align:top}
+.tbl tr.ag td{background:#f8fafc}
+.tbl tr.ag td:first-child{padding-left:26px}
+.scroll{max-height:70vh;overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+.num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.mono{font-family:var(--mono)}
+
+/* name segments — the signature: names shown as their grammar */
+.segs{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.seg{font-family:var(--mono);font-size:11.5px;background:#f1f3f8;border:1px solid #e2e6ee;border-radius:4px;padding:1px 5px;white-space:nowrap}
+.seg.k{background:var(--accent-soft);border-color:#cfd0f5;color:#2f338f}
+.seg.a{background:#e7f1ff;border-color:#c9defc;color:#134a91}
+.seg.v{background:var(--change-soft);border-color:var(--change-line);color:var(--change);font-weight:600}
+.seg.d{color:var(--faint);background:#fff;border-style:dashed}
+.old{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-decoration:line-through;text-decoration-color:#c8d0dd}
+.cur{font-family:var(--mono);font-size:11.5px;color:#4b5568;word-break:break-word}
+.cur.diff{color:#7a6330;background:linear-gradient(90deg,var(--change-soft),transparent);border-left:2px solid var(--change-line);padding-left:7px}
+.ctx{font-size:10.5px;color:var(--faint);font-family:var(--sans);margin-bottom:3px}
+.lvl{font-family:var(--mono);font-size:10px;color:var(--faint)}
+.tbl td.namecell{border-left:1px solid var(--line2)}
+
+.tag{display:inline-block;font-size:10.5px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;padding:1px 6px;border-radius:4px;border:1px solid;margin:0 4px 3px 0}
+.tag.change{background:var(--change-soft);border-color:var(--change-line);color:var(--change)}
+.tag.ok{background:var(--ok-soft);border-color:#b7ded6;color:var(--ok)}
+.tag.flag{background:var(--flag-soft);border-color:#f0c0b9;color:var(--flag)}
+.tag.n{background:#eef1f6;border-color:var(--line);color:var(--muted)}
+
+.cards{display:flex;flex-direction:column;gap:10px;padding-bottom:40px}
+.c{background:var(--paper);border:1px solid var(--line);border-radius:12px;border-left:3px solid var(--line)}
+.c.changed{border-left-color:var(--change-line)}
+.c.same{background:#fcfdfe}
+.c.left{border-left-color:#c9d0dc;opacity:.72}
+.chead{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line2)}
+.cid{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.mini{font-size:11.5px;color:var(--muted)}
+.nm{display:grid;grid-template-columns:42px minmax(0,1fr);gap:10px;align-items:start;padding:9px 14px}
+.nm + .nm{padding-top:0}
+.nml{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);padding-top:4px}
+.now{font-family:var(--mono);font-size:12px;color:#5b6478;word-break:break-word;padding-top:2px}
+.segs.edit{cursor:text;border-radius:6px;padding:2px;margin:-2px}
+.segs.edit:hover{background:#f5f7fb;box-shadow:0 0 0 1px var(--line2)}
+.segs.edit:after{content:"edit";font-size:10px;color:var(--faint);font-family:var(--sans);margin-left:6px;opacity:0}
+.segs.edit:hover:after{opacity:1}
+.notes{padding:0 14px 10px}
+.aglist{background:#f7f9fc;border-top:1px solid var(--line2);border-radius:0 0 9px 9px;padding:4px 14px 8px}
+.aghead{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);padding:8px 0 4px}
+.agrow{display:grid;grid-template-columns:22px minmax(0,1fr) 14px minmax(0,1.15fr);gap:9px;align-items:center;padding:7px 0;border-top:1px solid #e7ecf3}
+.agrow .arrow{color:#b6c0d0;text-align:center}
+.more{margin-top:10px}
+.more summary{cursor:pointer;color:var(--accent);font-size:12.5px;list-style:none;display:inline-block;padding:4px 0}
+.more summary::-webkit-details-marker{display:none}
+.more summary:before{content:"▸ ";font-family:var(--mono)}
+.more[open] summary:before{content:"▾ "}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.toolbar input[type=text]{width:230px;font-family:var(--sans)}
+.editname{width:100%;font-size:11.5px;padding:5px 7px}
+.goaledit{width:100%;font-size:11px;padding:3px 6px;margin-top:5px}
+.minibtn{font-size:11px;padding:3px 8px;border-radius:6px;color:var(--muted)}
+.exp{background:none;border:0;cursor:pointer;color:var(--muted);font-family:var(--mono);font-size:12px;padding:0 6px 0 0}
+.note{background:#fbfcfe;border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 8px 8px 0;font-size:12.5px;color:#37405a;margin:14px 0}
+.warn{background:var(--flag-soft);border-left-color:var(--flag);color:#6f231b}
+.empty{padding:44px 20px;text-align:center;color:var(--muted)}
+.kbd{font-family:var(--mono);background:#eef1f6;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:11px}
+.filelist{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:12px}
+.filelist div{padding:3px 0}
+@media (max-width:860px){.app{flex-direction:column}.rail{width:100%;height:auto;position:static;flex:none}.steps{display:flex;overflow-x:auto}.work{padding:18px 14px 60px}}
+@media (prefers-reduced-motion:no-preference){.panel.on{animation:fade .18s ease-out}}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+</style>
+</head>
+
+<!-- PPC LAB THEME -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<script>/* PPC Lab theme: Plum & Rose */document.documentElement.setAttribute("data-board","b5");</script>
+<style id="ppc-lab-theme">
+/* PPC Lab uniform theme · colors, type and surfaces only. Original layout and behaviour untouched. */
+html[data-board="b5"]{--tb-nav:#221432;--tb-act:#7A3E9D;--tb-hi:#E8A598;--tb-bg:#F6F4F8;--tb-ink:#1E1529}
+html[data-board]{
+  --tb-nav2:color-mix(in srgb,var(--tb-nav) 86%,#fff);--tb-nav3:color-mix(in srgb,var(--tb-nav) 74%,#fff);
+  --tb-card:#fff;--tb-sunk:color-mix(in srgb,var(--tb-bg) 55%,#fff);
+  --tb-line:color-mix(in srgb,var(--tb-ink) 14%,#fff);--tb-line2:color-mix(in srgb,var(--tb-ink) 7%,#fff);
+  --tb-ink2:color-mix(in srgb,var(--tb-ink) 74%,#fff);--tb-ink3:color-mix(in srgb,var(--tb-ink) 52%,#fff);--tb-muted:color-mix(in srgb,var(--tb-ink) 62%,#fff);
+  --tb-act-soft:color-mix(in srgb,var(--tb-act) 10%,#fff);--tb-act-line:color-mix(in srgb,var(--tb-act) 32%,#fff);--tb-act-dk:color-mix(in srgb,var(--tb-act) 78%,#000);
+  --tb-hi-soft:color-mix(in srgb,var(--tb-hi) 16%,#fff);
+  --tb-sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --tb-mono:"JetBrains Mono","IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  accent-color:var(--tb-act);color-scheme:light}
+html[data-board]{--ink:var(--tb-nav);--ink2:var(--tb-nav2);--ink3:var(--tb-nav3);--wash:var(--tb-bg);--paper:var(--tb-card);--line:var(--tb-line);--line2:var(--tb-line2);--text:var(--tb-ink);--muted:var(--tb-muted);--faint:var(--tb-ink3);--accent:var(--tb-act);--accent-soft:var(--tb-act-soft);--sans:var(--tb-sans);--mono:var(--tb-mono)}
+html[data-board] .step.on{box-shadow:inset 3px 0 var(--tb-hi)}
+html[data-board] body{font-family:var(--tb-sans);-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01","tnum"}
+html[data-board] ::selection{background:var(--tb-hi-soft)}
+html[data-board] *{scrollbar-color:color-mix(in srgb,var(--tb-ink) 24%,transparent) transparent}
+html[data-board] :focus-visible{outline-color:var(--tb-act)}
+</style>
+<body>
+<div class="app">
+<nav class="rail">
+  <div class="brand">
+    <h1>Naming Console</h1>
+    <p>Bulk file in → renamed, upload-ready bulk out.<br><span style="opacity:.65">v16 — Amazon upload fixes</span></p>
+  </div>
+  <div class="steps">
+    <button class="step on" data-panel="upload"><span class="n">01</span><span>Load bulk file<small id="s1sub">No file yet</small></span></button>
+    <button class="step" data-panel="basis"><span class="n">02</span><span>Naming basis<small>Rules, templates, ASIN library</small></span></button>
+    <button class="step" data-panel="review"><span class="n">03</span><span>Review names<small id="s3sub">—</small></span></button>
+    <button class="step" data-panel="export"><span class="n">04</span><span>Export bulk<small>Update rows only</small></span></button>
+    <button class="step" data-panel="launch"><span class="n">05</span><span>Bulk campaign launch<small>Build new campaigns</small></span></button>
+  </div>
+  <div class="railfoot">
+    <span class="pill" id="pBrand">no brand</span><br>
+    <span id="pStamp">Works on any brand, any marketplace, Seller or Vendor.</span>
+  </div>
+</nav>
+
+<main class="work">
+
+<!-- ============ 01 UPLOAD ============ -->
+<section class="panel on" id="p-upload">
+  <h2>Load the bulk file</h2>
+  <p class="sub">Drop the Amazon Advertising bulk file (.xlsx) for the account. Everything is read in your browser — nothing is uploaded anywhere. Sponsored Products, Brands and Display sheets are all read if present.</p>
+
+  <div class="card">
+    <div class="row" id="mktRow" style="margin-bottom:16px;padding:12px 14px;border-radius:10px;background:#fbfcfe;border:1px solid var(--line)">
+      <div style="min-width:260px;flex:1">
+        <label class="f">Which marketplace is this account on?</label>
+        <select id="mkt">
+          <option value="">Choose one — it changes how product names are shortened</option>
+          <option value="us">amazon.com — United States</option>
+          <option value="ca">amazon.ca — Canada</option>
+          <option value="mx">amazon.com.mx — Mexico</option>
+          <option value="br">amazon.com.br — Brazil</option>
+          <option value="uk">amazon.co.uk — United Kingdom</option>
+          <option value="de">amazon.de — Germany</option>
+          <option value="fr">amazon.fr — France</option>
+          <option value="it">amazon.it — Italy</option>
+          <option value="es">amazon.es — Spain</option>
+          <option value="nl">amazon.nl — Netherlands</option>
+          <option value="se">amazon.se — Sweden</option>
+          <option value="pl">amazon.pl — Poland</option>
+          <option value="be">amazon.com.be — Belgium</option>
+          <option value="tr">amazon.com.tr — Turkey</option>
+          <option value="ae">amazon.ae — UAE</option>
+          <option value="eg">amazon.eg — Egypt</option>
+          <option value="sa">amazon.sa — Saudi Arabia</option>
+          <option value="in">amazon.in — India</option>
+          <option value="jp">amazon.co.jp — Japan</option>
+          <option value="sg">amazon.sg — Singapore</option>
+          <option value="au">amazon.com.au — Australia</option>
+        </select>
+      </div>
+      <div id="mktNote" style="flex:1;min-width:220px;font-size:12px;color:var(--muted)">German, French, Italian, Spanish, Dutch, Swedish and Polish filler words are stripped from BSR titles once you pick.</div>
+    </div>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose bulk file">
+      <strong>Drop bulk file here</strong>
+      <span>or click to choose — .xlsx from Amazon Ads → Bulk operations. CSV/TSV of a single sheet also works.</span>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt" style="display:none">
+    <div class="filelist" id="filelist"></div>
+  </div>
+
+  <div class="card" id="parsedCard" style="display:none">
+    <h3>What came in</h3>
+    <p class="hint">Counts are after filtering to campaigns that have at least one ad group.</p>
+    <div class="stats" id="stats"></div>
+    <div class="note" id="sheetNote"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="toBasis">Set the naming basis →</button>
+      <button id="toReview">Skip to names →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 BASIS ============ -->
+<section class="panel" id="p-basis">
+  <h2>Naming basis</h2>
+  <p class="sub">This is the editable rulebook every name is built from. Change anything here and the names rebuild. Save it as a file once per client so the next run starts where this one left off.</p>
+
+  <div class="row" style="margin-bottom:16px">
+    <button class="primary" id="btnSaveBasis">Save basis (.json)</button>
+    <button id="btnSaveBasisX">Save basis (.xlsx)</button>
+    <button id="btnLoadBasis">Load basis file</button>
+    <input type="file" id="basisFile" accept=".json,.txt,.xlsx,.xlsm,.csv,.tsv" style="display:none">
+    <button id="btnResetBasis">Reset to convention default</button>
+    <span style="color:var(--muted);font-size:12px">Loads .json or .xlsx — a spreadsheet just needs a sheet with an ASIN column, or Setting / Value columns.</span>
+    <span style="color:var(--muted);font-size:12px" id="basisStamp"></span>
+  </div>
+
+  <div class="tabs" id="basisTabs">
+    <button class="tab on" data-b="rules">Foundational rules</button>
+    <button class="tab" data-b="tpl">Name templates</button>
+    <button class="tab" data-b="terms">Brand &amp; competitor terms</button>
+    <button class="tab" data-b="asins">ASIN library</button>
+    <button class="tab" data-b="json">Raw file</button>
+  </div>
+
+  <div id="b-rules" class="bpanel">
+    <div class="grid2">
+      <div class="card">
+        <h3>How much to change</h3>
+        <p class="hint">A campaign that already reads well should be left as it is.</p>
+        <div style="margin-bottom:10px">
+          <label class="f">Naming mode</label>
+          <select id="r_mode">
+            <option value="repair">Repair — keep the existing name, fix only what is wrong</option>
+            <option value="rebuild">Rebuild — write every name from the templates</option>
+          </select>
+        </div>
+        <label class="check"><input type="checkbox" id="r_fixAsin"><span>Fix the ASIN slot<small>Swap a stale Various for the live ASIN, add Various when several children are live, correct a wrong ASIN.</small></span></label>
+        <label class="check"><input type="checkbox" id="r_addAsin"><span>Add the ASIN when the name has none</span></label>
+        <label class="check"><input type="checkbox" id="r_reqDesc"><span>A named ASIN must carry its product name<small>When the name has an ASIN but no product name, the one from the ASIN library is inserted in front of it. No product name on file sends the campaign to manual review.</small></span></label>
+        <label class="check"><input type="checkbox" id="r_fixAbbrev"><span>Spell out abbreviations<small>Whole segments only, from the list on the Terms tab. A becomes AUTO.</small></span></label>
+        <p class="hint" style="margin:10px 0 0">In repair mode a product description or keyword already written into the name is left alone. Any single campaign can still be rebuilt from its card.</p>
+      </div>
+
+      <div class="card">
+        <h3>Multi-ASIN campaigns</h3>
+        <p class="hint">When one campaign advertises more than one ASIN. The ad group always takes the single lead ASIN; only the campaign name marks it as Various.</p>
+        <label class="check"><input type="checkbox" id="r_activeOnly"><span>Count only enabled product ads<small>Paused and archived ads are ignored when picking the ASIN.</small></span></label>
+        <div style="margin:10px 0">
+          <label class="f">Pick the lead ASIN by</label>
+          <select id="r_rank"><option value="orders">Orders, then sales, then clicks</option><option value="sales">Sales, then orders, then clicks</option><option value="clicks">Clicks, then orders</option><option value="units">Units, then orders</option></select>
+        </div>
+        <div style="margin:10px 0">
+          <label class="f">Campaign name shows</label>
+          <select id="r_campVarious">
+            <option value="lead_various">Lead ASIN - Various</option>
+            <option value="various">Various</option>
+            <option value="lead">Lead ASIN only</option>
+            <option value="catchall">Catch All</option>
+          </select>
+        </div>
+        <label class="check"><input type="checkbox" id="r_parent"><span>Use *Parent when every ASIN shares one parent<small>Needs parent ASINs filled in the ASIN library. Different parents still get Various.</small></span></label>
+      </div>
+
+      <div class="card">
+        <h3>Ad group names, tokens and suffixes</h3>
+        <p class="hint">Ad group naming applies to every ad group, single ASIN or many.</p>
+        <div style="margin-bottom:12px">
+          <label class="f">Ad group name</label>
+          <select id="r_agVarious">
+            <option value="asin_only">Just the ASIN — nothing else</option>
+            <option value="desc_asin">Product name, then the ASIN</option>
+            <option value="template">The ad group templates</option>
+          </select>
+        </div>
+        <div class="row">
+          <div style="flex:1;min-width:110px"><label class="f">Separator</label><input type="text" id="r_sep" value=" - "></div>
+          <div style="flex:1;min-width:110px"><label class="f">Empty slot marker</label><input type="text" id="r_ph" value="()"></div>
+        </div>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="r_dropEmpty"><span>Drop empty slots instead of printing the marker<small>Off keeps the ( ) placeholders exactly as the convention doc shows them.</small></span></label>
+        <label class="check"><input type="checkbox" id="r_tos"><span>Append TOS from the campaign's top-of-search adjustment<small>Reads the Bidding Adjustment row, prints TOS20 for 20%.</small></span></label>
+        <label class="check"><input type="checkbox" id="r_num"><span>Number duplicates at the end<small>Two campaigns landing on the same name become - 1 and - 2.</small></span></label>
+        <label class="check"><input type="checkbox" id="r_carryGoal"><span>Carry the goal or source across from the old name<small>Finds Ranking, STR, SQP, H10, STIS, POE in the current name and keeps it.</small></span></label>
+        <label class="check"><input type="checkbox" id="r_oneKw"><span>Use 1KW for single-keyword campaigns (launcher also inserts the actual keyword)</span></label>
+        <div style="margin-top:8px"><label class="f">Goal / source vocabulary (comma separated)</label><input type="text" id="r_goals"></div>
+      </div>
+
+      <div class="card">
+        <h3>Intent: Generic, SELF, COMP</h3>
+        <p class="hint">How a keyword ad group is typed.</p>
+        <div style="margin-bottom:10px">
+          <label class="f">An ad group counts as SELF or COMP when</label>
+          <select id="r_intentRule"><option value="any">Any keyword matches</option><option value="majority">Most keywords match</option><option value="all">Every keyword matches</option></select>
+        </div>
+        <label class="check"><input type="checkbox" id="r_ptSelf"><span>Type ASIN targeting as SELF when the targeted ASIN is one of ours<small>Own ASINs are everything advertised in this account plus anything ticked in the ASIN library.</small></span></label>
+        <label class="check"><input type="checkbox" id="r_tier"><span>Print the ASIN tier slot<small>Only for contracts with a tiering framework. Tier comes from the ASIN library.</small></span></label>
+      </div>
+
+      <div class="card">
+        <h3>Guardrails</h3>
+        <p class="hint">What gets flagged for a human look before export.</p>
+        <div class="row">
+          <div style="flex:1;min-width:120px"><label class="f">Campaign name limit</label><input type="number" id="r_climit" value="128"></div>
+          <div style="flex:1;min-width:120px"><label class="f">Ad group name limit</label><input type="number" id="r_alimit" value="255"></div>
+        </div>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="r_skipArchived"><span>Leave archived campaigns alone</span></label>
+        <label class="check"><input type="checkbox" id="r_skipRank"><span>Leave RANK campaigns alone<small>Any campaign whose current name contains RANK is passed over.</small></span></label>
+        <div style="margin-top:8px"><label class="f">Also leave alone if the name contains (comma separated)</label><input type="text" id="r_skipWords" placeholder="e.g. TEST, DO NOT TOUCH"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="b-tpl" class="bpanel" style="display:none">
+    <div class="card">
+      <h3>Slots you can use</h3>
+      <p class="hint">Anything in braces is replaced. An empty slot either disappears or prints the marker, per the rule above.</p>
+      <div class="segs" id="slotHelp"></div>
+    </div>
+    <div class="card">
+      <h3>Campaign templates</h3>
+      <p class="hint">One line per campaign archetype. The archetype is worked out from the bulk file, not from the old name.</p>
+      <div id="tplCamp" class="grid2"></div>
+    </div>
+    <div class="card">
+      <h3>Ad group templates</h3>
+      <p class="hint">Only used when Ad group name is set to match type, description, ASIN. On the default setting the ad group name is just the ASIN.</p>
+      <div id="tplAg" class="grid2"></div>
+    </div>
+  </div>
+
+  <div id="b-terms" class="bpanel" style="display:none">
+    <div class="grid2">
+      <div class="card">
+        <h3>Brand terms → SELF</h3>
+        <p class="hint">One per line. Matched inside the keyword text, case-insensitive.</p>
+        <textarea id="t_brand" rows="9" placeholder="ankerkraut&#10;birkengold"></textarea>
+      </div>
+      <div class="card">
+        <h3>Competitor terms → COMP</h3>
+        <p class="hint">One per line. Anything not matching either list is Generic.</p>
+        <textarea id="t_comp" rows="9"></textarea>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Abbreviations to spell out</h3>
+      <p class="hint">One per line as <span class="kbd">short = long</span>. Only a whole name segment is matched, so A becomes AUTO but the A inside a word is untouched.</p>
+      <textarea id="t_abbrev" rows="6" placeholder="A = AUTO&#10;SUB = SUBST"></textarea>
+    </div>
+    <div class="card">
+      <h3>Niche keyword groups</h3>
+      <p class="hint">One group per line as <span class="kbd">label = term, term, term</span>. The first group that matches an ad group's keywords fills the niche slot.</p>
+      <textarea id="t_niche" rows="6" placeholder="weight loss = slim, abnehmen, diet&#10;detox = detox, entgiftung"></textarea>
+    </div>
+  </div>
+
+  <div id="b-asins" class="bpanel" style="display:none">
+    <div class="card">
+      <h3>ASIN library</h3>
+      <p class="hint">Product descriptions come from here. Seeded from the current names in the bulk file — fix anything that reads wrong and every name using that ASIN updates.</p>
+      <div class="toolbar">
+        <input type="text" id="asinSearch" placeholder="Search ASIN, SKU or description">
+        <button id="btnAsinCsv">Download as CSV</button>
+        <button id="btnAsinPaste">Paste descriptions</button>
+        <span style="color:var(--muted);font-size:12px">Words in a product name</span>
+        <input type="number" id="descWords" min="1" max="8" value="4" style="width:64px">
+        <button id="btnReshort">Re-shorten all from titles</button>
+        <span style="color:var(--muted);font-size:12px" id="asinCount"></span>
+      </div>
+      <div class="note" style="margin:10px 0 14px">
+        <div class="row" style="align-items:center">
+          <div style="flex:1;min-width:280px">
+            <strong style="display:block;margin-bottom:3px">Add BSR / product file</strong>
+            <span style="color:var(--muted);font-size:12px">Any XLSX or CSV holding an ASIN column and a title column — BSR export, catalogue report, or a two-column list you paste together yourself. Every row read is listed below with the short name it produced, so a bad one is quick to spot and fix. Full Amazon titles never reach the campaign name.</span>
+          </div>
+          <button class="primary" id="btnBsr">Add BSR file</button>
+          <input type="file" id="bsrFile" accept=".xlsx,.xlsm,.csv,.tsv,.txt" style="display:none">
+        </div>
+        <div id="bsrStatus" style="font-size:12px;color:var(--muted);margin-top:8px">No BSR file loaded.</div>
+        <div class="row" style="margin-top:12px" id="bsrTools" hidden>
+          <input type="text" id="bsrSearch" placeholder="Search an ASIN or a title" style="width:230px;font-family:var(--sans)">
+          <button id="btnBsrPaste">Paste ASIN and title</button>
+          <button id="btnBsrCsv">Download this list</button>
+          <label class="check" style="padding:0"><input type="checkbox" id="bsrAll"><span>Keep ASINs that are not in this bulk file</span></label>
+          <span style="flex:1"></span>
+          <span class="mini" id="bsrCount"></span>
+        </div>
+        <div class="scroll" style="max-height:360px;margin-top:10px" id="bsrWrap" hidden><table class="tbl"><thead><tr>
+          <th style="width:110px">ASIN</th><th style="width:30%">Product name used in campaign names</th><th>Full title from the file</th><th style="width:120px">Status</th>
+        </tr></thead><tbody id="bsrBody"></tbody></table></div>
+      </div>
+      <div class="scroll"><table class="tbl"><thead><tr>
+        <th style="width:110px">ASIN</th><th style="width:24%">Product name in the campaign</th><th>Full product name from BSR</th><th style="width:110px">Parent</th><th style="width:80px">Tier</th><th style="width:60px">Ours</th><th class="num" style="width:70px">Orders</th><th class="num" style="width:80px">Sales</th><th style="width:120px">SKU</th>
+      </tr></thead><tbody id="asinBody"></tbody></table></div>
+    </div>
+  </div>
+
+  <div id="b-json" class="bpanel" style="display:none">
+    <div class="card">
+      <h3>The basis file itself</h3>
+      <p class="hint">Plain JSON — this is exactly what Save basis file writes and Load basis file reads. Edit it here and press Apply, or paste a colleague's file in. Anything you leave out falls back to the convention default, so a file with only the parts you care about is fine. ASIN descriptions in the file win over the ones read from the bulk file.</p>
+      <textarea id="jsonBox" rows="26"></textarea>
+      <div class="row" style="margin-top:12px"><button class="primary" id="btnApplyJson">Apply</button><span id="jsonMsg" style="color:var(--muted);font-size:12px"></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 REVIEW ============ -->
+<section class="panel" id="p-review">
+  <h2>Review names</h2>
+  <p class="sub">Repair mode keeps a name that already reads well and only fixes what is wrong — the ASIN slot first, then abbreviations. Click any new name to type over it, or press rebuild on a card to write it from the templates instead.</p>
+
+  <div class="toolbar">
+    <input type="text" id="q" placeholder="Search a name, ASIN or ID">
+    <select id="fStatus" style="width:160px"><option value="">All campaigns</option><option value="changed">Renames only</option><option value="asin">ASIN or Various fix</option><option value="desc">Missing a product name</option><option value="flag">Needs a look</option><option value="same">Already correct</option></select>
+    <select id="fChannel" style="width:130px"><option value="">All channels</option><option>SP</option><option>SB</option><option>SD</option></select>
+    <select id="fView" style="width:190px"><option value="">Campaigns with ad groups</option><option value="camp">Campaigns only</option><option value="ag">Ad group names only</option></select>
+    <select id="fSort" style="width:150px"><option value="">File order</option><option value="changed">Renames first</option><option value="flag">Flagged first</option><option value="orders">Most orders</option><option value="name">Name A–Z</option></select>
+    <span style="flex:1"></span>
+    <button id="btnAll">Select all shown</button>
+    <button id="btnNone">Clear</button>
+    <span id="selectedAsinCount" style="font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap">0 ASINs selected</span>
+  </div>
+
+  <details class="more">
+    <summary>More controls</summary>
+    <div class="toolbar" style="margin:10px 0 2px">
+      <button id="btnExpand">Hide ad groups</button>
+      <button id="btnRebuild">Rebuild from the rules</button>
+      <button id="btnClearEdits">Undo my hand edits</button>
+      <button id="btnSaveSession">Save session</button>
+      <button id="btnLoadSession">Load session</button>
+      <input type="file" id="sessionFile" accept=".json" style="display:none">
+      <span style="color:var(--muted);font-size:12px;margin-left:8px">Goal slot on every campaign shown:</span>
+      <input type="text" id="bulkGoal" list="goalList" placeholder="Ranking, STR, SQP…" style="width:150px">
+      <button id="btnBulkGoal">Apply</button>
+      <datalist id="goalList"></datalist>
+    </div>
+  </details>
+
+  <details class="more" id="bulkPanel">
+    <summary>Bulk edit the names in view</summary>
+    <div class="card" style="margin-top:10px">
+      <div class="row">
+        <div style="min-width:170px"><label class="f">Apply to</label>
+          <select id="bScope">
+            <option value="sel">Ticked rows</option>
+            <option value="shown">Everything shown</option>
+            <option value="shownc">Campaigns shown</option>
+            <option value="showna">Ad groups shown</option>
+          </select></div>
+        <div style="flex:1;min-width:180px"><label class="f">Find this text</label><input type="text" id="bFind" placeholder="()"></div>
+        <div style="flex:1;min-width:180px"><label class="f">Replace with</label><input type="text" id="bRepl" placeholder="leave empty to delete it"></div>
+        <button class="primary" id="bGo">Replace</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="bDropPh">Drop the ( ) markers</button>
+        <button id="bPre">Add a prefix</button>
+        <button id="bSuf">Add a suffix</button>
+        <button id="bUpper">ASINs to capitals</button>
+        <button id="bTidy">Tidy stray dashes</button>
+        <button id="bRebuildTpl">Rebuild these from the templates</button>
+        <span style="flex:1"></span>
+        <button id="bUndo">Undo last bulk edit</button>
+        <button id="bReset">Put these back on the rules</button>
+      </div>
+      <p class="hint" id="bMsg" style="margin:10px 0 0">Find &amp; Replace edits the NEW names in the selected scope. Matching is case-insensitive and ignores extra spaces. Names are cleaned after every edit.</p>
+    </div>
+  </details>
+
+  <div id="reviewStats" class="stats" style="margin:14px 0"></div>
+  <div id="revBody" class="cards"></div>
+  <div style="text-align:center;padding:6px 0 40px"><button id="btnMore" style="display:none">Show more campaigns</button></div>
+</section>
+
+<!-- ============ 04 EXPORT ============ -->
+<section class="panel" id="p-export">
+  <h2>Export bulk</h2>
+  <p class="sub">Old vs new is a two-tab workbook you can read or send on — one tab for campaigns, one for ad groups, both showing the current name beside the new one. The upload file contains only the rows that change, written back into Amazon's own sheets with the original column headers and every other value untouched. Operation is set to Update. Campaign and ad group rename rows both preserve their IDs. Selecting a campaign also includes every changed ad group under it, and ad group update rows carry the final campaign name plus the final ad group name. IDs stay text.</p>
+  <div class="card">
+    <div class="stats" id="expStats"></div>
+    <div class="note" id="expNote"></div>
+    <div class="row" style="margin-top:6px">
+      <button class="primary" id="btnXlsx">Download bulk file (.xlsx)</button>
+      <button id="btnPlan">Download old vs new (.xlsx)</button>
+      <button id="btnMap">Download rename log (.csv)</button>
+      <button id="btnFull">Download full sheet with new names (.xlsx)</button>
+    </div>
+    <div class="note warn" style="margin-top:16px">Upload to Amazon Ads → Bulk operations → Upload. Renames take a few minutes to show. Check one campaign before trusting the batch, and keep the rename log — it is the only way back.</div>
+  </div>
+</section>
+
+<!-- ============ 05 BULK CAMPAIGN LAUNCH ============ -->
+<section class="panel" id="p-launch">
+  <h2>Bulk campaign launch</h2>
+  <p class="sub">Build Sponsored Products keyword and product-targeting campaigns from manual inputs or the Excel launch template, using the same naming basis, ASIN library and intent logic as the naming console. Preview everything first, then download an Amazon bulk workbook with Create rows.</p>
+
+  <div class="card" style="border-left:4px solid var(--accent)">
+    <div class="row" style="align-items:center">
+      <div style="flex:1;min-width:300px">
+        <h3>Excel template workflow</h3>
+        <p class="hint" style="margin-bottom:0">Best for bulk launches. Download the input workbook, fill multiple launch IDs, advertised ASINs, keywords, product targets and manual negatives, then upload it here. The Launch ID is only a join key and never appears in Amazon campaign names. For One per target launches, each single-keyword campaign is named with 1KW + the actual keyword so campaigns stay uniquely identifiable without numeric duplicate suffixes.</p>
+      </div>
+      <button id="l_tpl_download">1. Download launch template (.xlsx)</button>
+      <button class="primary" id="l_tpl_upload">2. Upload filled template</button>
+      <input type="file" id="l_tpl_file" accept=".xlsx,.xlsm,.csv,.tsv" style="display:none">
+    </div>
+    <div id="l_tpl_status" class="note" style="margin:14px 0 0">No launch template loaded. Manual entry below still works.</div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Launch setup</h3>
+      <p class="hint">Marketplace is shared with the naming basis. When a bulk file is loaded, ASIN and SKU mappings are reused automatically.</p>
+      <div class="row">
+        <div style="flex:1;min-width:220px"><label class="f">Marketplace</label><select id="l_mkt"></select></div>
+        <div style="flex:1;min-width:180px"><label class="f">Account type</label><select id="l_account"><option value="seller">Seller Central</option><option value="vendor">Vendor Central</option></select></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div style="flex:1;min-width:180px"><label class="f">Goal / source</label><input type="text" id="l_goal" list="goalList" placeholder="Ranking, H10, STR…"></div>
+        <div style="flex:1;min-width:180px"><label class="f">Campaign state</label><select id="l_state"><option value="enabled">Enabled</option><option value="paused">Paused</option></select></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div style="flex:1"><label class="f">Daily budget</label><input type="number" id="l_budget" step="0.01" min="0" value="20"></div>
+        <div style="flex:1"><label class="f">Start date</label><input type="text" id="l_start" placeholder="YYYYMMDD"></div>
+        <div style="flex:1"><label class="f">End date (optional)</label><input type="text" id="l_end" placeholder="YYYYMMDD"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Bidding</h3>
+      <p class="hint">The strategy is written into the campaign Create row. Placement adjustments create Bidding Adjustment rows.</p>
+      <label class="f">Campaign bidding strategy</label>
+      <select id="l_strategy">
+        <option value="Dynamic bids - down only">Dynamic bids — down only</option>
+        <option value="Dynamic bids - up and down">Dynamic bids — up and down</option>
+        <option value="Fixed bid">Fixed bid</option>
+      </select>
+      <div class="row" style="margin-top:12px">
+        <div style="flex:1"><label class="f">Top of Search adjustment %</label><input type="number" id="l_tos" min="0" max="900" step="1" value="0"></div>
+        <div style="flex:1"><label class="f">Rest of Search adjustment %</label><input type="number" id="l_ros" min="0" max="900" step="1" value="0"></div>
+        <div style="flex:1"><label class="f">Product Pages adjustment %</label><input type="number" id="l_pp" min="0" max="900" step="1" value="0"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Advertised ASINs</h3>
+      <p class="hint">One ASIN per line. You can also paste ASIN + SKU separated by a tab or comma. Existing ASIN library and bulk mappings are used automatically.</p>
+      <textarea id="l_asins" rows="9" placeholder="B0XXXXXXXX
+B0YYYYYYYY
+
+or
+B0XXXXXXXX	MY-SKU"></textarea>
+      <div style="margin-top:10px"><label class="check"><input type="checkbox" id="l_separate" checked><span>Create separate campaigns per ASIN<small>Recommended. Turning this off advertises all entered ASINs together and uses the existing Various naming logic.</small></span></label></div>
+    </div>
+
+    <div class="card">
+      <h3>Keywords, product targets and bids</h3>
+      <p class="hint">Keywords: one per line, optional second column bid. Product targets: competitor or own ASIN plus optional bid. Template uploads can mix both target types under the same Launch ID.</p>
+      <label class="f">Keywords</label>
+      <textarea id="l_kws" rows="7" placeholder="camping chair	0.75
+outdoor chair	0.65
+portable camping chair"></textarea>
+      <label class="f" style="margin-top:10px">Product target ASINs</label>
+      <textarea id="l_pts" rows="5" placeholder="B0COMPET01	0.80
+B0COMPET02	0.70"></textarea>
+      <div class="row" style="margin-top:10px">
+        <div style="flex:1"><label class="f">Default bid</label><input type="number" id="l_bid" min="0" step="0.01" value="0.70"></div>
+        <div style="flex:2"><label class="f">Match types</label><div class="row" style="gap:18px;padding-top:4px"><label class="check" style="padding:0"><input type="checkbox" id="l_exact" checked><span>Exact</span></label><label class="check" style="padding:0"><input type="checkbox" id="l_phrase"><span>Phrase</span></label><label class="check" style="padding:0"><input type="checkbox" id="l_broad"><span>Broad</span></label></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Campaign organization</h3>
+    <div class="row">
+      <div style="flex:1;min-width:260px"><label class="f">Structure</label><select id="l_structure"><option value="match">Grouped by match type</option><option value="keyword">One campaign per keyword</option><option value="all">All selected keywords in one campaign</option></select></div>
+      <div style="flex:1;min-width:260px"><label class="f">Existing target handling</label><select id="l_dupes"><option value="warn">Warn only</option><option value="exclude">Exclude already-active keyword + match type</option><option value="allow">Allow duplicates</option></select></div>
+    </div>
+    <div style="margin-top:10px;max-width:320px"><label class="f">Campaign intent</label><select id="l_intent"><option value="Generic">Generic</option><option value="SELF">SELF</option><option value="COMP">COMP</option></select><p class="hint" style="margin-top:6px">Manual launches use this intent directly. Template launches use the Intent column in the Targets sheet, so classification is never guessed.</p></div>
+    <details class="more" style="margin-top:10px">
+      <summary>Manual negatives for quick entry</summary>
+      <div class="grid2" style="margin-top:10px">
+        <div>
+          <label class="f">Negative keywords</label>
+          <textarea id="l_neg_kws" rows="5" placeholder="cheap
+free
+replacement"></textarea>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:1"><label class="f">Default negative match</label><select id="l_neg_match"><option value="Negative Phrase">Negative Phrase</option><option value="Negative Exact">Negative Exact</option></select></div>
+            <div style="flex:1"><label class="f">Apply to</label><select id="l_neg_scope"><option>All Campaigns</option><option selected>Keyword Campaigns</option><option>Exact Campaigns</option><option>Phrase Campaigns</option><option>Broad Campaigns</option><option>Product Targeting Campaigns</option></select></div>
+          </div>
+          <p class="hint" style="margin-top:7px">For mixed matches, paste <span class="kbd">keyword TAB Negative Exact</span> or <span class="kbd">keyword TAB Negative Phrase</span>.</p>
+        </div>
+        <div>
+          <label class="f">Negative product target ASINs</label>
+          <textarea id="l_neg_pts" rows="5" placeholder="B0NEGATV01
+B0NEGATV02"></textarea>
+          <p class="hint" style="margin-top:7px">These export as Amazon Negative Product Targeting rows. The Apply To setting above also controls which generated campaigns receive them.</p>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div><h3>Launch preview</h3><p class="hint" style="margin-bottom:0">Nothing is exported until you review the generated structure.</p></div>
+      <span style="flex:1"></span>
+      <button id="l_preview">Build preview</button>
+      <button class="primary" id="l_download" disabled>Download launch bulk (.xlsx)</button>
+    </div>
+    <div id="l_stats" class="stats" style="margin-top:14px"></div>
+    <div id="l_messages"></div>
+    <div class="scroll" style="max-height:60vh;margin-top:14px"><table class="tbl"><thead><tr><th>Campaign</th><th>Ad group</th><th>Advertised ASIN</th><th>Target</th><th>Target type / Match</th><th class="num">Bid</th><th>Intent</th><th>Status</th></tr></thead><tbody id="l_body"><tr><td colspan="8" class="empty">Enter ASINs and keywords/product targets, or upload the Excel launch template, then build the preview.</td></tr></tbody></table></div>
+  </div>
+</section>
+
+</main>
+</div>
+<script>
+"use strict";
+/* =========================================================================
+   1. THE BASIS — the editable rulebook. Everything downstream reads this.
+   ========================================================================= */
+const DEFAULT_BASIS = {
+  version: 1,
+  label: "Campaign naming convention — new client acquisition Dec 2025 onward, July 2026 revision",
+  sep: " - ",
+  placeholder: "()",
+  dropEmpty: false,
+  rules: {
+    nameMode: "repair",
+    descWords: 4,
+    requireDesc: true,
+    fixAbbrev: true,
+    fixAsinSlot: true,
+    addAsinWhenMissing: true,
+    activeOnlyAds: true,
+    rankBy: "orders",
+    campaignMulti: "lead_various",
+    adGroupName: "asin_only",
+    useParentStar: false,
+    appendTos: true,
+    numberDuplicates: true,
+    carryGoal: true,
+    singleKw: true,
+    intentRule: "any",
+    ptSelfFromOwn: true,
+    showTier: false,
+    campLimit: 128,
+    agLimit: 255,
+    skipArchived: true,
+    skipRank: true,
+    skipWords: []
+  },
+  goals: ["Ranking", "STR", "SQP", "H10", "STIS", "POE"],
+  marketplace: "",
+  abbrev: { "A": "AUTO", "AT": "AUTO", "SUB": "SUBST", "BR": "Broad", "PH": "Phrase", "EX": "Exact", "GEN": "Generic" },
+  brandTerms: [],
+  compTerms: [],
+  niches: [],
+  asins: {},
+  templates: {
+    sp_auto:       "SP - {GOAL} - Auto - {DESC} - {ASIN}",
+    sp_kw:         "SP - {GOAL} - {KW} - {INTENT} - {MATCH} - {NICHE} - {TIER} - {DESC} - {ASIN} - {TOS} - {KWT} - {NUM}",
+    sp_asin:       "SP - {GOAL} - ASIN - {INTENT} - {NICHE} - {DESC} - {ASIN} - {TOS} - {NUM}",
+    sp_cat:        "SP - {GOAL} - CAT - {DESC} - {ASIN} - {TOS} - {NUM}",
+    sb_video_kw:   "SBV - {GOAL} - {KW} - {INTENT} - {NICHE} - {MATCH} - {DESC} - {ASIN} - {KWT} - {NUM}",
+    sb_video_asin: "SBV - {GOAL} - ASIN - {INTENT} - {NICHE} - {DESC} - {ASIN} - {NUM}",
+    sb_video_cat:  "SBV - {GOAL} - CAT - {DESC} - {ASIN} - {NUM}",
+    sb_kw:         "SB - {GOAL} - Banner - {KW} - {INTENT} - {NICHE} - {MATCH} - {DESC} - {ASIN} - {KWT} - {NUM}",
+    sb_asin:       "SB - {GOAL} - Banner - ASIN - {INTENT} - {NICHE} - {DESC} - {ASIN} - {NUM}",
+    sb_cat:        "SB - {GOAL} - Banner - CAT - {DESC} - {ASIN} - {NUM}",
+    sd_pt:         "SD - {GOAL} - PT - {COST} - {OPT} - {SDTARGET} - {DESC} - {ASIN} - {NUM}",
+    sd_aud:        "SD - {GOAL} - AUD - {COST} - {OPT} - {SDTARGET} - {DESC} - {ASIN} - {NUM}",
+    sdv_aud:       "SDV - {GOAL} - AUD - {COST} - {OPT} - {SDTARGET} - {DESC} - {ASIN} - {NUM}",
+    ag_auto:       "Auto - {DESC} - {ASIN}",
+    ag_kw:         "{MATCH} - {DESC} - {ASIN}",
+    ag_asin:       "ASIN - {INTENT} - {NICHE} - {DESC} - {ASIN}",
+    ag_cat:        "CAT - {DESC} - {ASIN}",
+    ag_default:    "{DESC} - {ASIN}"
+  }
+};
+
+const TPL_LABELS = {
+  sp_auto:       ["SP auto", "Sponsored Products, auto targeting"],
+  sp_kw:         ["SP keyword", "Broad, phrase or exact keyword ad groups"],
+  sp_asin:       ["SP ASIN targeting", "Product targeting on ASINs"],
+  sp_cat:        ["SP category", "Product targeting on categories"],
+  sb_video_kw:   ["SBV keyword", "Sponsored Brands video on keywords"],
+  sb_video_asin: ["SBV ASIN", "Sponsored Brands video on ASINs"],
+  sb_video_cat:  ["SBV category", "Sponsored Brands video on categories"],
+  sb_kw:         ["SB banner keyword", "Product collection or store spotlight"],
+  sb_asin:       ["SB banner ASIN", ""],
+  sb_cat:        ["SB banner category", ""],
+  sd_pt:         ["SD product targeting", "Contextual targeting"],
+  sd_aud:        ["SD audiences", "Audience targeting"],
+  sdv_aud:       ["SD video audiences", ""],
+  ag_auto:       ["Ad group, auto", ""],
+  ag_kw:         ["Ad group, keyword", "Match type first, per the convention"],
+  ag_asin:       ["Ad group, ASIN targeting", ""],
+  ag_cat:        ["Ad group, category", ""],
+  ag_default:    ["Ad group, fallback", "Used when the ad group has no live targets"]
+};
+
+const SLOTS = [
+  ["{GOAL}", "goal or source"], ["{NICHE}", "niche group"], ["{TIER}", "ASIN tier"],
+  ["{KW}", "KW or 1KW"], ["{TERM}", "actual keyword for launcher 1KW campaigns"], ["{INTENT}", "Generic, SELF, COMP"], ["{MATCH}", "Broad, Phrase, Exact"],
+  ["{DESC}", "product description"], ["{ASIN}", "advertised ASIN, Various, *Parent"],
+  ["{TOS}", "TOS20"], ["{KWT}", "kw targeted"], ["{NUM}", "1, 2, 3 for duplicates"],
+  ["{COST}", "CPC or VCPM"], ["{OPT}", "PV or CONV"], ["{SDTARGET}", "ASIN, CAT, AMZ AUD, Views RM, Purchase RM"]
+];
+
+let BASIS = JSON.parse(JSON.stringify(DEFAULT_BASIS));
+
+/* small helpers */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const lines = s => String(s || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+const csvSplit = s => String(s || "").split(",").map(x => x.trim()).filter(Boolean);
+const num = v => { const n = parseFloat(String(v == null ? "" : v).replace(/[^0-9.\-]/g, "")); return isFinite(n) ? n : 0; };
+
+/* =========================================================================
+   2. BASIS EDITOR — form <-> object, save and load as a file
+   ========================================================================= */
+function basisToUi() {
+  const r = BASIS.rules;
+  $("mkt").value = BASIS.marketplace || "";
+  $("r_reqDesc").checked = r.requireDesc !== false;
+  $("descWords").value = r.descWords || 4;
+  $("r_mode").value = r.nameMode || "repair";
+  $("r_fixAsin").checked = r.fixAsinSlot !== false;
+  $("r_addAsin").checked = r.addAsinWhenMissing !== false;
+  $("r_fixAbbrev").checked = r.fixAbbrev !== false;
+  $("t_abbrev").value = Object.keys(BASIS.abbrev || {}).map(k => k + " = " + BASIS.abbrev[k]).join("\n");
+  $("r_activeOnly").checked = !!r.activeOnlyAds;
+  $("r_rank").value = r.rankBy;
+  $("r_campVarious").value = r.campaignMulti;
+  $("r_agVarious").value = r.adGroupName || (r.adGroupMulti === "asin_only" ? "asin_only" : "template");
+  $("r_parent").checked = !!r.useParentStar;
+  $("r_sep").value = BASIS.sep;
+  $("r_ph").value = BASIS.placeholder;
+  $("r_dropEmpty").checked = !!BASIS.dropEmpty;
+  $("r_tos").checked = !!r.appendTos;
+  $("r_num").checked = !!r.numberDuplicates;
+  $("r_carryGoal").checked = !!r.carryGoal;
+  $("r_oneKw").checked = !!r.singleKw;
+  $("r_goals").value = (BASIS.goals || []).join(", ");
+  $("r_intentRule").value = r.intentRule;
+  $("r_ptSelf").checked = !!r.ptSelfFromOwn;
+  $("r_tier").checked = !!r.showTier;
+  $("r_climit").value = r.campLimit;
+  $("r_alimit").value = r.agLimit;
+  $("r_skipArchived").checked = !!r.skipArchived;
+  $("r_skipRank").checked = !!r.skipRank;
+  $("r_skipWords").value = (r.skipWords || []).join(", ");
+  $("t_brand").value = (BASIS.brandTerms || []).join("\n");
+  $("t_comp").value = (BASIS.compTerms || []).join("\n");
+  $("t_niche").value = (BASIS.niches || []).map(n => n.label + " = " + n.terms.join(", ")).join("\n");
+  renderTemplates();
+  renderSlotHelp();
+  $("jsonBox").value = JSON.stringify(BASIS, null, 2);
+}
+
+function uiToBasis() {
+  const r = BASIS.rules;
+  BASIS.marketplace = $("mkt").value;
+  r.requireDesc = $("r_reqDesc").checked;
+  r.descWords = Math.max(1, Math.min(8, parseInt($("descWords").value, 10) || 4));
+  r.nameMode = $("r_mode").value;
+  r.fixAsinSlot = $("r_fixAsin").checked;
+  r.addAsinWhenMissing = $("r_addAsin").checked;
+  r.fixAbbrev = $("r_fixAbbrev").checked;
+  BASIS.abbrev = {};
+  lines($("t_abbrev").value).forEach(l => { const i = l.indexOf("="); if (i > 0) BASIS.abbrev[l.slice(0, i).trim()] = l.slice(i + 1).trim(); });
+  r.activeOnlyAds = $("r_activeOnly").checked;
+  r.rankBy = $("r_rank").value;
+  r.campaignMulti = $("r_campVarious").value;
+  r.adGroupName = $("r_agVarious").value;
+  r.useParentStar = $("r_parent").checked;
+  BASIS.sep = $("r_sep").value || " - ";
+  BASIS.placeholder = $("r_ph").value;
+  BASIS.dropEmpty = $("r_dropEmpty").checked;
+  r.appendTos = $("r_tos").checked;
+  r.numberDuplicates = $("r_num").checked;
+  r.carryGoal = $("r_carryGoal").checked;
+  r.singleKw = $("r_oneKw").checked;
+  BASIS.goals = csvSplit($("r_goals").value);
+  r.intentRule = $("r_intentRule").value;
+  r.ptSelfFromOwn = $("r_ptSelf").checked;
+  r.showTier = $("r_tier").checked;
+  r.campLimit = parseInt($("r_climit").value) || 128;
+  r.agLimit = parseInt($("r_alimit").value) || 255;
+  r.skipArchived = $("r_skipArchived").checked;
+  r.skipRank = $("r_skipRank").checked;
+  r.skipWords = csvSplit($("r_skipWords").value);
+  BASIS.brandTerms = lines($("t_brand").value);
+  BASIS.compTerms = lines($("t_comp").value);
+  BASIS.niches = lines($("t_niche").value).map(l => {
+    const i = l.indexOf("=");
+    if (i < 0) return { label: l.trim(), terms: [l.trim()] };
+    return { label: l.slice(0, i).trim(), terms: csvSplit(l.slice(i + 1)) };
+  }).filter(n => n.label);
+  document.querySelectorAll("[data-tpl]").forEach(el => { BASIS.templates[el.dataset.tpl] = el.value; });
+  $("jsonBox").value = JSON.stringify(BASIS, null, 2);
+}
+
+function renderTemplates() {
+  const camp = [], ag = [];
+  Object.keys(BASIS.templates).forEach(k => {
+    const lab = TPL_LABELS[k] || [k, ""];
+    const html = '<div class="card" style="margin:0"><label class="f">' + esc(lab[0]) +
+      (lab[1] ? ' <span style="color:var(--faint)">— ' + esc(lab[1]) + '</span>' : '') +
+      '</label><input type="text" data-tpl="' + k + '" value="' + esc(BASIS.templates[k]) + '"></div>';
+    (k.indexOf("ag_") === 0 ? ag : camp).push(html);
+  });
+  $("tplCamp").innerHTML = camp.join("");
+  $("tplAg").innerHTML = ag.join("");
+  document.querySelectorAll("[data-tpl]").forEach(el => el.addEventListener("change", () => { uiToBasis(); rebuild(); }));
+}
+function renderSlotHelp() {
+  $("slotHelp").innerHTML = SLOTS.map(s => '<span class="seg k">' + esc(s[0]) + '</span><span class="seg d">' + esc(s[1]) + '</span>').join(" ");
+}
+
+function saveBasis() {
+  uiToBasis();
+  const name = (STATE.brand ? STATE.brand.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" : "") + "naming-basis.json";
+  download(new Blob([JSON.stringify(BASIS, null, 2)], { type: "application/json" }), name);
+  $("basisStamp").textContent = "Saved " + name;
+}
+function loadBasisText(txt) {
+  let o;
+  try { o = JSON.parse(txt); } catch (e) { $("jsonMsg").textContent = "That is not valid JSON: " + e.message; return false; }
+  const keep = BASIS.asins || {};
+  BASIS = Object.assign(JSON.parse(JSON.stringify(DEFAULT_BASIS)), o);
+  BASIS.rules = Object.assign({}, DEFAULT_BASIS.rules, o.rules || {});
+  if (o.rules && o.rules.adGroupMulti && !o.rules.adGroupName) BASIS.rules.adGroupName = o.rules.adGroupMulti === "asin_only" ? "asin_only" : "template";
+  BASIS.templates = Object.assign({}, DEFAULT_BASIS.templates, o.templates || {});
+  BASIS.asins = Object.assign({}, keep, o.asins || {});
+  basisToUi(); renderAsins(); rebuild();
+  $("jsonMsg").textContent = "Applied.";
+  $("basisStamp").textContent = "Loaded " + (BASIS.label || "basis file");
+  return true;
+}
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+
+/* =========================================================================
+   3. XLSX IN AND OUT — no libraries, no network. Uses the browser's own
+      deflate. IDs are kept as text so Amazon never sees 1.23E+11.
+   ========================================================================= */
+function u16(d, o) { return d.getUint16(o, true); }
+function u32(d, o) { return d.getUint32(o, true); }
+
+async function inflateRaw(bytes) {
+  if (typeof DecompressionStream === "undefined") throw new Error("This browser cannot unzip xlsx. Use Chrome, Edge or Safari 16.4+.");
+  const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+
+async function unzip(u8) {
+  const d = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) {
+    if (u32(d, i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("That file is not a readable xlsx (no zip directory found).");
+  let count = u16(d, eocd + 10), cdOff = u32(d, eocd + 16);
+  if (cdOff === 0xFFFFFFFF || count === 0xFFFF) {
+    let z = -1;
+    for (let i = eocd - 20; i >= 0; i--) if (u32(d, i) === 0x07064b50) { z = i; break; }
+    if (z >= 0) {
+      const zo = Number(new DataView(u8.buffer, u8.byteOffset).getBigUint64(z + 8, true));
+      if (u32(d, zo) === 0x06064b50) {
+        count = Number(new DataView(u8.buffer, u8.byteOffset).getBigUint64(zo + 32, true));
+        cdOff = Number(new DataView(u8.buffer, u8.byteOffset).getBigUint64(zo + 48, true));
+      }
+    }
+  }
+  const out = {}; let p = cdOff;
+  for (let i = 0; i < count && p + 46 <= u8.length; i++) {
+    if (u32(d, p) !== 0x02014b50) break;
+    const method = u16(d, p + 10), csize = u32(d, p + 20), nameLen = u16(d, p + 28),
+      extraLen = u16(d, p + 30), cmtLen = u16(d, p + 32), lho = u32(d, p + 42);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nameLen));
+    out[name] = { method: method, lho: lho, csize: csize };
+    p += 46 + nameLen + extraLen + cmtLen;
+  }
+  for (const k in out) {
+    const e = out[k], lnl = u16(d, e.lho + 26), lel = u16(d, e.lho + 28), start = e.lho + 30 + lnl + lel;
+    e.raw = u8.subarray(start, start + e.csize);
+  }
+  return {
+    names: Object.keys(out),
+    read: async function (n) {
+      const e = out[n]; if (!e) return null;
+      return e.method === 0 ? e.raw : await inflateRaw(e.raw);
+    }
+  };
+}
+
+const XENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+function unesc(s) {
+  if (s.indexOf("&") < 0) return s;
+  return s.replace(/&(#x?[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g, (m, g) => {
+    if (g[0] === "#") return String.fromCodePoint(g[1] === "x" || g[1] === "X" ? parseInt(g.slice(2), 16) : parseInt(g.slice(1), 10));
+    return XENT[g] || m;
+  });
+}
+function escXml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]))
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+}
+function colIdx(ref) {
+  let n = 0;
+  for (let i = 0; i < ref.length; i++) {
+    const c = ref.charCodeAt(i);
+    if (c < 65 || c > 90) break;
+    n = n * 26 + (c - 64);
+  }
+  return n - 1;
+}
+function colName(i) { let s = ""; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = (i - m - 1) / 26; } return s; }
+
+function parseSharedStrings(xml) {
+  const out = [];
+  const re = /<si\b[^>]*\/>|<si\b[^>]*>([\s\S]*?)<\/si>/g;
+  let m;
+  while ((m = re.exec(xml))) {
+    if (m[1] == null) { out.push(""); continue; }
+    let body = m[1].replace(/<rPh[\s\S]*?<\/rPh>/g, "");
+    let t = "", tm, tre = /<t\b[^>]*>([\s\S]*?)<\/t>/g;
+    while ((tm = tre.exec(body))) t += unesc(tm[1]);
+    out.push(t);
+  }
+  return out;
+}
+
+function parseSheet(xml, sst) {
+  const rows = [];
+  const rowRe = /<row\b([^>]*)(?:\/>|>([\s\S]*?)<\/row>)/g;
+  const cellRe = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+  let rm;
+  while ((rm = rowRe.exec(xml))) {
+    const body = rm[2]; if (!body) { rows.push([]); continue; }
+    const cells = []; let cm;
+    cellRe.lastIndex = 0;
+    while ((cm = cellRe.exec(body))) {
+      const at = cm[1] || "", inner = cm[2] || "";
+      const rref = (at.match(/r="([A-Z]+\d+)"/) || [])[1];
+      const t = (at.match(/t="([^"]+)"/) || [])[1] || "n";
+      const idx = rref ? colIdx(rref) : cells.length;
+      let val = "", isNum = false;
+      if (t === "s") {
+        const v = (inner.match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+        val = sst[parseInt(v, 10)] || "";
+      } else if (t === "inlineStr") {
+        let tm, tre = /<t\b[^>]*>([\s\S]*?)<\/t>/g;
+        while ((tm = tre.exec(inner))) val += unesc(tm[1]);
+      } else {
+        const v = (inner.match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+        val = v == null ? "" : unesc(v);
+        isNum = t === "n" && val !== "";
+        if (t === "b") val = val === "1" ? "TRUE" : "FALSE";
+      }
+      cells[idx] = { v: val, num: isNum };
+    }
+    rows.push(cells);
+  }
+  return rows;
+}
+
+async function readWorkbook(file) {
+  const nameLower = file.name.toLowerCase();
+  if (/\.(csv|tsv|txt)$/.test(nameLower)) {
+    const txt = await file.text();
+    const delim = txt.indexOf("\t") >= 0 && (txt.indexOf("\t") < (txt.indexOf(",") < 0 ? 1e9 : txt.indexOf(","))) ? "\t" : ",";
+    return [{ name: file.name.replace(/\.[^.]+$/, "").slice(0, 31), rows: parseDelimited(txt, delim) }];
+  }
+  const zip = await unzip(new Uint8Array(await file.arrayBuffer()));
+  const dec = new TextDecoder();
+  const wbXml = dec.decode(await zip.read("xl/workbook.xml"));
+  let relsXml = "";
+  const relsBuf = await zip.read("xl/_rels/workbook.xml.rels");
+  if (relsBuf) relsXml = dec.decode(relsBuf);
+  const rels = {};
+  let rm, rre = /<Relationship\b([^>]*)\/>/g;
+  while ((rm = rre.exec(relsXml))) {
+    const id = (rm[1].match(/Id="([^"]+)"/) || [])[1];
+    let tgt = (rm[1].match(/Target="([^"]+)"/) || [])[1] || "";
+    tgt = tgt.replace(/^\//, "").replace(/^xl\//, "");
+    if (id) rels[id] = "xl/" + tgt;
+  }
+  let sst = [];
+  const sstBuf = await zip.read("xl/sharedStrings.xml");
+  if (sstBuf) sst = parseSharedStrings(dec.decode(sstBuf));
+  const sheets = [];
+  let sm, sre = /<sheet\b([^>]*)\/>/g;
+  while ((sm = sre.exec(wbXml))) {
+    const nm = unesc((sm[1].match(/name="([^"]*)"/) || [])[1] || "Sheet");
+    const rid = (sm[1].match(/r:id="([^"]+)"/) || [])[1];
+    const path = rels[rid];
+    if (!path) continue;
+    const buf = await zip.read(path) || await zip.read(path.replace("xl/", "xl/worksheets/"));
+    if (!buf) continue;
+    sheets.push({ name: nm, rows: parseSheet(dec.decode(buf), sst) });
+  }
+  return sheets;
+}
+
+function parseDelimited(txt, d) {
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i];
+    if (q) {
+      if (c === '"') { if (txt[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === d) { row.push({ v: cur, num: false }); cur = ""; }
+    else if (c === "\n") { row.push({ v: cur.replace(/\r$/, ""), num: false }); rows.push(row); row = []; cur = ""; }
+    else cur += c;
+  }
+  if (cur !== "" || row.length) { row.push({ v: cur, num: false }); rows.push(row); }
+  return rows;
+}
+
+/* ---- writing ---- */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+
+/* A DOS date of 0 is technically invalid (month 0, day 0). Excel tolerates it,
+   but stricter server-side zip readers do not, so write a real timestamp. */
+function dosStamp() {
+  const d = new Date();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (Math.floor(d.getSeconds() / 2));
+  const date = ((Math.max(1980, d.getFullYear()) - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  return { time: time & 0xFFFF, date: date & 0xFFFF };
+}
+
+function zipStore(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  const ts = dosStamp();
+  let offset = 0;
+  files.forEach(f => {
+    const nameB = enc.encode(f.name), data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+    const crc = crc32(data);
+    const lh = new Uint8Array(30 + nameB.length), dv = new DataView(lh.buffer);
+    dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true); dv.setUint16(6, 0x0800, true);
+    dv.setUint16(8, 0, true); dv.setUint16(10, ts.time, true); dv.setUint16(12, ts.date, true);
+    dv.setUint32(14, crc, true); dv.setUint32(18, data.length, true); dv.setUint32(22, data.length, true);
+    dv.setUint16(26, nameB.length, true); dv.setUint16(28, 0, true);
+    lh.set(nameB, 30);
+    parts.push(lh, data);
+    const cd = new Uint8Array(46 + nameB.length), cv = new DataView(cd.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true); cv.setUint16(10, 0, true);
+    cv.setUint16(12, ts.time, true); cv.setUint16(14, ts.date, true);
+    cv.setUint32(16, crc, true); cv.setUint32(20, data.length, true); cv.setUint32(24, data.length, true);
+    cv.setUint16(28, nameB.length, true); cv.setUint32(42, offset, true);
+    cd.set(nameB, 46);
+    central.push(cd);
+    offset += lh.length + data.length;
+  });
+  let cdSize = 0; central.forEach(c => cdSize += c.length);
+  const end = new Uint8Array(22), ev = new DataView(end.buffer);
+  ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, central.length, true); ev.setUint16(10, central.length, true);
+  ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+  const all = parts.concat(central, [end]);
+  let total = 0; all.forEach(a => total += a.length);
+  const out = new Uint8Array(total); let o = 0;
+  all.forEach(a => { out.set(a, o); o += a.length; });
+  return new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
+function sheetXml(rows, validations, textCols) {
+  const parts = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'];
+  /* style 1 is the Text (@) format defined in styles.xml — it stops Excel turning
+     20260822 or 2026-08-22 into a serial date when the user retypes a cell. */
+  if (textCols && textCols.length) {
+    parts.push('<cols>');
+    textCols.forEach(ci => parts.push('<col min="' + (ci + 1) + '" max="' + (ci + 1) + '" style="1" width="14" customWidth="1"/>'));
+    parts.push('</cols>');
+  }
+  parts.push('<sheetData>');
+  rows.forEach((cells, ri) => {
+    parts.push('<row r="' + (ri + 1) + '">');
+    cells.forEach((c, ci) => {
+      if (c == null || c.v === "" || c.v == null) return;
+      const ref = colName(ci) + (ri + 1);
+      const st = (textCols && textCols.indexOf(ci) >= 0) ? ' s="1"' : '';
+      if (c.num && !st && /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(String(c.v))) parts.push('<c r="' + ref + '"><v>' + c.v + '</v></c>');
+      else parts.push('<c r="' + ref + '"' + st + ' t="inlineStr"><is><t xml:space="preserve">' + escXml(c.v) + '</t></is></c>');
+    });
+    parts.push('</row>');
+  });
+  parts.push('</sheetData>');
+  if (validations && validations.length) {
+    parts.push('<dataValidations count="' + validations.length + '">');
+    validations.forEach(v => {
+      const list = '"' + (v.values || []).join(',').replace(/"/g, '""') + '"';
+      parts.push('<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorStyle="stop" errorTitle="Choose from the list" error="Select a value from the dropdown." promptTitle="Allowed values" prompt="Choose one of the available options." sqref="' + escXml(v.range) + '"><formula1>' + escXml(list) + '</formula1></dataValidation>');
+    });
+    parts.push('</dataValidations>');
+  }
+  parts.push('</worksheet>');
+  return parts.join("");
+}
+
+function makeXlsx(sheets) {
+  const files = [];
+  const safe = sheets.map((s, i) => (s.name || ("Sheet" + (i + 1))).replace(/[\[\]:*?\/\\]/g, " ").slice(0, 31));
+  files.push({
+    name: "[Content_Types].xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
+      sheets.map((s, i) => '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("") +
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>'
+  });
+  /* Minimal but complete styles part. Some server-side xlsx parsers refuse a
+     workbook with no styles table, and it gives us a Text format for date columns. */
+  files.push({
+    name: "xl/styles.xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<numFmts count="1"><numFmt numFmtId="49" formatCode="@"/></numFmts>' +
+      '<fonts count="1"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts>' +
+      '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+      '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+      '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>' +
+      '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'
+  });
+  files.push({ name: "_rels/.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' });
+  files.push({
+    name: "xl/workbook.xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+      safe.map((n, i) => '<sheet name="' + escXml(n) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>').join("") + '</sheets></workbook>'
+  });
+  files.push({
+    name: "xl/_rels/workbook.xml.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      safe.map((n, i) => '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>').join("") +
+      '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' + '</Relationships>'
+  });
+  sheets.forEach((s, i) => files.push({ name: "xl/worksheets/sheet" + (i + 1) + ".xml", data: sheetXml(s.rows, s.validations || [], s.textCols || []) }));
+  return zipStore(files);
+}
+
+/* =========================================================================
+   4. READING THE BULK FILE INTO CAMPAIGNS
+   ========================================================================= */
+const STATE = { forceRebuild: {}, expandAll: true, limit: 200, shownRows: [], history: [], sheets: [], campaigns: [], rows: [], byId: {}, brand: "", asinAgg: {}, ownAsins: {}, override: {}, goalOverride: {}, selected: {}, fileName: "", bsrFileName: "", bsrTitles: {} };
+
+const normH = h => String(h || "").toLowerCase().replace(/\(informational only\)/g, "").replace(/[^a-z0-9]/g, "");
+function findCol(map, exact, loose) {
+  for (const e of exact) if (map[e] != null) return map[e];
+  if (loose) for (const k in map) if (k.indexOf(loose) >= 0) return map[k];
+  return -1;
+}
+const cellv = (row, i) => (i < 0 || !row || !row[i]) ? "" : String(row[i].v == null ? "" : row[i].v).trim();
+const ASIN_RE = /\bB0[A-Z0-9]{8}\b/;
+
+function ingest(sheets, fileName) {
+  STATE.sheets = sheets; STATE.fileName = fileName;
+  const camps = {}, ags = {};
+  let skippedSheets = [], usedSheets = [];
+
+  sheets.forEach(sh => {
+    const rows = sh.rows;
+    let hi = -1;
+    for (let i = 0; i < Math.min(rows.length, 12); i++) {
+      const vals = (rows[i] || []).map(c => normH(c && c.v));
+      if (vals.indexOf("entity") >= 0 && (vals.indexOf("operation") >= 0 || vals.indexOf("campaignid") >= 0)) { hi = i; break; }
+    }
+    if (hi < 0) { if (rows.length) skippedSheets.push(sh.name); return; }
+    const headers = (rows[hi] || []).map(c => (c && c.v) || "");
+    const map = {}; headers.forEach((h, i) => { const k = normH(h); if (k && map[k] == null) map[k] = i; });
+    const C = {
+      entity: findCol(map, ["entity"]), op: findCol(map, ["operation"]),
+      cid: findCol(map, ["campaignid"]), aid: findCol(map, ["adgroupid"]),
+      cname: findCol(map, ["campaignname"]), aname: findCol(map, ["adgroupname"]),
+      ttype: findCol(map, ["targetingtype"]), state: findCol(map, ["state"]),
+      cstate: findCol(map, ["campaignstate"], "campaignstate"), astate: findCol(map, ["adgroupstate"], "adgroupstate"),
+      asin: findCol(map, ["asin"]), sku: findCol(map, ["sku"]),
+      kw: findCol(map, ["keywordtext"]), match: findCol(map, ["matchtype"]),
+      expr: findCol(map, ["producttargetingexpression", "resolvedproducttargetingexpression", "targetingexpression"], "targetingexpression"),
+      rexpr: findCol(map, ["resolvedproducttargetingexpression"]),
+      place: findCol(map, ["placement"]), pct: findCol(map, ["percentage"]),
+      product: findCol(map, ["product"]),
+      adformat: findCol(map, ["adformat", "creativetype"], "adformat"),
+      tactic: findCol(map, ["tactic"]), cost: findCol(map, ["costtype"]), bidopt: findCol(map, ["bidoptimization"]),
+      orders: findCol(map, ["orders"], "order"), sales: findCol(map, ["sales"], "sales"),
+      clicks: findCol(map, ["clicks"], "click"), impr: findCol(map, ["impressions"], "impression"),
+      units: findCol(map, ["units"], "unit"), spend: findCol(map, ["spend"], "spend")
+    };
+    usedSheets.push(sh.name);
+    let chFromSheet = /brand/i.test(sh.name) ? "SB" : /display/i.test(sh.name) ? "SD" : "SP";
+
+    for (let i = hi + 1; i < rows.length; i++) {
+      const row = rows[i]; if (!row || !row.length) continue;
+      const ent = cellv(row, C.entity).toLowerCase(); if (!ent) continue;
+      const cid = cellv(row, C.cid), aid = cellv(row, C.aid);
+      const prod = cellv(row, C.product);
+      const ch = /display/i.test(prod) ? "SD" : /brand/i.test(prod) ? "SB" : /product/i.test(prod) ? "SP" : chFromSheet;
+      const key = sh.name + "|" + cid;
+
+      if (ent === "campaign") {
+        camps[key] = {
+          key: key, id: cid, sheet: sh.name, row: i, cells: row, cols: C, headers: headers, hi: hi,
+          name: cellv(row, C.cname), channel: ch, targetingType: cellv(row, C.ttype),
+          state: (cellv(row, C.state) || cellv(row, C.cstate)).toLowerCase(),
+          adFormat: cellv(row, C.adformat), tactic: cellv(row, C.tactic),
+          costType: cellv(row, C.cost), bidOpt: cellv(row, C.bidopt),
+          ags: [], agIx: {}, tos: "", nameSource: "campaign"
+        };
+        continue;
+      }
+      const cp = camps[key];
+      if (ent === "ad group" || ent === "adgroup") {
+        const ag = {
+          id: aid, camp: key, sheet: sh.name, row: i, cells: row, cols: C,
+          name: cellv(row, C.aname), state: (cellv(row, C.state) || cellv(row, C.astate)).toLowerCase(),
+          ads: [], kws: [], targets: []
+        };
+        ags[key + "|" + aid] = ag;
+        if (cp) { cp.ags.push(ag); cp.agIx[aid] = ag; }
+        continue;
+      }
+      const ag = ags[key + "|" + aid];
+      const met = {
+        orders: num(cellv(row, C.orders)), sales: num(cellv(row, C.sales)), clicks: num(cellv(row, C.clicks)),
+        impr: num(cellv(row, C.impr)), units: num(cellv(row, C.units)), spend: num(cellv(row, C.spend))
+      };
+      if (ent === "bidding adjustment") {
+        if (cp && /top/i.test(cellv(row, C.place))) { const p = num(cellv(row, C.pct)); if (p > 0) cp.tos = "TOS" + Math.round(p); }
+        continue;
+      }
+      if (!ag) continue;
+      const st = (cellv(row, C.state) || "enabled").toLowerCase();
+      if (ent === "product ad" || ent === "ad" || ent === "product ads") {
+        const asin = cellv(row, C.asin) || (ASIN_RE.exec(cellv(row, C.sku)) || [""])[0];
+        ag.ads.push({ asin: asin, sku: cellv(row, C.sku), state: st, m: met });
+        continue;
+      }
+      if (ent === "keyword") { ag.kws.push({ text: cellv(row, C.kw), match: cellv(row, C.match), state: st, m: met }); continue; }
+      if (ent === "negative keyword" || ent === "campaign negative keyword" || ent.indexOf("negative") === 0) continue;
+      if (ent.indexOf("targeting") >= 0 || ent === "product targeting" || ent === "audience") {
+        const ex = cellv(row, C.rexpr) || cellv(row, C.expr);
+        ag.targets.push({ expr: ex, state: st, m: met, match: cellv(row, C.match) });
+        continue;
+      }
+      if (C.asin >= 0 && cellv(row, C.asin)) ag.ads.push({ asin: cellv(row, C.asin), sku: cellv(row, C.sku), state: st, m: met });
+    }
+  });
+
+  STATE.campaigns = Object.keys(camps).map(k => camps[k]).filter(c => c.ags.length);
+  STATE.byId = camps;
+
+  /* ASINs: from product ads, and as a fallback from the names themselves */
+  const agg = {};
+  STATE.campaigns.forEach(cp => cp.ags.forEach(ag => {
+    if (!ag.ads.length) {
+      const m = ASIN_RE.exec(ag.name) || ASIN_RE.exec(cp.name);
+      if (m) ag.ads.push({ asin: m[0], sku: "", state: "enabled", m: { orders: 0, sales: 0, clicks: 0, impr: 0, units: 0, spend: 0 }, inferred: true });
+    }
+    ag.ads.forEach(a => {
+      if (!a.asin) return;
+      const t = agg[a.asin] || (agg[a.asin] = { asin: a.asin, sku: a.sku, orders: 0, sales: 0, clicks: 0, units: 0 });
+      t.orders += a.m.orders; t.sales += a.m.sales; t.clicks += a.m.clicks; t.units += a.m.units;
+      if (!t.sku && a.sku) t.sku = a.sku;
+    });
+  }));
+  STATE.asinAgg = agg;
+  seedAsinLibrary();
+
+  const nAg = STATE.campaigns.reduce((s, c) => s + c.ags.length, 0);
+  $("stats").innerHTML = [
+    ["Campaigns", STATE.campaigns.length], ["Ad groups", nAg], ["ASINs", Object.keys(agg).length],
+    ["SP", STATE.campaigns.filter(c => c.channel === "SP").length],
+    ["SB", STATE.campaigns.filter(c => c.channel === "SB").length],
+    ["SD", STATE.campaigns.filter(c => c.channel === "SD").length]
+  ].map(s => '<div class="stat"><b>' + s[1] + '</b><span>' + s[0] + '</span></div>').join("");
+  $("sheetNote").innerHTML = "Read: " + usedSheets.map(s => '<span class="kbd">' + esc(s) + '</span>').join(" ") +
+    (skippedSheets.length ? "<br>Ignored, no bulk header row: " + skippedSheets.map(esc).join(", ") : "");
+  $("parsedCard").style.display = "";
+  $("s1sub").textContent = STATE.campaigns.length + " campaigns loaded";
+  $("pBrand").textContent = STATE.brand || fileName.replace(/\.[^.]+$/, "").slice(0, 22);
+}
+
+const STOPSEG = new Set(["subst","substitutes","close","loose","complements","close match","loose match","rm","video","defensive","new","test","top","na","all","catchall","catch-all","kw targeted","multi","parent","child","sp", "sb", "sbv", "sd", "sdv", "kw", "1kw", "asin", "cat", "auto", "generic", "self", "comp", "broad", "phrase", "exact", "various", "banner", "pt", "aud", "cpc", "vcpm", "pv", "conv", "catch all", "()", "kw targeted", "amz aud", "views rm", "purchase rm", "ranking", "str", "sqp", "h10", "stis", "poe"]);
+function looksLikeDesc(s) {
+  if (s == null) return false;
+  const t = String(s).trim().toLowerCase();
+  if (/^[A-Z0-9]{1,3}$/.test(String(s).trim())) return false;
+  if (!t || STOPSEG.has(t)) return false;
+  if (/^tos\d+$/.test(t) || /^\d+$/.test(t) || ASIN_RE.test(s) || /^\*?b0[a-z0-9]{8}$/i.test(t)) return false;
+  return true;
+}
+
+/* BSR PRODUCT TITLE -> SHORT PRODUCT DESCRIPTION
+   This is intentionally heuristic and deterministic so the standalone HTML
+   can work offline. It favors useful product nouns while stripping brand,
+   pack-size, dimensions, colors and marketing filler. Output is max 3 words. */
+const TITLE_FILLER_EN = "for with and the a an of to in on from by new premium professional original universal heavy duty high quality extra strong durable best ideal perfect suitable compatible incl including set pack pcs piece pieces size color colour black white red blue green grey gray silver gold small medium large xl xxl cm mm inch inches kg g ml l liter litre amazon bestseller gift men women kids adult indoor outdoor pro plus max mini";
+const TITLE_FILLER_LOCALE = {
+  de: "für mit und der die das ein eine von zu in auf aus im inkl inklusive stück set pack packung premium hochwertig hochwertige original neu neue groß große klein kleine schwarz weiß rot blau grün grau silber gold universal kinder damen herren robust langlebig ideal geeignet",
+  fr: "pour avec et le la les un une de du des en sur dans lot pièces pièce noir blanc rouge bleu vert gris qualité premium original neuf grand petit",
+  es: "para con y el la los las un una de en sobre piezas pieza negro blanco rojo azul verde gris calidad original nuevo grande pequeño",
+  it: "per con e il lo la le un una di in su pezzi pezzo nero bianco rosso blu verde grigio qualità originale nuovo grande piccolo",
+  nl: "voor met en de het een van in op stuks stuk zwart wit rood blauw groen grijs kwaliteit origineel nieuw groot klein",
+  se: "för med och en ett av i på st svart vit röd blå grön grå kvalitet original ny stor liten",
+  pl: "dla z i na do w o sztuk sztuki czarny biały czerwony niebieski zielony szary jakość oryginalny nowy duży mały",
+  be: "voor met en de het een van pour avec et le la les un une de",
+  tr: "için ile ve bir adet siyah beyaz kırmızı mavi yeşil kalite orijinal yeni büyük küçük"
+};
+function fillerSet() {
+  const mk = (BASIS.marketplace || "").toLowerCase();
+  const extra = TITLE_FILLER_LOCALE[mk] || (mk === "at" ? TITLE_FILLER_LOCALE.de : "");
+  return new Set((TITLE_FILLER_EN + " " + extra).split(/\s+/).filter(Boolean));
+}
+const PRODUCT_HINTS = [
+  "soft shackle","chair cushion","car door step","electric winch","dog crate","camping clothesline","dry bag","waterproof backpack","camping backpack","phone holder","seat cover","roof rack","tool bag","storage box","travel bag","sleeping bag","carabiner clip","tow strap","recovery strap","winch rope","snatch block","bike rack","luggage rack","dog ramp","camping table","camping chair","first aid kit","water bottle","coffee maker","air pump","tire inflator","jump starter","battery charger","power station","solar panel","roof tent","tent pole","ground sheet","mosquito net","dry sack","tool box","cargo net","ratchet strap","bungee cord"
+];
+const NOUN_RE = /(bag|rack|strap|rope|chair|cushion|crate|winch|step|holder|cover|table|tent|bottle|pump|charger|shackle|carabiner|backpack|box|kit|net|mat|liner|organizer|mount|adapter|cable|lock|light|lamp|case|pouch|sack|blanket|hammock|stool|trolley|cart|hook|clip|clamp|shelter|canopy|awning|grill|stove|kettle|mug|knife|axe|shovel|tool|compressor|inflator|coffee|tea|powder|kaffee|kissen|tasche|seil|lampe|flasche)$/i;
+
+function cleanTitleWords(title) {
+  let t = String(title || "")
+    .replace(/[|•·]/g, " ")
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
+    .replace(/\b\d+(?:[.,]\d+)?\s*(?:mm|cm|m|km|in|inch|inches|ft|kg|g|lb|lbs|oz|ml|l|liter|litre|v|w|mah|ah|pcs?|pack|stk|stück|st)\b/gi, " ")
+    .replace(/\b\d+\s*er\b/gi, " ")
+    .replace(/\b(?:pack of|set of|lot de|confezione da)\s+\d+\b/gi, " ")
+    .replace(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9\-\s]/g, " ")
+    .replace(/\s+/g, " ").trim();
+  return t.split(/\s+/).filter(Boolean);
+}
+function smartProductDescription(title, asin) {
+  const raw = String(title || "").trim();
+  if (!raw) return "";
+  const want = Math.max(1, Math.min(8, (BASIS.rules && BASIS.rules.descWords) || 4));
+  const FILL = fillerSet();
+  const low = raw.toLowerCase();
+  for (const phrase of PRODUCT_HINTS) if (low.indexOf(phrase) >= 0) return phrase.split(" ").slice(0, want).map(cap).join(" ");
+  /* Amazon titles lead with brand + product, then pile on claims after a
+     separator. Keep the head clause, it is nearly always the product. */
+  const head = raw.split(/\s[-–—|,;:]\s|[|•·]/)[0] || raw;
+  let words = cleanTitleWords(head.length < 12 ? raw : head);
+  if (!words.length) words = cleanTitleWords(raw);
+  if (!words.length) return "";
+  /* drop the brand, whether we know it or not */
+  (BASIS.brandTerms || []).forEach(b => {
+    const parts = String(b).toLowerCase().split(/\s+/).filter(Boolean);
+    if (!parts.length) return;
+    const i = words.findIndex((w, ix) => parts.every((pp, k) => (words[ix + k] || "").toLowerCase() === pp));
+    if (i >= 0) words.splice(i, parts.length);
+  });
+  const first = (words[0] || "").toLowerCase();
+  if (words.length > want && !FILL.has(first) && !NOUN_RE.test(first)) words = words.slice(1);
+  const useful = [];
+  for (const w of words) {
+    const x = w.replace(/^-+|-+$/g, ""), l = x.toLowerCase();
+    if (!x || FILL.has(l)) continue;
+    if (/^\d+(?:[.,]\d+)?$/.test(l) || /^b0[a-z0-9]{8}$/i.test(l) || l === String(asin || "").toLowerCase()) continue;
+    if (/^(?:s|m|l|xl|xxl|3xl)$/.test(l)) continue;
+    useful.push(x);
+  }
+  const pool = useful.length ? useful : words.filter(Boolean);
+  const idx = pool.findIndex(w => NOUN_RE.test(w));
+  let pick;
+  if (idx >= 0) { const start = Math.max(0, idx - (want - 1)); pick = pool.slice(start, start + want); }
+  else pick = pool.slice(0, want);
+  return pick.slice(0, want).map(w => w.length <= 4 && /^[A-Z0-9]+$/.test(w) ? w : cap(w)).join(" ");
+}
+function reshortenAll() {
+  uiToBasis();
+  let n = 0;
+  Object.keys(BASIS.asins).forEach(a => {
+    const r = BASIS.asins[a];
+    if (!r.bsrTitle) return;
+    const short = smartProductDescription(r.bsrTitle, a);
+    if (short && short !== r.desc) { r.desc = short; r.descSource = "BSR"; n++; }
+  });
+  renderAsins(); renderBsr(); rebuild();
+  $("bsrStatus").innerHTML = n ? '<span class="tag ok">Re-shortened</span> ' + n + " product name" + (n === 1 ? "" : "s") + " rebuilt at " + ((BASIS.rules.descWords) || 4) + " words." : "Nothing to re-shorten — load a BSR file or paste full titles first.";
+}
+const BSR_TITLE_RE = /title|productname|producttitle|listingtitle|itemname|itemtitle|produktname|produkttitel|artikelname|titel|nomduproduit|nombredelproducto|descrizione|productdetails|productdescription|name$/;
+const BSR_ASIN_RE = /(^|[^a-z])asin/;
+function bsrCols(rows) {
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
+    const vals = (rows[i] || []).map(c => normH(c && c.v));
+    if (!vals.length) continue;
+    let ai = vals.findIndex(v => v === "asin" || v === "childasin" || v === "productasin" || v === "kindasin");
+    if (ai < 0) ai = vals.findIndex(v => BSR_ASIN_RE.test(v));
+    let ti = vals.findIndex(v => /^(producttitle|title|productname|listingtitle|itemname|produktname|produkttitel|titel|name)$/.test(v));
+    if (ti < 0) ti = vals.findIndex((v, ix) => ix !== ai && BSR_TITLE_RE.test(v));
+    if (ai >= 0 && ti >= 0) return { hi: i, ai: ai, ti: ti, headers: vals };
+  }
+  /* no header we recognise — fall back to shape: a column of ASINs plus the
+     longest text column beside it */
+  for (let i = 0; i < Math.min(rows.length, 5); i++) {
+    const r = rows[i] || [];
+    const ai = r.findIndex(c => c && ASIN_RE.test(String(c.v).toUpperCase()));
+    if (ai < 0) continue;
+    let ti = -1, best = 0;
+    r.forEach((c, ix) => { const L = String(c && c.v || "").length; if (ix !== ai && L > best && L > 12) { best = L; ti = ix; } });
+    if (ti >= 0) return { hi: i - 1, ai: ai, ti: ti, headers: [] };
+  }
+  return null;
+}
+async function ingestBsrFile(file) {
+  const sheets = await readWorkbook(file), found = {};
+  let rowsRead = 0, headersSeen = [];
+  sheets.forEach(sh => {
+    const c = bsrCols(sh.rows);
+    if (!c) { const h = (sh.rows[0] || []).map(x => x && x.v).filter(Boolean); if (h.length) headersSeen = headersSeen.concat(h.slice(0, 12)); return; }
+    for (let i = c.hi + 1; i < sh.rows.length; i++) {
+      const row = sh.rows[i] || [];
+      const av = cellv(row, c.ai).toUpperCase();
+      const m = av.match(/B0[A-Z0-9]{8}/); if (!m) continue;
+      const title = cellv(row, c.ti); if (!title) continue;
+      rowsRead++;
+      if (!found[m[0]] || title.length > found[m[0]].length) found[m[0]] = title;
+    }
+  });
+  const asins = Object.keys(found);
+  if (!asins.length) throw new Error("No ASIN and title pair found. Columns in that file: " + (headersSeen.length ? headersSeen.join(", ") : "none readable") + ".");
+  STATE.bsrFileName = file.name;
+  STATE.bsrTitles = Object.assign({}, STATE.bsrTitles, found);
+  applyBsrTitles();
+}
+function applyBsrTitles() {
+  const keepAll = $("bsrAll").checked;
+  const titles = STATE.bsrTitles || {};
+  let matched = 0, added = 0;
+  Object.keys(titles).forEach(a => {
+    const inAccount = !!STATE.asinAgg[a];
+    if (!inAccount && !keepAll && !BASIS.asins[a]) return;
+    const rec = BASIS.asins[a] || (BASIS.asins[a] = { desc: "", parent: "", tier: "", own: true });
+    if (inAccount) matched++; else added++;
+    rec.bsrTitle = titles[a];
+    if (rec.descSource !== "Manual") {
+      const short = smartProductDescription(titles[a], a);
+      if (short) { rec.desc = short; rec.descSource = "BSR"; }
+    }
+  });
+  renderAsins(); renderBsr(); rebuild();
+  const total = Object.keys(titles).length;
+  $("bsrStatus").innerHTML = '<span class="tag ok">Titles loaded</span> <b>' + esc(STATE.bsrFileName || "pasted list") + '</b> · ' +
+    total + ' title' + (total === 1 ? "" : "s") + ' read · ' + matched + ' matched to this account' +
+    (added ? ' · ' + added + ' kept from outside it' : '') +
+    (total - matched - added > 0 ? ' · <span style="color:var(--muted)">' + (total - matched - added) + ' not in this bulk file, tick the box to keep them</span>' : '');
+}
+function renderBsr() {
+  const titles = STATE.bsrTitles || {}, keys = Object.keys(titles);
+  $("bsrTools").hidden = !keys.length;
+  $("bsrWrap").hidden = !keys.length;
+  if (!keys.length) return;
+  const q = ($("bsrSearch").value || "").toLowerCase();
+  const show = keys.filter(a => !q || (a + " " + titles[a] + " " + ((BASIS.asins[a] || {}).desc || "")).toLowerCase().indexOf(q) >= 0)
+    .sort((a, b) => (STATE.asinAgg[b] ? 1 : 0) - (STATE.asinAgg[a] ? 1 : 0) || a.localeCompare(b));
+  $("bsrBody").innerHTML = show.slice(0, 400).map(a => {
+    const rec = BASIS.asins[a] || {}, inAcc = !!STATE.asinAgg[a];
+    const tag = inAcc ? '<span class="tag ok">in this account</span>' : (BASIS.asins[a] ? '<span class="tag n">kept</span>' : '<span class="tag n">not advertised</span>');
+    return '<tr><td class="mono">' + esc(a) + '</td>' +
+      '<td><div style="display:flex;gap:6px;align-items:center"><input type="text" data-bsr="' + esc(a) + '" data-f="desc" value="' + esc(rec.desc || "") + '" placeholder="short product name">' +
+      '<button class="minibtn bsrRe" data-bsr="' + esc(a) + '" title="Shorten the title again">↺</button></div></td>' +
+      '<td><input type="text" data-bsr="' + esc(a) + '" data-f="bsrTitle" value="' + esc(titles[a]) + '" style="font-size:11.5px;color:var(--muted)"></td>' +
+      '<td>' + tag + '</td></tr>';
+  }).join("");
+  $("bsrCount").textContent = show.length + " of " + keys.length + " titles" + (show.length > 400 ? " — showing the first 400" : "");
+  $("bsrBody").querySelectorAll("input").forEach(el => el.onchange = () => {
+    const a = el.dataset.bsr;
+    if (el.dataset.f === "bsrTitle") {
+      STATE.bsrTitles[a] = el.value;
+      const rec = BASIS.asins[a];
+      if (rec && rec.descSource !== "Manual") { const sh = smartProductDescription(el.value, a); if (sh) { rec.desc = sh; rec.descSource = "BSR"; } }
+    } else {
+      const rec = BASIS.asins[a] || (BASIS.asins[a] = { desc: "", parent: "", tier: "", own: true });
+      rec.desc = el.value; rec.descSource = "Manual"; rec.bsrTitle = STATE.bsrTitles[a];
+    }
+    renderBsr(); renderAsins(); rebuild();
+  });
+  $("bsrBody").querySelectorAll(".bsrRe").forEach(b => b.onclick = () => {
+    const a = b.dataset.bsr, rec = BASIS.asins[a] || (BASIS.asins[a] = { desc: "", parent: "", tier: "", own: true });
+    const sh = smartProductDescription(STATE.bsrTitles[a], a);
+    if (sh) { rec.desc = sh; rec.descSource = "BSR"; rec.bsrTitle = STATE.bsrTitles[a]; renderBsr(); renderAsins(); rebuild(); }
+  });
+}
+
+function titleCaseScore(t) {
+  const w = String(t).trim().split(/\s+/).filter(Boolean);
+  if (!w.length) return 0;
+  const caps = w.filter(x => /^[A-Z0-9]/.test(x)).length;
+  return caps / w.length;
+}
+function seedAsinLibrary() {
+  BASIS.asins = BASIS.asins || {};
+  /* A campaign name puts the keyword on one side of the ASIN and the product
+     name on the other, and which side varies by account. Collect both
+     neighbours everywhere the ASIN appears, then prefer the candidate that
+     reads like a product name: title case first, then how often it recurs. */
+  const cand = {};
+  const offer = (asin, text) => {
+    if (!asin || !looksLikeDesc(text)) return;
+    const t = String(text).trim();
+    const c = cand[asin] || (cand[asin] = {});
+    c[t] = (c[t] || 0) + 1;
+  };
+  STATE.campaigns.forEach(cp => cp.ags.forEach(ag => {
+    const asins = [...new Set(ag.ads.map(a => a.asin).filter(Boolean))];
+    if (asins.length !== 1) return;
+    const a = asins[0];
+    [cp.name, ag.name].forEach(nm => {
+      if (!nm) return;
+      const segs = splitName(nm);
+      segs.forEach((seg, i) => {
+        if (seg.indexOf(a) < 0) return;
+        offer(a, segs[i - 1]);
+        offer(a, segs[i + 1]);
+      });
+    });
+  }));
+  Object.keys(STATE.asinAgg).forEach(a => {
+    if (!BASIS.asins[a]) BASIS.asins[a] = { desc: "", parent: "", tier: "", own: true };
+    const rec = BASIS.asins[a];
+    if (rec.desc && rec.descSource && rec.descSource !== "guess") return;
+    const c = cand[a] || {};
+    const best = Object.keys(c).sort((x, y) => (titleCaseScore(y) * 3 + c[y]) - (titleCaseScore(x) * 3 + c[x]))[0];
+    if (best && !rec.desc) { rec.desc = best; rec.descSource = "guess"; }
+  });
+  renderAsins();
+}
+
+function renderAsins() {
+  const q = ($("asinSearch").value || "").toLowerCase();
+  const keys = Object.keys(BASIS.asins).sort((a, b) => (STATE.asinAgg[b] ? STATE.asinAgg[b].orders : 0) - (STATE.asinAgg[a] ? STATE.asinAgg[a].orders : 0));
+  const rows = keys.filter(a => {
+    if (!q) return true;
+    const r = BASIS.asins[a], ag = STATE.asinAgg[a] || {};
+    return (a + " " + (r.desc || "") + " " + (ag.sku || "")).toLowerCase().indexOf(q) >= 0;
+  }).map(a => {
+    const r = BASIS.asins[a], ag = STATE.asinAgg[a] || { orders: 0, sales: 0, sku: "" };
+    return '<tr><td class="mono">' + esc(a) + '</td>' +
+      '<td><div style="display:flex;gap:6px;align-items:center"><input type="text" data-asin="' + esc(a) + '" data-f="desc" value="' + esc(r.desc || "") + '" placeholder="e.g. BE Chair Cushion" title="' + esc(r.bsrTitle || "") + '">' + (r.descSource === "BSR" ? '<span class="tag ok" title="Generated from the BSR product title">BSR</span>' : r.descSource === "guess" ? '<span class="tag n" title="Read out of the existing campaign names — check it">guess</span>' : "") + '</div></td>' +
+      '<td><div style="display:flex;gap:6px;align-items:center"><input type="text" data-asin="' + esc(a) + '" data-f="bsrTitle" value="' + esc(r.bsrTitle || "") + '" placeholder="paste or edit the full title" style="font-size:11.5px;color:var(--muted)"><button class="minibtn reshort" data-asin="' + esc(a) + '" title="Shorten this title again">↺</button></div></td>' +
+      '<td><input type="text" data-asin="' + esc(a) + '" data-f="parent" value="' + esc(r.parent || "") + '" placeholder="parent ASIN"></td>' +
+      '<td><input type="text" data-asin="' + esc(a) + '" data-f="tier" value="' + esc(r.tier || "") + '" placeholder="A/B/C"></td>' +
+      '<td style="text-align:center"><input type="checkbox" data-asin="' + esc(a) + '" data-f="own"' + (r.own !== false ? " checked" : "") + '></td>' +
+      '<td class="num">' + Math.round(ag.orders) + '</td><td class="num">' + Math.round(ag.sales) + '</td><td class="mono" style="color:var(--muted)">' + esc(ag.sku || "") + '</td></tr>';
+  });
+  $("asinBody").innerHTML = rows.join("") || '<tr><td colspan="9" class="empty">No ASINs yet — load a bulk file first.</td></tr>';
+  $("asinCount").textContent = keys.length + " ASINs";
+  $("asinBody").querySelectorAll("input").forEach(el => el.addEventListener("change", () => {
+    const rec = BASIS.asins[el.dataset.asin];
+    rec[el.dataset.f] = el.type === "checkbox" ? el.checked : el.value;
+    if (el.dataset.f === "desc") rec.descSource = "Manual";
+    if (el.dataset.f === "bsrTitle" && rec.descSource !== "Manual") {
+      const short = smartProductDescription(rec.bsrTitle, el.dataset.asin);
+      if (short) { rec.desc = short; rec.descSource = "BSR"; renderAsins(); }
+    }
+    rebuild();
+  }));
+  $("asinBody").querySelectorAll(".reshort").forEach(b => b.onclick = () => {
+    const rec = BASIS.asins[b.dataset.asin];
+    if (!rec || !rec.bsrTitle) return;
+    const short = smartProductDescription(rec.bsrTitle, b.dataset.asin);
+    if (short) { rec.desc = short; rec.descSource = "BSR"; renderAsins(); rebuild(); }
+  });
+}
+
+/* =========================================================================
+   5. THE NAMING ENGINE
+   ========================================================================= */
+const PH_SLOTS = ["GOAL", "NICHE", "TIER"];
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "";
+
+function buildName(tpl, tok) {
+  const segs = String(tpl || "").split(/\s+-\s+/).map(s => s.trim()).filter(Boolean);
+  const out = [];
+  segs.forEach(seg => {
+    const slots = seg.match(/\{[A-Z]+\}/g);
+    if (!slots) { out.push(seg); return; }
+    let s = seg;
+    slots.forEach(sl => {
+      const k = sl.slice(1, -1);
+      let v = tok[k] == null ? "" : String(tok[k]).trim();
+      const suppress = (k === "TIER" && !BASIS.rules.showTier);
+      if (v === "" && PH_SLOTS.indexOf(k) >= 0 && !BASIS.dropEmpty && !suppress) v = BASIS.placeholder;
+      s = s.split(sl).join(v);
+    });
+    s = s.replace(/\s+/g, " ").trim();
+    if (s) out.push(s);
+  });
+  return out.join(BASIS.sep).replace(/\s+/g, " ").trim();
+}
+
+function matchAny(text, terms) {
+  const t = String(text || "").toLowerCase();
+  return terms.some(x => x && t.indexOf(String(x).toLowerCase()) >= 0);
+}
+function intentOf(texts) {
+  const b = BASIS.brandTerms || [], c = BASIS.compTerms || [];
+  if (!texts.length || (!b.length && !c.length)) return "Generic";
+  const nb = texts.filter(t => matchAny(t, b)).length, nc = texts.filter(t => matchAny(t, c)).length;
+  const rule = BASIS.rules.intentRule, n = texts.length;
+  const pass = k => rule === "all" ? k === n : rule === "majority" ? k > n / 2 : k > 0;
+  if (pass(nb) && nb >= nc) return "SELF";
+  if (pass(nc)) return "COMP";
+  return "Generic";
+}
+function nicheOf(texts) {
+  for (const n of (BASIS.niches || [])) if (texts.some(t => matchAny(t, n.terms))) return n.label;
+  return "";
+}
+function goalFromName(name) {
+  const n = String(name || "");
+  const segs = n.split(/\s+-\s+/).map(s => s.trim());
+  for (const g of (BASIS.goals || [])) {
+    if (segs.some(s => s.toLowerCase() === String(g).toLowerCase())) return g;
+  }
+  for (const g of (BASIS.goals || [])) {
+    const re = new RegExp("(^|[^A-Za-z0-9])" + String(g).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "([^A-Za-z0-9]|$)", "i");
+    if (re.test(n)) return g;
+  }
+  return "";
+}
+function pickLead(list) {
+  const by = BASIS.rules.rankBy;
+  const order = by === "sales" ? ["sales", "orders", "clicks", "impr"] : by === "clicks" ? ["clicks", "orders", "sales", "impr"] :
+    by === "units" ? ["units", "orders", "sales", "clicks"] : ["orders", "sales", "clicks", "impr"];
+  return list.slice().sort((a, b) => {
+    for (const k of order) { const d = (b.m[k] || 0) - (a.m[k] || 0); if (d) return d; }
+    return a.asin < b.asin ? -1 : 1;
+  })[0];
+}
+function asinSetOf(ads) {
+  const only = BASIS.rules.activeOnlyAds ? ads.filter(a => a.state === "enabled") : ads.slice();
+  const use = only.length ? only : ads;
+  const by = {};
+  use.forEach(a => {
+    if (!a.asin) return;
+    const t = by[a.asin] || (by[a.asin] = { asin: a.asin, m: { orders: 0, sales: 0, clicks: 0, impr: 0, units: 0 } });
+    for (const k in t.m) t.m[k] += (a.m[k] || 0);
+  });
+  const list = Object.keys(by).map(k => by[k]);
+  return { list: list, lead: list.length ? pickLead(list) : null };
+}
+function asinToken(set, scope) {
+  if (!set.list.length) return { token: "", lead: "", multi: false, flag: "no ASIN on the ads" };
+  const lead = set.lead.asin;
+  if (set.list.length === 1) return { token: lead, lead: lead, multi: false, flag: "" };
+  const r = BASIS.rules;
+  if (r.useParentStar) {
+    const parents = [...new Set(set.list.map(a => (BASIS.asins[a.asin] || {}).parent).filter(Boolean))];
+    if (parents.length === 1 && set.list.every(a => (BASIS.asins[a.asin] || {}).parent)) return { token: "*" + parents[0], lead: lead, multi: true, flag: "" };
+  }
+  if (scope === "ag") return { token: lead, lead: lead, multi: true, flag: "" };
+  const mode = r.campaignMulti;
+  const tok = mode === "various" ? "Various" : mode === "lead" ? lead : mode === "catchall" ? "Catch All" : lead + BASIS.sep + "Various";
+  return { token: tok, lead: lead, multi: true, flag: "" };
+}
+
+const isAsinExpr = e => /asin\s*=|asin-same-as|^b0[a-z0-9]{8}$/i.test(e || "");
+const isCatExpr = e => /category|asin-category|brand\s*=/i.test(e || "");
+const isAutoExpr = e => /close-match|loose-match|substitutes|complements/i.test(e || "");
+
+function classify(cp, ag) {
+  const kws = ag.kws.filter(k => k.text);
+  const tg = ag.targets.filter(t => t.expr);
+  if (cp.channel === "SD") return /t00030|audience/i.test(cp.tactic || "") || ag.targets.some(t => /audience|views|purchases|lookalike/i.test(t.expr)) ? "aud" : "pt";
+  if (cp.channel === "SP" && /auto/i.test(cp.targetingType || "")) return "auto";
+  if (tg.length && tg.every(t => isAutoExpr(t.expr))) return "auto";
+  if (kws.length >= tg.length && kws.length) return "kw";
+  if (tg.some(t => isAsinExpr(t.expr))) return "asin";
+  if (tg.some(t => isCatExpr(t.expr))) return "cat";
+  return kws.length ? "kw" : "default";
+}
+function tplKey(cp, kind) {
+  const vid = /video/i.test(cp.adFormat || "") || /video/i.test(cp.name || "") && cp.channel !== "SP";
+  if (cp.channel === "SB") return kind === "kw" ? (vid ? "sb_video_kw" : "sb_kw") : kind === "asin" ? (vid ? "sb_video_asin" : "sb_asin") : kind === "cat" ? (vid ? "sb_video_cat" : "sb_cat") : (vid ? "sb_video_kw" : "sb_kw");
+  if (cp.channel === "SD") return kind === "aud" ? (vid ? "sdv_aud" : "sd_aud") : "sd_pt";
+  return kind === "auto" ? "sp_auto" : kind === "asin" ? "sp_asin" : kind === "cat" ? "sp_cat" : "sp_kw";
+}
+function agTplKey(kind) { return kind === "auto" ? "ag_auto" : kind === "kw" ? "ag_kw" : kind === "asin" ? "ag_asin" : kind === "cat" ? "ag_cat" : "ag_default"; }
+
+/* =========================================================================
+   6. REBUILD — turn the bulk file plus the basis into proposed names
+   ========================================================================= */
+/* ---- repair mode: keep the name, fix only what is actually wrong ---- */
+const isAsinish = t => ASIN_RE.test(t) || /^(various|catch\s*all)\b/i.test(t) || /^\*B0[A-Z0-9]{8}$/i.test(t);
+function expandAbbrev(seg) {
+  const m = BASIS.abbrev || {};
+  for (const k in m) if (seg.toLowerCase() === String(k).toLowerCase()) return m[k];
+  return seg;
+}
+function asinSlot(name) {
+  const segs = splitName(name), idx = [];
+  segs.forEach((x, i) => { if (isAsinish(x)) idx.push(i); });
+  if (!idx.length) return null;
+  let end = idx[idx.length - 1], start = end;
+  while (idx.indexOf(start - 1) >= 0) start--;
+  return { start: start, end: end, text: segs.slice(start, end + 1).join(BASIS.sep), segs: segs };
+}
+function hasProductName(segs, slot) {
+  for (let i = 0; i < segs.length; i++) {
+    if (slot && i >= slot.start && i <= slot.end) continue;
+    if (looksLikeDesc(segs[i])) return true;
+  }
+  return false;
+}
+function repairName(name, token, desc) {
+  const R = BASIS.rules;
+  let segs = splitName(name);
+  if (!segs.length) return name;
+  if (R.fixAbbrev !== false) segs = segs.map(expandAbbrev);
+  if (R.fixAsinSlot !== false && token) {
+    const slot = asinSlot(segs.join(BASIS.sep));
+    if (slot) {
+      if (slot.text.toLowerCase() !== token.toLowerCase()) {
+        const rep = splitName(token);
+        segs.splice(slot.start, slot.end - slot.start + 1);
+        rep.reverse().forEach(x => segs.splice(slot.start, 0, x));
+      }
+    } else if (R.addAsinWhenMissing !== false) segs = segs.concat(splitName(token));
+  }
+  if (R.requireDesc !== false && desc) {
+    const slot = asinSlot(segs.join(BASIS.sep));
+    if (slot && !hasProductName(segs, slot)) segs.splice(slot.start, 0, desc);
+  }
+  return segs.join(BASIS.sep);
+}
+function asinVerdict(name, set, token) {
+  const slot = asinSlot(name), live = set.list.length;
+  if (!live) return { issue: false, note: "" };
+  if (!slot) return { issue: true, note: "the name carries no ASIN" };
+  if (slot.text.toLowerCase() === String(token).toLowerCase()) return { issue: false, note: "" };
+  const saysVarious = /various|catch all/i.test(slot.text);
+  if (saysVarious && live === 1) return { issue: true, note: "says Various, only " + set.list[0].asin + " is live" };
+  if (!saysVarious && live > 1) return { issue: true, note: live + " children live, name shows one ASIN" };
+  return { issue: true, note: "ASIN in the name is not the lead ASIN" };
+}
+
+function rebuild() {
+  if (!document.getElementById("r_sep")) return;
+  uiToBasis();
+  const R = BASIS.rules, out = [];
+  const skipWord = (n) => (R.skipWords || []).some(w => w && n.toLowerCase().indexOf(w.toLowerCase()) >= 0);
+
+  STATE.campaigns.forEach(cp => {
+    const reasons = [];
+    if (R.skipArchived && cp.state === "archived") reasons.push("archived");
+    if (R.skipRank && /\brank/i.test(cp.name)) reasons.push("RANK campaign");
+    if (skipWord(cp.name)) reasons.push("on the leave-alone list");
+    const allAds = [], allKw = [], allTg = [];
+    cp.ags.forEach(ag => { allAds.push.apply(allAds, ag.ads); allKw.push.apply(allKw, ag.kws); allTg.push.apply(allTg, ag.targets); });
+    const cset = asinSetOf(allAds), ctok = asinToken(cset, "camp");
+    const kinds = cp.ags.map(ag => classify(cp, ag));
+    const kindCount = {}; kinds.forEach(k => kindCount[k] = (kindCount[k] || 0) + 1);
+    const kind = Object.keys(kindCount).sort((a, b) => kindCount[b] - kindCount[a])[0] || "default";
+    const flags = [];
+    if (Object.keys(kindCount).length > 1) flags.push("mixed ad group types: " + Object.keys(kindCount).join(", "));
+    if (ctok.flag) flags.push(ctok.flag);
+
+    const texts = allKw.map(k => k.text);
+    const matches = allKw.map(k => cap(k.match)).filter(Boolean);
+    const umatch = [...new Set(matches)];
+    if (umatch.length > 1) flags.push("mixed match types: " + umatch.join(", "));
+    const lead = ctok.lead, rec = BASIS.asins[lead] || {};
+    const modeNow = STATE.forceRebuild[cp.key] ? "rebuild" : (R.nameMode || "repair");
+    if (lead && !rec.desc && modeNow === "rebuild") flags.push("no product description for " + lead);
+
+    let intent = "Generic";
+    if (kind === "kw") intent = intentOf(texts);
+    else if (kind === "asin") {
+      const tAsins = allTg.map(t => (ASIN_RE.exec(t.expr) || [""])[0]).filter(Boolean);
+      const own = tAsins.filter(a => (BASIS.asins[a] && BASIS.asins[a].own !== false) || STATE.asinAgg[a]);
+      intent = R.ptSelfFromOwn && tAsins.length && own.length === tAsins.length ? "SELF" : "COMP";
+    }
+    const oneKw = R.singleKw && allKw.length === 1;
+    let sdTarget = "";
+    if (cp.channel === "SD") {
+      const ex = allTg.map(t => t.expr).join(" ");
+      sdTarget = kind === "aud" ? (/purchas/i.test(ex) ? "Purchase RM" : /view/i.test(ex) ? "Views RM" : "AMZ AUD") : (isAsinExpr(ex) ? "ASIN" : "CAT");
+    }
+    const goal = STATE.goalOverride[cp.key] != null ? STATE.goalOverride[cp.key] : (R.carryGoal ? goalFromName(cp.name) : "");
+    const tok = {
+      GOAL: goal, NICHE: nicheOf(texts), TIER: R.showTier ? (rec.tier || "") : "",
+      KW: oneKw ? "1KW" : "KW", KWT: oneKw ? "kw targeted" : "",
+      INTENT: intent, MATCH: umatch.length ? cap(matches.sort((a, b) => matches.filter(x => x === b).length - matches.filter(x => x === a).length)[0]) : "",
+      DESC: rec.desc || "", ASIN: ctok.token, TOS: R.appendTos ? cp.tos : "", NUM: "",
+      COST: /vcpm/i.test(cp.costType || "") ? "VCPM" : "CPC",
+      OPT: /conversion/i.test(cp.bidOpt || "") ? "CONV" : /reach/i.test(cp.bidOpt || "") ? "REACH" : "PV",
+      SDTARGET: sdTarget
+    };
+    cp._tok = tok; cp._kind = kind; cp._tplKey = tplKey(cp, kind);
+    const forced = !!STATE.forceRebuild[cp.key];
+    const mode = modeNow;
+    cp._mode = mode; cp._forced = forced;
+    cp._built = buildName(BASIS.templates[cp._tplKey], tok);
+    cp._proposed = reasons.length ? cp.name : (mode === "rebuild" ? cp._built : repairName(cp.name, ctok.token, rec.desc || ""));
+    const slotNow = asinSlot(cp._proposed);
+    cp._needsDesc = !!(R.requireDesc !== false && slotNow && !hasProductName(splitName(cp._proposed), slotNow));
+    if (cp._needsDesc) flags.push(rec.desc ? "product name did not fit — check by hand" : "no product name on file for " + (lead || "this ASIN"));
+    const verdict = asinVerdict(cp.name, cset, ctok.token);
+    cp._asinIssue = verdict.issue; cp._asinNote = verdict.note;
+    cp._flags = flags; cp._reasons = reasons; cp._multi = ctok.multi; cp._lead = lead;
+    cp._orders = cset.list.reduce((s, a) => s + a.m.orders, 0);
+    cp._asins = cset.list.length;
+    cp._asinList = cset.list.map(a => a.asin);
+
+    cp.ags.forEach((ag, i) => {
+      const k = kinds[i];
+      const s = asinSetOf(ag.ads), t = asinToken(s, "ag");
+      const arec = BASIS.asins[t.lead] || {};
+      const kwt = ag.kws.map(x => x.text), am = ag.kws.map(x => cap(x.match)).filter(Boolean);
+      const atok = {
+        MATCH: am.length ? cap(am.sort((a, b) => am.filter(x => x === b).length - am.filter(x => x === a).length)[0]) : "",
+        DESC: arec.desc || "", ASIN: t.token,
+        INTENT: k === "kw" ? intentOf(kwt) : intent, NICHE: nicheOf(kwt),
+        GOAL: "", TIER: R.showTier ? (arec.tier || "") : "", KW: "", KWT: "", TOS: "", NUM: ""
+      };
+      let agBuilt;
+      if (!t.token) agBuilt = ag.name;                       /* nothing to name it after — never blank a name */
+      else if (R.adGroupName === "template") agBuilt = buildName(BASIS.templates[agTplKey(k)], atok);
+      else if (R.adGroupName === "desc_asin" && arec.desc) agBuilt = buildName("{DESC} - {ASIN}", atok);
+      else agBuilt = t.token;                                /* the default: the ASIN and nothing else */
+      ag._proposed = reasons.length ? ag.name : (agBuilt || ag.name);
+      ag._flags = []; if (t.flag) ag._flags.push(t.flag);
+      if (!t.token) ag._flags.push("no live product ad — ad group name left as it is");
+      const av = asinVerdict(ag.name, s, t.token);
+      ag._asinIssue = !!(av.issue || (t.lead && ag.name.indexOf(t.lead) < 0));
+      ag._asinNote = av.note;
+      if (t.lead && !arec.desc && (R.adGroupName === "template" || modeNow === "rebuild")) ag._flags.push("no product description");
+      ag._multi = t.multi; ag._kind = k; ag._lead = t.lead;
+      ag._orders = s.list.reduce((x, a) => x + a.m.orders, 0);
+      ag._asins = s.list.length;
+      ag._asinList = s.list.map(a => a.asin);
+    });
+  });
+
+  /* duplicate campaign names -> numbered */
+  const groups = {};
+  STATE.campaigns.forEach(cp => { if (cp._reasons.length) return; const k = cp._proposed.toLowerCase(); (groups[k] || (groups[k] = [])).push(cp); });
+  Object.keys(groups).forEach(k => {
+    const g = groups[k]; if (g.length < 2) return;
+    if (!BASIS.rules.numberDuplicates) { g.forEach(cp => cp._flags.push("duplicate name, " + g.length + " campaigns")); return; }
+    g.sort((a, b) => (b._orders - a._orders) || (a.id < b.id ? -1 : 1));
+    g.forEach((cp, i) => {
+      if (cp._mode === "rebuild") { cp._tok.NUM = String(i + 1); cp._proposed = buildName(BASIS.templates[cp._tplKey], cp._tok); }
+      else if (i > 0) cp._proposed = cp._proposed + BASIS.sep + (i + 1);
+    });
+  });
+  /* duplicate ad group names within a campaign */
+  STATE.campaigns.forEach(cp => {
+    const seen = {};
+    cp.ags.forEach(ag => {
+      const k = (ag._proposed || "").toLowerCase(); if (!k) return;
+      seen[k] = (seen[k] || 0) + 1;
+      if (seen[k] > 1) {
+        ag._proposed = ag._proposed + BASIS.sep + seen[k];
+        ag._flags.push("another ad group here leads on the same ASIN, numbered to keep it unique");
+      }
+    });
+  });
+
+  /* rows for the table */
+  const rows = [];
+  STATE.campaigns.forEach(cp => {
+    const key = "c:" + cp.sheet + ":" + cp.id;
+    const proposed = STATE.override[key] != null ? STATE.override[key] : cp._proposed;
+    const fl = cp._flags.slice();
+    if (proposed.length > BASIS.rules.campLimit) fl.push("over " + BASIS.rules.campLimit + " characters");
+    rows.push({
+      t: "c", key: key, cp: cp, obj: cp, sheet: cp.sheet, id: cp.id, ch: cp.channel,
+      old: cp.name, neu: proposed, changed: proposed !== cp.name && !cp._reasons.length,
+      flags: fl, reasons: cp._reasons, kind: cp._kind, multi: cp._multi, lead: cp._lead,
+      asinIssue: !!cp._asinIssue, asinNote: cp._asinNote, needsDesc: !!cp._needsDesc, built: cp._built, mode: cp._mode,
+      asins: cp._asins, asinList: (cp._asinList || []).slice(), orders: cp._orders, kids: []
+    });
+    const parent = rows[rows.length - 1];
+    cp.ags.forEach(ag => {
+      const k2 = "a:" + ag.sheet + ":" + cp.id + ":" + ag.id;
+      const p2 = STATE.override[k2] != null ? STATE.override[k2] : ag._proposed;
+      const f2 = ag._flags.slice();
+      if (p2.length > BASIS.rules.agLimit) f2.push("over " + BASIS.rules.agLimit + " characters");
+      parent.kids.push({
+        t: "a", key: k2, cp: cp, obj: ag, sheet: ag.sheet, id: ag.id, ch: cp.channel,
+        old: ag.name, neu: p2, changed: p2 !== ag.name && !cp._reasons.length,
+        flags: f2, reasons: cp._reasons, kind: ag._kind, multi: ag._multi, lead: ag._lead,
+        asinIssue: !!ag._asinIssue, asinNote: ag._asinNote,
+        asins: ag._asins, asinList: (ag._asinList || []).slice(), orders: ag._orders, kids: []
+      });
+    });
+  });
+  /* collisions after hand edits and bulk edits */
+  const seenC = {};
+  rows.forEach(r => { const k = (r.neu || "").toLowerCase(); (seenC[k] || (seenC[k] = [])).push(r); });
+  Object.keys(seenC).forEach(k => {
+    const g = seenC[k];
+    if (g.length > 1) g.forEach(r => r.flags.push("same name as " + (g.length - 1) + " other campaign" + (g.length > 2 ? "s" : "")));
+  });
+  rows.forEach(r => {
+    const seenA = {};
+    r.kids.forEach(k => { const n = (k.neu || "").toLowerCase(); (seenA[n] || (seenA[n] = [])).push(k); });
+    Object.keys(seenA).forEach(n => { const g = seenA[n]; if (g.length > 1) g.forEach(k => k.flags.push("same name as another ad group here")); });
+  });
+  STATE.rows = rows;
+  rows.forEach(r => {
+    [r].concat(r.kids).forEach(x => { if (STATE.selected[x.key] == null) STATE.selected[x.key] = x.changed; });
+    if (STATE.selected[r.key]) r.kids.forEach(k => { if (k.changed && !k.reasons.length) STATE.selected[k.key] = true; });
+  });
+  renderReview();
+}
+
+/* =========================================================================
+   7. REVIEW — one card per campaign, ad groups inside it
+   ========================================================================= */
+const KINDS = { kw: "keyword", asin: "ASIN targeting", cat: "category", auto: "auto", pt: "product targeting", aud: "audiences", default: "no live targets" };
+const kindOf = k => KINDS[k] || k;
+function segHtml(name, sep) {
+  return String(name || "").split(sep === " - " ? /\s+-\s+/ : sep).map((t, i) => {
+    t = t.trim(); if (!t) return "";
+    const cls = i === 0 ? "k" : ASIN_RE.test(t) ? "a" : /^(various|catch all)$/i.test(t) || t[0] === "*" ? "v" : t === BASIS.placeholder ? "d" : "";
+    return '<span class="seg ' + cls + '">' + esc(t) + "</span>";
+  }).join('<span style="color:#c2cad8">·</span>');
+}
+function nameBox(r) {
+  return '<div class="segs edit" data-key="' + esc(r.key) + '" data-val="' + esc(r.neu) + '" title="Click to type your own name">' + segHtml(r.neu, BASIS.sep) + "</div>";
+}
+function noteTags(r, compact) {
+  const t = [];
+  if (r.reasons.length) t.push('<span class="tag n">left alone: ' + esc(r.reasons[0]) + "</span>");
+  else if (!r.changed) t.push('<span class="tag ok">already correct</span>');
+  if (r.needsDesc) t.push('<span class="tag flag">manual review — no product name</span>');
+  if (r.asinIssue) t.push('<span class="tag change">ASIN fix' + (r.asinNote ? " — " + esc(r.asinNote) : "") + "</span>");
+  if (r.multi) t.push('<span class="tag n">multi ASIN ×' + r.asins + "</span>");
+  r.flags.forEach(f => t.push('<span class="tag flag">' + esc(f) + "</span>"));
+  return t.length ? '<div class="' + (compact ? "" : "notes") + '">' + t.join(" ") + "</div>" : "";
+}
+function box(r) {
+  return '<input type="checkbox" class="selbox" data-key="' + esc(r.key) + '"' + (STATE.selected[r.key] ? " checked" : "") + (r.reasons.length ? " disabled" : "") + ">";
+}
+function agRow(k) {
+  return '<div class="agrow">' + box(k) +
+    '<div class="now">' + esc(k.old || "(no name)") + "</div>" +
+    '<div class="arrow">→</div><div>' + nameBox(k) + noteTags(k, true) + "</div></div>";
+}
+function campCard(r, kids) {
+  const cls = r.reasons.length ? "left" : r.changed ? "changed" : "same";
+  return '<div class="c ' + cls + '" data-key="' + esc(r.key) + '" data-ck="' + esc(r.cp.key) + '">' +
+    '<div class="chead">' + box(r) +
+    '<span class="tag n">' + esc(r.ch) + " · " + esc(kindOf(r.kind)) + "</span>" +
+    '<span class="cid">' + esc(r.id) + "</span>" +
+    '<span style="flex:1"></span>' +
+    '<span class="mini">' + Math.round(r.orders) + " orders · " + r.asins + " ASIN" + (r.asins === 1 ? "" : "s") + " · " + r.kids.length + " ad group" + (r.kids.length === 1 ? "" : "s") + "</span>" +
+    '<button class="minibtn rebuild1" data-ck="' + esc(r.cp.key) + '" title="Ignore the existing name and write this one from the templates">' + (r.mode === "rebuild" ? "rebuilt" : "rebuild") + "</button>" +
+    '<input class="goaledit" list="goalList" data-ck="' + esc(r.cp.key) + '" style="width:120px;margin:0" value="' +
+    esc(STATE.goalOverride[r.cp.key] != null ? STATE.goalOverride[r.cp.key] : (r.cp._tok ? r.cp._tok.GOAL : "")) + '" placeholder="goal slot"></div>' +
+    '<div class="nm"><span class="nml">Now</span><div class="now">' + esc(r.old) + "</div></div>" +
+    '<div class="nm"><span class="nml">New</span><div>' + nameBox(r) + "</div></div>" +
+    noteTags(r, false) +
+    (STATE.expandAll && kids.length ? '<div class="aglist"><div class="aghead">Ad groups</div>' + kids.map(agRow).join("") + "</div>" : "") +
+    "</div>";
+}
+function agCard(k) {
+  return '<div class="c ' + (k.changed ? "changed" : "same") + '" data-key="' + esc(k.key) + '">' +
+    '<div class="chead">' + box(k) + '<span class="tag n">ad group · ' + esc(kindOf(k.kind)) + "</span>" +
+    '<span class="cid">' + esc(k.id) + "</span><span style=\"flex:1\"></span>" +
+    '<span class="mini">in ' + esc(k.cp.name) + "</span></div>" +
+    '<div class="nm"><span class="nml">Now</span><div class="now">' + esc(k.old || "(no name)") + "</div></div>" +
+    '<div class="nm"><span class="nml">New</span><div>' + nameBox(k) + "</div></div>" + noteTags(k, false) + "</div>";
+}
+
+function selectedAsins() {
+  const set = new Set();
+  STATE.rows.forEach(r => {
+    [r].concat(r.kids || []).forEach(x => {
+      if (!STATE.selected[x.key]) return;
+      const list = (x.asinList && x.asinList.length) ? x.asinList : (x.lead ? [x.lead] : []);
+      list.forEach(a => { if (a) set.add(String(a).toUpperCase()); });
+    });
+  });
+  return set;
+}
+
+function renderReview() {
+  const q = ($("q").value || "").toLowerCase(), fc = $("fChannel").value, fs = $("fStatus").value, view = $("fView").value;
+  const keep = r => {
+    if (fc && r.ch !== fc) return false;
+    if (fs === "changed" && !r.changed) return false;
+    if (fs === "flag" && !r.flags.length) return false;
+    if (fs === "asin" && !r.asinIssue) return false;
+    if (fs === "desc" && !r.needsDesc) return false;
+    if (fs === "same" && r.changed) return false;
+    if (q && (r.old + " " + r.neu + " " + r.id + " " + (r.lead || "")).toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  };
+  const sort = $("fSort").value;
+  let list = STATE.rows.slice();
+  if (sort === "changed") list.sort((a, b) => (b.changed ? 1 : 0) - (a.changed ? 1 : 0));
+  else if (sort === "flag") list.sort((a, b) => (b.flags.length ? 1 : 0) - (a.flags.length ? 1 : 0));
+  else if (sort === "orders") list.sort((a, b) => b.orders - a.orders);
+  else if (sort === "name") list.sort((a, b) => String(a.neu).localeCompare(String(b.neu)));
+  const html = [], shown = [];
+  let cards = 0, more = false;
+  for (const r of list) {
+    const kids = r.kids.filter(keep), parentOk = keep(r);
+    if (cards >= STATE.limit) { more = true; break; }
+    if (view === "ag") {
+      if (!kids.length) continue;
+      kids.forEach(k => { html.push(agCard(k)); shown.push(k); cards++; });
+      continue;
+    }
+    if (view === "camp") { if (!parentOk) continue; html.push(campCard(r, [])); shown.push(r); cards++; continue; }
+    if (!parentOk && !kids.length) continue;
+    const use = kids.length ? kids : r.kids;
+    html.push(campCard(r, use)); shown.push(r);
+    if (STATE.expandAll) use.forEach(k => shown.push(k));
+    cards++;
+  }
+  STATE.shownRows = shown;
+  $("btnMore").style.display = more ? "" : "none";
+  $("revBody").innerHTML = html.join("") ||
+    '<div class="card empty">Nothing to show here. Load a bulk file on step 1, or widen the filters.</div>';
+
+  const all = []; STATE.rows.forEach(r => { all.push(r); r.kids.forEach(k => all.push(k)); });
+  const ch = all.filter(x => x.changed).length, fl = all.filter(x => x.flags.length).length,
+    sel = all.filter(isEffectivelySelected).length, asinSel = selectedAsins().size;
+  $("reviewStats").innerHTML = [["Campaigns", STATE.rows.length], ["Ad groups", all.length - STATE.rows.length],
+  ["Renaming", ch], ["ASIN fixes", all.filter(x => x.asinIssue).length], ["Manual review", all.filter(x => x.needsDesc).length], ["Selected rows", sel], ["Selected ASINs", asinSel], ["Needs a look", fl]]
+    .map(x => '<div class="stat"><b>' + x[1] + "</b><span>" + x[0] + "</span></div>").join("");
+  $("selectedAsinCount").textContent = asinSel + " ASIN" + (asinSel === 1 ? "" : "s") + " selected";
+  $("s3sub").textContent = ch + " to rename, " + sel + " rows / " + asinSel + " ASIN" + (asinSel === 1 ? "" : "s") + " selected";
+  $("expStats").innerHTML = [["Campaign renames", all.filter(x => x.t === "c" && isEffectivelySelected(x)).length],
+  ["Ad group renames", all.filter(x => x.t === "a" && isEffectivelySelected(x)).length],
+  ["Rows in the file", all.filter(isEffectivelySelected).length]]
+    .map(x => '<div class="stat"><b>' + x[1] + "</b><span>" + x[0] + "</span></div>").join("");
+  $("expNote").innerHTML = fl ? fl + " row" + (fl === 1 ? "" : "s") + " still flagged — usually a missing product description. Fill those in the ASIN library so the name reads like a name." : "Nothing flagged.";
+  $("btnExpand").textContent = STATE.expandAll ? "Hide ad groups" : "Show ad groups";
+  $("goalList").innerHTML = (BASIS.goals || []).map(g => '<option value="' + esc(g) + '">').join("");
+
+  $("revBody").querySelectorAll(".selbox").forEach(b => b.onchange = () => {
+    const key = b.dataset.key;
+    STATE.selected[key] = b.checked;
+    // Campaign checkbox controls all changed ad groups in that campaign.
+    if (key.indexOf("c:") === 0) {
+      const parent = STATE.rows.find(r => r.key === key);
+      if (parent) parent.kids.forEach(k => { if (k.changed && !k.reasons.length) STATE.selected[k.key] = b.checked; });
+    }
+    renderReview();
+  });
+  $("revBody").querySelectorAll(".rebuild1").forEach(b => b.onclick = () => {
+    const k = b.dataset.ck;
+    STATE.forceRebuild[k] = !STATE.forceRebuild[k];
+    Object.keys(STATE.override).forEach(x => { if (x.indexOf(":" + k.split("|")[1]) >= 0) delete STATE.override[x]; });
+    rebuild();
+  });
+  $("revBody").querySelectorAll(".goaledit").forEach(inp => inp.onchange = () => { STATE.goalOverride[inp.dataset.ck] = inp.value.trim(); rebuild(); });
+  $("revBody").querySelectorAll(".segs.edit").forEach(el => el.onclick = () => startEdit(el));
+}
+
+function startEdit(el) {
+  const key = el.dataset.key, was = el.dataset.val;
+  el.innerHTML = '<input class="editname mono" value="' + esc(was) + '">';
+  const inp = el.firstChild;
+  inp.focus(); inp.select();
+  let done = false;
+  const finish = save => {
+    if (done) return; done = true;
+    const v = inp.value.trim();
+    if (save && v && v !== was) { STATE.override[key] = v; STATE.selected[key] = true; rebuild(); }
+    else renderReview();
+  };
+  inp.onblur = () => finish(true);
+  inp.onkeydown = e => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  };
+}
+
+/* =========================================================================
+   8. EXPORT
+   ========================================================================= */
+function fixDates(cells, headers) {
+  headers.forEach((h, i) => {
+    if (!/date/i.test(h) || !cells[i] || !cells[i].num) return;
+    const n = parseFloat(cells[i].v);
+    if (n > 20000 && n < 60000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + n * 86400000);
+      cells[i] = { v: "" + d.getUTCFullYear() + String(d.getUTCMonth() + 1).padStart(2, "0") + String(d.getUTCDate()).padStart(2, "0"), num: false };
+    }
+  });
+}
+const ID_RE = /ID$/;
+function cloneRow(cells, headers) {
+  const out = [];
+  for (let i = 0; i < Math.max(headers.length, cells.length); i++) {
+    const c = cells[i];
+    out[i] = c ? { v: c.v, num: c.num && !ID_RE.test(headers[i] || "") } : { v: "", num: false };
+  }
+  fixDates(out, headers);
+  return out;
+}
+function isEffectivelySelected(r) {
+  if (!r || !r.changed) return false;
+  if (STATE.selected[r.key]) return true;
+  // A selected campaign rename always carries every changed ad-group rename beneath it.
+  if (r.t === "a") {
+    const parentKey = "c:" + r.cp.sheet + ":" + r.cp.id;
+    if (STATE.selected[parentKey]) return true;
+  }
+  return false;
+}
+function changedRows() {
+  const all = [];
+  STATE.rows.forEach(r => { all.push(r); r.kids.forEach(k => all.push(k)); });
+  return all.filter(isEffectivelySelected);
+}
+function exportBulk() {
+  const list = changedRows();
+  if (!list.length) { alert("Nothing selected to rename yet."); return; }
+  const bySheet = {};
+  list.forEach(r => {
+    const cp = r.cp, headers = cp.headers, C = cp.cols;
+    const b = bySheet[r.sheet] || (bySheet[r.sheet] = { headers: headers, rows: [] });
+    const cells = cloneRow(r.obj.cells, headers);
+    if (C.op >= 0) cells[C.op] = { v: "Update", num: false };
+
+    if (r.t === "c") {
+      // Campaign rename row
+      if (C.cname >= 0) cells[C.cname] = { v: r.neu, num: false };
+    } else {
+      // Ad group rename row. Amazon identifies this row by Campaign ID + Ad Group ID,
+      // but we also write the latest campaign name when that column exists so the
+      // exported row is internally consistent after a campaign rename.
+      if (C.aname >= 0) cells[C.aname] = { v: r.neu, num: false };
+      if (C.cname >= 0) cells[C.cname] = { v: campNew(cp), num: false };
+    }
+
+    b.rows.push({ sort: (r.t === "c" ? 0 : 1), cells: cells });
+  });
+  const sheets = Object.keys(bySheet).map(n => {
+    const b = bySheet[n];
+    b.rows.sort((x, y) => x.sort - y.sort);
+    return { name: n, rows: [b.headers.map(h => ({ v: h, num: false }))].concat(b.rows.map(r => r.cells)) };
+  });
+  download(makeXlsx(sheets), stamp("rename-upload") + ".xlsx");
+}
+function exportFull() {
+  const list = changedRows(), patch = {};
+  list.forEach(r => {
+    const k = r.sheet + "|" + r.obj.row;
+    const p = patch[k] || (patch[k] = []);
+    if (r.t === "c") {
+      if (r.cp.cols.cname >= 0) p.push({ col: r.cp.cols.cname, v: r.neu });
+    } else {
+      if (r.cp.cols.aname >= 0) p.push({ col: r.cp.cols.aname, v: r.neu });
+      if (r.cp.cols.cname >= 0) p.push({ col: r.cp.cols.cname, v: campNew(r.cp) });
+    }
+  });
+  const headersBySheet = {};
+  STATE.campaigns.forEach(cp => headersBySheet[cp.sheet] = cp.headers);
+  const sheets = STATE.sheets.map(sh => ({
+    name: sh.name,
+    rows: sh.rows.map((cells, i) => {
+      const h = headersBySheet[sh.name] || (cells || []).map(() => "");
+      const out = cloneRow(cells || [], h);
+      const p = patch[sh.name + "|" + i];
+      if (p) p.forEach(x => { if (x.col >= 0) out[x.col] = { v: x.v, num: false }; });
+      return out;
+    })
+  }));
+  download(makeXlsx(sheets), stamp("full-sheet-renamed") + ".xlsx");
+}
+function allRows() { const a = []; STATE.rows.forEach(r => { a.push(r); r.kids.forEach(k => a.push(k)); }); return a; }
+function campNew(cp) { const r = STATE.rows.find(x => x.cp === cp); return r ? r.neu : cp.name; }
+function exportPlan() {
+  const camp = [["Sheet", "Channel", "Campaign ID", "Current campaign name", "New campaign name", "Renaming", "Selected", "Type", "Lead ASIN", "ASINs in campaign", "Orders", "Ad groups", "Notes"]];
+  const ag = [["Sheet", "Channel", "Campaign ID", "Current campaign name", "New campaign name", "Ad group ID", "Current ad group name", "New ad group name", "Renaming", "Selected", "Type", "Lead ASIN", "ASINs in ad group", "Orders", "Notes"]];
+  STATE.rows.forEach(r => {
+    camp.push([r.sheet, r.ch, r.id, r.old, r.neu, r.changed ? "yes" : (r.reasons.length ? "left alone" : "already correct"),
+      STATE.selected[r.key] ? "yes" : "no", r.kind, r.lead || "", r.asins, Math.round(r.orders), r.kids.length,
+      (r.reasons.concat(r.flags)).join("; ")]);
+    r.kids.forEach(k => ag.push([k.sheet, k.ch, r.id, r.old, r.neu, k.id, k.old, k.neu,
+      k.changed ? "yes" : (k.reasons.length ? "left alone" : "already correct"), STATE.selected[k.key] ? "yes" : "no",
+      k.kind, k.lead || "", k.asins, Math.round(k.orders), (k.reasons.concat(k.flags)).join("; ")]));
+  });
+  const toRows = a => a.map((row, i) => row.map(v => ({ v: v == null ? "" : String(v), num: i > 0 && typeof v === "number" })));
+  download(makeXlsx([{ name: "Campaign names", rows: toRows(camp) }, { name: "Ad group names", rows: toRows(ag) }]), stamp("old-vs-new") + ".xlsx");
+}
+function exportLog() {
+  const rows = [["level", "sheet", "channel", "campaign_id", "current_campaign_name", "new_campaign_name", "ad_group_id", "current_ad_group_name", "new_ad_group_name", "lead_asin", "asins_in_scope", "orders", "notes"]];
+  changedRows().forEach(r => rows.push([r.t === "c" ? "campaign" : "ad group", r.sheet, r.ch,
+    r.t === "c" ? r.id : r.cp.id, r.t === "c" ? r.old : r.cp.name, r.t === "c" ? r.neu : campNew(r.cp),
+    r.t === "c" ? "" : r.id, r.t === "c" ? "" : r.old, r.t === "c" ? "" : r.neu,
+    r.lead || "", r.asins, Math.round(r.orders), r.flags.join("; ")]));
+  const csv = rows.map(r => r.map(v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"').join(",")).join("\r\n");
+  download(new Blob(["\uFEFF" + csv], { type: "text/csv" }), stamp("rename-log") + ".csv");
+}
+function stamp(p) {
+  const b = (STATE.brand || STATE.fileName.replace(/\.[^.]+$/, "") || "account").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 28);
+  const d = new Date().toISOString().slice(0, 10);
+  return b + "-" + p + "-" + d;
+}
+
+/* =========================================================================
+   8b. BULK EDITS — change many names at once, then undo if it went wrong
+   ========================================================================= */
+const escRe = x => String(x).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function literalFindRe(text) {
+  const raw = String(text == null ? "" : text).trim();
+  if (!raw) return null;
+  const parts = raw.split(/\s+/).filter(Boolean).map(escRe);
+  return new RegExp(parts.join("\\s+"), "gi");
+}
+function sepRe() { const t = (BASIS.sep || " - ").trim(); return t ? new RegExp("\\s*" + escRe(t) + "\\s*", "g") : new RegExp(escRe(BASIS.sep), "g"); }
+function splitName(s) { return String(s || "").split(sepRe()).map(x => x.trim()).filter(Boolean); }
+function tidyName(s) { return splitName(String(s || "").replace(/\s+/g, " ")).join(BASIS.sep); }
+function bMsg(t) { $("bMsg").textContent = t; }
+
+function bulkTargets() {
+  const sc = $("bScope").value;
+  let rows = (STATE.shownRows || []).slice();
+  if (sc === "sel") rows = rows.filter(r => STATE.selected[r.key]);
+  if (sc === "shownc") rows = rows.filter(r => r.t === "c");
+  if (sc === "showna") rows = rows.filter(r => r.t === "a");
+  return rows.filter(r => !r.reasons.length);
+}
+function bulkApply(fn, label) {
+  const rows = bulkTargets();
+  if (!rows.length) { bMsg("Nothing in that scope right now. Tick some rows, or widen the filters."); return; }
+  STATE.history.push(JSON.stringify(STATE.override));
+  if (STATE.history.length > 30) STATE.history.shift();
+  let n = 0;
+  rows.forEach(r => {
+    const cur = r.neu, v = tidyName(fn(cur, r));
+    if (v && v !== cur) { STATE.override[r.key] = v; STATE.selected[r.key] = true; n++; }
+  });
+  rebuild();
+  bMsg(n ? n + " name" + (n === 1 ? "" : "s") + " changed — " + label + ". Undo is one click away." : "No name needed that change.");
+}
+function bulkUndo() {
+  if (!STATE.history.length) { bMsg("Nothing to undo."); return; }
+  STATE.override = JSON.parse(STATE.history.pop());
+  STATE.forceRebuild = {};
+  rebuild(); bMsg("Undone.");
+}
+
+/* =========================================================================
+   8c. SESSION — basis, hand edits, ticks and goals in one file
+   ========================================================================= */
+function saveSession() {
+  uiToBasis();
+  const d = { kind: "naming-console-session", when: new Date().toISOString(), bulkFile: STATE.fileName, basis: BASIS, override: STATE.override, selected: STATE.selected, goals: STATE.goalOverride };
+  download(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }), stamp("naming-session") + ".json");
+}
+function loadSession(txt) {
+  let o; try { o = JSON.parse(txt); } catch (e) { alert("That session file will not parse: " + e.message); return; }
+  if (o.basis) loadBasisText(JSON.stringify(o.basis));
+  STATE.override = o.override || {}; STATE.selected = o.selected || {}; STATE.goalOverride = o.goals || {};
+  rebuild();
+  bMsg("Session restored" + (o.bulkFile ? " — it was built from " + o.bulkFile : "") + ".");
+}
+
+/* =========================================================================
+   8d. BASIS AS A SPREADSHEET — read and write .xlsx as well as .json
+   ========================================================================= */
+const RULE_BOOLS = ["activeOnlyAds", "useParentStar", "appendTos", "numberDuplicates", "carryGoal", "singleKw", "ptSelfFromOwn", "showTier", "skipArchived", "skipRank"];
+const RULE_NOTES = {
+  activeOnlyAds: "Count only enabled product ads when picking the ASIN",
+  rankBy: "orders, sales, clicks or units",
+  campaignMulti: "lead_various, various, lead or catchall",
+  adGroupName: "asin_only or template",
+  useParentStar: "Use *Parent when every ASIN shares one parent",
+  appendTos: "Append TOS20 from the top of search adjustment",
+  numberDuplicates: "Number two campaigns that land on the same name",
+  carryGoal: "Keep the goal or source found in the old name",
+  singleKw: "1KW and kw targeted for single keyword ad groups",
+  intentRule: "any, majority or all keywords must match",
+  ptSelfFromOwn: "ASIN targeting on our own ASINs counts as SELF",
+  showTier: "Print the ASIN tier slot",
+  campLimit: "Flag campaign names longer than this",
+  agLimit: "Flag ad group names longer than this",
+  skipArchived: "Leave archived campaigns alone",
+  skipRank: "Leave campaigns with RANK in the name alone",
+  skipWords: "Comma separated, leave these alone too"
+};
+function coerceRule(k, v) {
+  const t = String(v == null ? "" : v).trim();
+  if (RULE_BOOLS.indexOf(k) >= 0) return /^(true|yes|y|1|on)$/i.test(t);
+  if (k === "campLimit" || k === "agLimit") return parseInt(t, 10) || DEFAULT_BASIS.rules[k];
+  if (k === "skipWords") return csvSplit(t);
+  return t;
+}
+function saveBasisXlsx() {
+  uiToBasis();
+  const T = v => ({ v: String(v == null ? "" : v), num: false });
+  const rules = [["Setting", "Value", "What it does"].map(T)];
+  [["label", BASIS.label, "Free text, shown when the file is loaded"], ["marketplace", BASIS.marketplace, "de, uk, us, fr … drives the filler words in product names"], ["sep", BASIS.sep, "Separator between name parts"],
+  ["placeholder", BASIS.placeholder, "Marker for an empty slot"], ["dropEmpty", BASIS.dropEmpty, "true drops empty slots instead of printing the marker"],
+  ["goals", (BASIS.goals || []).join(", "), "Goal and source vocabulary"]].forEach(r => rules.push(r.map(T)));
+  Object.keys(DEFAULT_BASIS.rules).forEach(k => {
+    const v = BASIS.rules[k];
+    rules.push([k, Array.isArray(v) ? v.join(", ") : v, RULE_NOTES[k] || ""].map(T));
+  });
+  const tpl = [["Template", "Pattern"].map(T)];
+  Object.keys(BASIS.templates).forEach(k => tpl.push([k + (TPL_LABELS[k] ? "" : ""), BASIS.templates[k]].map(T)));
+  const terms = [["Type", "Term"].map(T)];
+  (BASIS.brandTerms || []).forEach(t => terms.push(["brand", t].map(T)));
+  (BASIS.compTerms || []).forEach(t => terms.push(["competitor", t].map(T)));
+  (BASIS.niches || []).forEach(n => terms.push(["niche: " + n.label, n.terms.join(", ")].map(T)));
+  Object.keys(BASIS.abbrev || {}).forEach(k => terms.push(["abbreviation", k + " = " + BASIS.abbrev[k]].map(T)));
+  const asins = [["ASIN", "Description", "Parent", "Tier", "Own"].map(T)];
+  Object.keys(BASIS.asins).forEach(a => { const r = BASIS.asins[a]; asins.push([a, r.desc || "", r.parent || "", r.tier || "", r.own === false ? "no" : "yes"].map(T)); });
+  download(makeXlsx([{ name: "Rules", rows: rules }, { name: "Templates", rows: tpl }, { name: "Terms", rows: terms }, { name: "ASINs", rows: asins }]), stamp("naming-basis") + ".xlsx");
+}
+function loadBasisWorkbook(sheets) {
+  let nAsin = 0, nRule = 0, nTpl = 0, nTerm = 0;
+  sheets.forEach(sh => {
+    const rows = (sh.rows || []).filter(r => r && r.some(c => c && String(c.v).trim() !== ""));
+    if (rows.length < 2) return;
+    const hdr = rows[0].map(c => normH(c && c.v));
+    const find = re => hdr.findIndex(h => re.test(h));
+    const iAsin = find(/^asin$/), iDesc = find(/desc|product|title/), iPar = find(/parent/), iTier = find(/tier/), iOwn = find(/^(own|ours|ourasin)$/);
+    const iKey = find(/^(setting|key|rule|template|option)$/), iVal = find(/^(value|pattern|template|setting)$/);
+    const iType = find(/^(type|list)$/), iTerm = find(/^(term|terms|keyword|word)$/);
+    if (iAsin >= 0 && iDesc >= 0) {
+      rows.slice(1).forEach(r => {
+        const a = cellv(r, iAsin).toUpperCase();
+        if (!ASIN_RE.test(a)) return;
+        const cur = BASIS.asins[a] || { desc: "", parent: "", tier: "", own: true };
+        const d = cellv(r, iDesc); if (d) cur.desc = d;
+        if (iPar >= 0 && cellv(r, iPar)) cur.parent = cellv(r, iPar);
+        if (iTier >= 0 && cellv(r, iTier)) cur.tier = cellv(r, iTier);
+        if (iOwn >= 0 && cellv(r, iOwn)) cur.own = !/^(no|false|0)$/i.test(cellv(r, iOwn));
+        BASIS.asins[a] = cur; nAsin++;
+      });
+      return;
+    }
+    if (iType >= 0 && iTerm >= 0) {
+      const brand = [], comp = [], niches = [], abb = {};
+      rows.slice(1).forEach(r => {
+        const t = cellv(r, iType).toLowerCase(), v = cellv(r, iTerm);
+        if (!v) return;
+        if (t.indexOf("abbrev") === 0 || t.indexOf("short") === 0) { const i = v.indexOf("="); if (i > 0) abb[v.slice(0, i).trim()] = v.slice(i + 1).trim(); }
+        else if (t.indexOf("niche") === 0) niches.push({ label: (t.split(":")[1] || v).trim(), terms: csvSplit(v) });
+        else if (t.indexOf("comp") === 0) comp.push(v);
+        else if (t.indexOf("brand") === 0 || t.indexOf("self") === 0) brand.push(v);
+        nTerm++;
+      });
+      if (brand.length) BASIS.brandTerms = brand;
+      if (comp.length) BASIS.compTerms = comp;
+      if (niches.length) BASIS.niches = niches;
+      if (Object.keys(abb).length) BASIS.abbrev = abb;
+      return;
+    }
+    if (iKey >= 0 && iVal >= 0 && iKey !== iVal) {
+      rows.slice(1).forEach(r => {
+        const k = cellv(r, iKey), v = cellv(r, iVal);
+        if (!k) return;
+        if (BASIS.templates[k] != null) { BASIS.templates[k] = v; nTpl++; }
+        else if (DEFAULT_BASIS.rules[k] !== undefined) { BASIS.rules[k] = coerceRule(k, v); nRule++; }
+        else if (k === "sep" || k === "placeholder" || k === "label" || k === "marketplace") { BASIS[k] = v; nRule++; }
+        else if (k === "dropEmpty") { BASIS.dropEmpty = /^(true|yes|1|on)$/i.test(v); nRule++; }
+        else if (k === "goals" || k === "brandTerms" || k === "compTerms") { BASIS[k] = csvSplit(v); nRule++; }
+      });
+    }
+  });
+  basisToUi(); renderAsins(); rebuild();
+  const bits = [];
+  if (nRule) bits.push(nRule + " settings");
+  if (nTpl) bits.push(nTpl + " templates");
+  if (nTerm) bits.push(nTerm + " terms");
+  if (nAsin) bits.push(nAsin + " ASIN rows");
+  $("basisStamp").textContent = bits.length ? "Loaded " + bits.join(", ") + "." : "Nothing recognised in that workbook — it needs an ASIN column, or Setting and Value columns.";
+}
+async function loadBasisAny(f) {
+  try {
+    if (/\.(xlsx|xlsm|csv|tsv)$/i.test(f.name)) loadBasisWorkbook(await readWorkbook(f));
+    else loadBasisText(await f.text());
+  } catch (err) { $("basisStamp").textContent = "Could not read that file: " + err.message; }
+}
+
+/* =========================================================================
+   8e. BULK CAMPAIGN LAUNCHER — new SP keyword campaigns
+   Reuses BASIS, intentOf(), nicheOf(), buildName() and the ASIN library.
+   ========================================================================= */
+const LAUNCH = { plans: [], rows: [], warnings: [], errors: [], imported: null, importedFile: "" };
+function launchInit() {
+  const src = $("mkt");
+  $("l_mkt").innerHTML = src.innerHTML;
+  $("l_mkt").value = BASIS.marketplace || src.value || "";
+  const d = new Date();
+  $("l_start").value = "" + d.getFullYear() + String(d.getMonth()+1).padStart(2,"0") + String(d.getDate()).padStart(2,"0");
+}
+function launchAsins() {
+  const out = [];
+  lines($("l_asins").value).forEach(line => {
+    const m = line.toUpperCase().match(/B0[A-Z0-9]{8}/); if (!m) return;
+    const asin = m[0]; let sku = "";
+    const parts = line.split(/[\t,;]+/).map(x => x.trim());
+    if (parts.length > 1) sku = parts.find(x => x.toUpperCase() !== asin && x) || "";
+    if (!sku && STATE.asinAgg[asin] && STATE.asinAgg[asin].sku) sku = STATE.asinAgg[asin].sku;
+    const rec = BASIS.asins[asin] || {};
+    out.push({ asin, sku, desc: rec.desc || "", parent: rec.parent || "", tier: rec.tier || "" });
+  });
+  const seen = {}; return out.filter(x => !seen[x.asin] && (seen[x.asin] = 1));
+}
+function parseBidLines(value, type) {
+  const def = num($("l_bid").value), out=[];
+  lines(value).forEach(line => {
+    let text=line.trim(), bid=def;
+    const m=line.match(/^(.+?)[\t,;]+\s*([0-9]+(?:[.,][0-9]+)?)\s*$/);
+    if(m){ text=m[1].trim(); bid=num(m[2].replace(",",".")); }
+    if(type==="pt") { const a=(text.toUpperCase().match(/B0[A-Z0-9]{8}/)||[])[0]; if(a) out.push({type:"pt",text:a,bid:bid||def}); }
+    else if(text) out.push({type:"kw",text,bid:bid||def});
+  });
+  const seen={}; return out.filter(x=>{const k=x.type+"|"+x.text.toLowerCase(); if(seen[k]) return false; seen[k]=1; return true;});
+}
+function launchKeywords(){ return parseBidLines($("l_kws").value,"kw"); }
+function launchPts(){ return parseBidLines($("l_pts").value,"pt"); }
+function launchMatches(){ const a=[]; if($("l_exact").checked)a.push("Exact"); if($("l_phrase").checked)a.push("Phrase"); if($("l_broad").checked)a.push("Broad"); return a; }
+function normalizeNegMatch(v){ const t=String(v||"").toLowerCase(); return t.includes("exact")?"Negative Exact":t.includes("phrase")?"Negative Phrase":""; }
+function normalizeNegScope(v){ const t=String(v||"").trim(); const allowed=["All Campaigns","Keyword Campaigns","Exact Campaigns","Phrase Campaigns","Broad Campaigns","Product Targeting Campaigns"]; return allowed.find(x=>x.toLowerCase()===t.toLowerCase())||"All Campaigns"; }
+function launchManualNegatives(){
+  const out=[], defMatch=normalizeNegMatch($("l_neg_match").value)||"Negative Phrase", scope=normalizeNegScope($("l_neg_scope").value);
+  lines($("l_neg_kws").value).forEach(line=>{
+    const parts=line.split(/[\t;]+/).map(x=>x.trim()).filter(Boolean); const text=parts[0]||""; const match=normalizeNegMatch(parts[1])||defMatch;
+    if(text)out.push({type:"kw",text,match,scope});
+  });
+  lines($("l_neg_pts").value).forEach(line=>{ const a=(line.toUpperCase().match(/B0[A-Z0-9]{8}/)||[])[0]; if(a)out.push({type:"pt",text:a,match:"",scope}); });
+  return out;
+}
+function negApplies(n,p){
+  const s=normalizeNegScope(n.scope);
+  if(s==="All Campaigns")return true;
+  if(s==="Keyword Campaigns")return p.kind==="kw";
+  if(s==="Product Targeting Campaigns")return p.kind==="pt";
+  if(s==="Exact Campaigns")return p.kind==="kw"&&p.match==="Exact";
+  if(s==="Phrase Campaigns")return p.kind==="kw"&&p.match==="Phrase";
+  if(s==="Broad Campaigns")return p.kind==="kw"&&p.match==="Broad";
+  return false;
+}
+function existingKwMap(){
+  const m={}; STATE.campaigns.forEach(cp=>cp.ags.forEach(ag=>ag.kws.forEach(k=>{ if(k.text&&k.state==="enabled")m[k.text.toLowerCase()+"|"+cap(k.match).toLowerCase()]=true; }))); return m;
+}
+function existingPtMap(){
+  const m={}; STATE.campaigns.forEach(cp=>cp.ags.forEach(ag=>ag.targets.forEach(t=>{ if(t.state!=="enabled")return; const a=(String(t.expr||"").toUpperCase().match(/B0[A-Z0-9]{8}/)||[])[0]; if(a)m[a]=true; }))); return m;
+}
+function resolveProduct(asin, sku){
+  asin=String(asin||"").toUpperCase(); let finalSku=sku||"";
+  if(!finalSku && STATE.asinAgg[asin] && STATE.asinAgg[asin].sku) finalSku=STATE.asinAgg[asin].sku;
+  const rec=BASIS.asins[asin]||{};
+  return {asin,sku:finalSku,desc:rec.desc||"",parent:rec.parent||"",tier:rec.tier||""};
+}
+function yes(v,def=false){ const t=String(v==null?"":v).trim(); if(!t)return def; return /^(yes|y|true|1|on|enabled)$/i.test(t); }
+function normStrategy(v){ const t=String(v||"").toLowerCase(); if(t.includes("up")&&t.includes("down"))return "Dynamic bids - up and down"; if(t.includes("fixed"))return "Fixed bid"; return "Dynamic bids - down only"; }
+function normState(v){ return /^pause/i.test(String(v||""))?"paused":"enabled"; }
+function validDate(v){ return !v || /^\d{8}$/.test(String(v)); }
+/* Excel is aggressive about dates. A user typing 2026-09-01 into the template
+   leaves a serial number like 46266 in the cell, which used to fail validation
+   with no way to fix it from the app. Accept the common shapes and normalise. */
+function toYmd(v){
+  const t=String(v==null?"":v).trim();
+  if(!t)return "";
+  if(/^\d{8}$/.test(t))return t;
+  const fmt=d=>""+d.getUTCFullYear()+String(d.getUTCMonth()+1).padStart(2,"0")+String(d.getUTCDate()).padStart(2,"0");
+  if(/^\d{1,6}(\.\d+)?$/.test(t)){                       /* Excel serial, 1900 date system */
+    const n=Math.floor(Number(t));
+    if(n>=1&&n<=2958465)return fmt(new Date(Date.UTC(1899,11,30+n)));
+  }
+  let m=t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+  if(m)return m[1]+String(m[2]).padStart(2,"0")+String(m[3]).padStart(2,"0");
+  m=t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);   /* day first, as in UK and DE sheets */
+  if(m)return m[3]+String(m[2]).padStart(2,"0")+String(m[1]).padStart(2,"0");
+  return t;                                               /* leave it alone so validation reports it */
+}
+function normIntent(v){ const t=String(v||"").trim().toUpperCase(); return t==="SELF"?"SELF":t==="COMP"?"COMP":"Generic"; }
+function targetsIntent(targets,cfg){ const vals=[...new Set((targets||[]).map(t=>normIntent(t.intent||cfg.intent)).filter(Boolean))]; return vals.length===1?vals[0]:normIntent(cfg.intent); }
+function campaignToken(cfg, asins, targets, match, kind){
+  const set={list:asins.map(a=>({asin:a.asin,m:{orders:0,sales:0,clicks:0,impr:0,units:0}})),lead:asins.length?{asin:asins[0].asin,m:{}}:null};
+  const at=asinToken(set,"camp"), rec=BASIS.asins[at.lead]||{};
+  const texts=targets.map(t=>t.text), intent=targetsIntent(targets,cfg);
+  // IMPORTANT: 1KW is based on the FINAL generated campaign, not the total rows uploaded.
+  // A campaign is 1KW only when it contains exactly one positive keyword after splitting/grouping/duplicate exclusion.
+  const one=kind==="kw" && BASIS.rules.singleKw && targets.length===1;
+  return {GOAL:cfg.goal||"",NICHE:kind==="kw"?nicheOf(texts):"",TIER:BASIS.rules.showTier?(rec.tier||""):"",KW:one?"1KW":"KW",TERM:one?String(targets[0].text||"").trim():"",KWT:"",INTENT:intent,MATCH:match||"",DESC:rec.desc||"",ASIN:at.token,TOS:BASIS.rules.appendTos&&num(cfg.tos)>0?"TOS"+Math.round(num(cfg.tos)):"",NUM:"",COST:"",OPT:"",SDTARGET:""};
+}
+function launchCampaignName(tok, kind){
+  if(kind==="pt") return buildName(BASIS.templates.sp_asin,tok);
+  let tpl=String(BASIS.templates.sp_kw||"");
+  // Launcher-specific 1KW grammar: include the actual targeted keyword in the campaign name.
+  // We do not change the user's global naming template or the renaming engine.
+  if(tok.KW==="1KW" && tok.TERM){
+    let segs=tpl.split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean);
+    // "kw targeted" is redundant once 1KW + the actual term are present.
+    segs=segs.filter(x=>x.indexOf("{KWT}")<0);
+    if(!segs.some(x=>x.indexOf("{TERM}")>=0)){
+      const mi=segs.findIndex(x=>x.indexOf("{MATCH}")>=0);
+      segs.splice(mi>=0?mi+1:Math.min(5,segs.length),0,"{TERM}");
+    }
+    tpl=segs.join(" - ");
+  }
+  return buildName(tpl,tok);
+}
+function ptIntent(asins){
+  if(!asins.length)return "COMP";
+  const own=asins.filter(a=>(BASIS.asins[a]&&BASIS.asins[a].own!==false)||STATE.asinAgg[a]);
+  return BASIS.rules.ptSelfFromOwn && own.length===asins.length ? "SELF" : "COMP";
+}
+function launchAgNameFor(cfg, asin, targets, match, kind){
+  const rec=BASIS.asins[asin.asin]||{};
+  if(BASIS.rules.adGroupName==="asin_only")return asin.asin;
+  if(BASIS.rules.adGroupName==="desc_asin"&&rec.desc)return buildName("{DESC} - {ASIN}",{DESC:rec.desc,ASIN:asin.asin});
+  const intent=targetsIntent(targets,cfg);
+  const tpl=kind==="pt"?BASIS.templates.ag_asin:BASIS.templates.ag_kw;
+  return buildName(tpl,{MATCH:match||"",DESC:rec.desc||"",ASIN:asin.asin,INTENT:intent,NICHE:kind==="kw"?nicheOf(targets.map(t=>t.text)):"",GOAL:"",TIER:rec.tier||"",KW:"",KWT:"",TOS:"",NUM:""});
+}
+function buildPlansForLaunch(cfg, products, targets, launchId, negatives){
+  const warnings=[],errors=[],plans=[],ekw=existingKwMap(),ept=existingPtMap();
+  const tag=(launchId?launchId+": ":"");
+  const allowedMkts=["us","ca","mx","br","uk","de","fr","it","es","nl","se","pl","be","tr","ae","eg","sa","in","jp","sg","au"];
+  const allowedMatch=["exact","phrase","broad"];
+  products=(products||[]).map(p=>resolveProduct(p.asin,p.sku));
+  const kws=(targets||[]).filter(t=>t.type==="kw"), pts=(targets||[]).filter(t=>t.type==="pt");
+  if(!products.length)errors.push(tag+"Add at least one valid advertised ASIN.");
+  if(!kws.length&&!pts.length)errors.push(tag+"Add at least one keyword or product target.");
+  if(!allowedMkts.includes(String(cfg.marketplace||"").toLowerCase()))errors.push(tag+"Marketplace is missing or invalid.");
+  if(!["seller","vendor"].includes(String(cfg.account||"").toLowerCase()))errors.push(tag+"Account Type must be seller or vendor.");
+  if(!(num(cfg.budget)>0))errors.push(tag+"Daily budget must be greater than 0.");
+  if(!validDate(cfg.start)||!validDate(cfg.end))errors.push(tag+"Start/End Date must be YYYYMMDD.");
+  if(cfg.start && cfg.end && String(cfg.end)<String(cfg.start))errors.push(tag+"End Date cannot be before Start Date.");
+  if(num(cfg.tos)<0||num(cfg.tos)>900)errors.push(tag+"Top of Search adjustment must be between 0% and 900%.");
+  if(num(cfg.ros)<0||num(cfg.ros)>900)errors.push(tag+"Rest of Search adjustment must be between 0% and 900%.");
+  if(num(cfg.pp)<0||num(cfg.pp)>900)errors.push(tag+"Product Pages adjustment must be between 0% and 900%.");
+  products.forEach(a=>{
+    if(!/^B0[A-Z0-9]{8}$/.test(a.asin))errors.push(tag+"Invalid advertised ASIN: "+a.asin);
+    if(!a.desc)errors.push(tag+a.asin+" has no product description in the ASIN library.");
+    if(cfg.account==="seller"&&!a.sku)errors.push(tag+a.asin+" has no SKU mapping.");
+  });
+  /* Amazon rejects keywords over 80 characters, keywords containing special
+     characters, and bids outside 0.02–1000. Catch all three here rather than
+     letting the upload fail row by row. */
+  const BAD_KW_CHARS=/[^\p{L}\p{N}\s'&.\-+]/u;
+  const badBid=v=>{const n=num(v);return !(n>=0.02&&n<=1000);};
+  kws.forEach(t=>{
+    const txt=String(t.text||"").trim();
+    if(!txt)errors.push(tag+"A keyword row is blank.");
+    else{
+      if(txt.length>80)errors.push(tag+'Keyword is over 80 characters: "'+txt.slice(0,40)+'…"');
+      if(BAD_KW_CHARS.test(txt))errors.push(tag+'Keyword contains characters Amazon does not accept: "'+txt+'"');
+      if(txt.split(/\s+/).length>10)errors.push(tag+'Keyword has more than 10 words: "'+txt+'"');
+    }
+    if(!allowedMatch.includes(String(t.match||"").toLowerCase()))errors.push(tag+'Keyword "'+t.text+'" has invalid Match Type "'+(t.match||"")+'".');
+    if(badBid(t.bid))errors.push(tag+'Keyword "'+t.text+'" needs a bid between 0.02 and 1000.');
+  });
+  pts.forEach(t=>{
+    if(!/^B0[A-Z0-9]{8}$/.test(t.text))errors.push(tag+"Invalid product target ASIN: "+t.text);
+    if(badBid(t.bid))errors.push(tag+t.text+" needs a bid between 0.02 and 1000.");
+  });
+  (negatives||[]).forEach(n=>{
+    if(n.type!=="pt"){
+      const txt=String(n.text||"").trim();
+      if(txt&&txt.length>80)errors.push(tag+'Negative keyword is over 80 characters: "'+txt.slice(0,40)+'…"');
+      if(txt&&BAD_KW_CHARS.test(txt))errors.push(tag+'Negative keyword contains characters Amazon does not accept: "'+txt+'"');
+    }
+  });
+  if(cfg.start&&/^\d{8}$/.test(String(cfg.start))){
+    const now=new Date(), today=""+now.getFullYear()+String(now.getMonth()+1).padStart(2,"0")+String(now.getDate()).padStart(2,"0");
+    if(String(cfg.start)<today)warnings.push(tag+"Start Date "+cfg.start+" is in the past. Amazon rejects backdated start dates — set it to today or later before uploading.");
+  }
+  (negatives||[]).forEach(n=>{
+    if(n.type==="pt"){ if(!/^B0[A-Z0-9]{8}$/.test(String(n.text||"").toUpperCase()))errors.push(tag+"Invalid negative product target ASIN: "+n.text); }
+    else { if(!String(n.text||"").trim())errors.push(tag+"A negative keyword row is blank."); if(!normalizeNegMatch(n.match))errors.push(tag+'Negative keyword "'+n.text+'" needs Negative Exact or Negative Phrase.'); }
+    n.scope=normalizeNegScope(n.scope);
+  });
+  if(errors.length)return {plans,warnings,errors};
+  const productGroups=cfg.separate?products.map(a=>[a]):[products];
+  const matches=[...new Set(kws.map(k=>k.match).filter(Boolean))];
+  productGroups.forEach(pg=>{
+    const addKwPlan=(use,mt)=>{ if(!use.length)return; const tok=campaignToken(cfg,pg,use,mt,"kw"); plans.push({launchId,cfg,kind:"kw",cname:launchCampaignName(tok,"kw"),match:mt,targets:use,asins:pg,intent:tok.INTENT,niche:tok.NICHE,agname:launchAgNameFor(cfg,pg[0],use,mt,"kw")}); };
+    const addPtPlan=use=>{ if(!use.length)return; const tok=campaignToken(cfg,pg,use,"","pt"); plans.push({launchId,cfg,kind:"pt",cname:buildName(BASIS.templates.sp_asin,tok),match:"",targets:use,asins:pg,intent:tok.INTENT,niche:"",agname:launchAgNameFor(cfg,pg[0],use,"","pt")}); };
+    if(cfg.structure==="target"){
+      kws.forEach(kw=>{ const mt=kw.match||"Exact"; if(cfg.dupes==="exclude"&&ekw[kw.text.toLowerCase()+"|"+mt.toLowerCase()])return; addKwPlan([kw],mt); });
+      pts.forEach(pt=>{ if(cfg.dupes==="exclude"&&ept[pt.text])return; addPtPlan([pt]); });
+    }else if(cfg.structure==="mixed"){
+      const use=kws.filter(k=>!(cfg.dupes==="exclude"&&ekw[k.text.toLowerCase()+"|"+String(k.match||"").toLowerCase()]));
+      ["Generic","SELF","COMP"].forEach(intent=>addKwPlan(use.filter(k=>normIntent(k.intent)===intent),"Mixed"));
+      const usePt=pts.filter(t=>!(cfg.dupes==="exclude"&&ept[t.text])); ["Generic","SELF","COMP"].forEach(intent=>addPtPlan(usePt.filter(t=>normIntent(t.intent)===intent)));
+    }else{
+      matches.forEach(mt=>["Generic","SELF","COMP"].forEach(intent=>{ const use=kws.filter(k=>k.match===mt&&normIntent(k.intent)===intent&&!(cfg.dupes==="exclude"&&ekw[k.text.toLowerCase()+"|"+mt.toLowerCase()])); addKwPlan(use,mt); }));
+      const usePt=pts.filter(t=>!(cfg.dupes==="exclude"&&ept[t.text])); ["Generic","SELF","COMP"].forEach(intent=>addPtPlan(usePt.filter(t=>normIntent(t.intent)===intent)));
+    }
+  });
+  if(cfg.structure==="mixed"&&kws.length)warnings.push(tag+'All in one mixes keyword match types; campaign name will use "Mixed". Grouped by match type is safer for the naming convention.');
+  if(cfg.dupes==="warn"){
+    kws.forEach(k=>{ if(ekw[k.text.toLowerCase()+"|"+String(k.match||"").toLowerCase()])warnings.push((launchId?launchId+": ":"")+'Already active keyword: "'+k.text+'" '+k.match); });
+    pts.forEach(t=>{ if(ept[t.text])warnings.push((launchId?launchId+": ":"")+"Already active product target: "+t.text); });
+  }
+  plans.forEach(p=>p.negatives=(negatives||[]).filter(n=>negApplies(n,p)).map(n=>Object.assign({},n)));
+  return {plans,warnings,errors};
+}
+function manualLaunchConfig(){
+  const intent=normIntent($("l_intent").value), matches=launchMatches(), kws=launchKeywords(), targets=[]; matches.forEach(m=>kws.forEach(k=>targets.push({type:"kw",text:k.text,bid:k.bid,match:m,intent}))); launchPts().forEach(p=>targets.push(Object.assign({},p,{intent})));
+  return {cfg:{marketplace:$("l_mkt").value,account:$("l_account").value,goal:$("l_goal").value.trim(),budget:num($("l_budget").value),state:$("l_state").value,start:toYmd($("l_start").value.trim()),end:toYmd($("l_end").value.trim()),strategy:$("l_strategy").value,tos:num($("l_tos").value),ros:num($("l_ros").value),pp:num($("l_pp").value),structure:$("l_structure").value==="keyword"?"target":($("l_structure").value==="all"?"mixed":"grouped"),separate:$("l_separate").checked,dupes:$("l_dupes").value,intent,defaultBid:num($("l_bid").value)},products:launchAsins(),targets,negatives:launchManualNegatives()};
+}
+function makeLaunchPlans(){
+  uiToBasis();
+  const allPlans=[],warnings=[],errors=[];
+  if(LAUNCH.imported){
+    LAUNCH.imported.groups.forEach(g=>{ BASIS.marketplace=g.cfg.marketplace||BASIS.marketplace; const r=buildPlansForLaunch(g.cfg,g.products,g.targets,g.id,g.negatives||[]); allPlans.push(...r.plans); warnings.push(...r.warnings); errors.push(...(r.errors||[])); });
+  } else {
+    const m=manualLaunchConfig(); BASIS.marketplace=m.cfg.marketplace||BASIS.marketplace; const r=buildPlansForLaunch(m.cfg,m.products,m.targets,"",m.negatives||[]); allPlans.push(...r.plans); warnings.push(...r.warnings); errors.push(...(r.errors||[]));
+  }
+  const grp={}; allPlans.forEach(p=>(grp[p.cname.toLowerCase()]||(grp[p.cname.toLowerCase()]=[])).push(p)); Object.values(grp).forEach(a=>{if(a.length>1)a.forEach((p,i)=>p.cname+=BASIS.sep+(i+1));});
+  const existingNames=new Set(STATE.campaigns.map(c=>String(c.name||"").trim().toLowerCase()).filter(Boolean));
+  allPlans.forEach(p=>{
+    if(existingNames.has(String(p.cname).trim().toLowerCase()))errors.push((p.launchId?p.launchId+": ":"")+"Campaign name already exists in the loaded account bulk: "+p.cname);
+    if(p.cname.length>BASIS.rules.campLimit)errors.push((p.launchId?p.launchId+": ":"")+"Campaign name over "+BASIS.rules.campLimit+" characters: "+p.cname);
+    if(p.agname.length>BASIS.rules.agLimit)errors.push((p.launchId?p.launchId+": ":"")+"Ad group name over "+BASIS.rules.agLimit+" characters: "+p.agname);
+  });
+  return {plans:allPlans,warnings,errors};
+}
+function launchPreview(){
+  const r=makeLaunchPlans(); LAUNCH.plans=r.plans; LAUNCH.warnings=r.warnings; LAUNCH.errors=r.errors||[]; const rows=[];
+  r.plans.forEach(p=>{
+    p.targets.forEach(t=>p.asins.forEach(a=>rows.push({campaign:p.cname,ag:p.agname,asin:a.asin,target:t.text,label:p.kind==="pt"?"Product Target":(t.match||p.match),bid:t.bid,intent:p.intent,status:p.cfg.state,launchId:p.launchId})));
+    (p.negatives||[]).forEach(n=>p.asins.forEach(a=>rows.push({campaign:p.cname,ag:p.agname,asin:a.asin,target:n.text,label:n.type==="pt"?"NEG Product Target":"NEG "+n.match,bid:"",intent:p.intent,status:"negative",launchId:p.launchId})));
+  }); LAUNCH.rows=rows;
+  const budget=r.plans.reduce((s,p)=>s+num(p.cfg.budget),0), targetRows=r.plans.reduce((s,p)=>s+p.targets.length,0), negativeRows=r.plans.reduce((s,p)=>s+(p.negatives||[]).length,0), asinCount=new Set(r.plans.flatMap(p=>p.asins.map(a=>a.asin))).size;
+  $("l_stats").innerHTML=[["Campaigns",r.plans.length],["ASINs",asinCount],["Target rows",targetRows],["Manual negatives",negativeRows],["Potential daily budget",budget.toFixed(2)]].map(x=>'<div class="stat"><b>'+esc(x[1])+'</b><span>'+esc(x[0])+'</span></div>').join("");
+  const msgs=[];
+  if(LAUNCH.errors.length)msgs.push('<div class="note warn"><b>Cannot export until these are fixed:</b><br>'+LAUNCH.errors.slice(0,80).map(esc).join('<br>')+(LAUNCH.errors.length>80?'<br>…and '+(LAUNCH.errors.length-80)+' more.':'')+'</div>');
+  if(r.warnings.length)msgs.push('<div class="note warn"><b>Warnings:</b><br>'+r.warnings.slice(0,80).map(esc).join('<br>')+(r.warnings.length>80?'<br>…and '+(r.warnings.length-80)+' more.':'')+'</div>');
+  if(!msgs.length)msgs.push('<div class="note">Validation passed. Review the generated names and targeting below.</div>');
+  $("l_messages").innerHTML=msgs.join("");
+  $("l_body").innerHTML=rows.length?rows.slice(0,1500).map(x=>'<tr><td class="mono">'+esc(x.campaign)+'</td><td class="mono">'+esc(x.ag)+'</td><td class="mono">'+esc(x.asin)+'</td><td>'+esc(x.target)+'</td><td>'+esc(x.label)+'</td><td class="num">'+Number(x.bid||0).toFixed(2)+'</td><td>'+esc(x.intent)+'</td><td>'+esc(x.status)+'</td></tr>').join(''):'<tr><td colspan="8" class="empty">Nothing to launch with the current inputs.</td></tr>';
+  $("l_download").disabled=!r.plans.length||LAUNCH.errors.length>0;
+}
+/* The launch file is always written with Amazon's own writable Sponsored Products
+   column set.
+
+   Reusing the headers of the loaded account bulk file is what broke the upload.
+   A real Amazon bulk file carries BOTH "Campaign Name" and "Campaign Name
+   (Informational only)" (also Ad Group Name and Ad Group Default Bid). normH()
+   deliberately strips "(informational only)", so both collapse to the same key —
+   and the old header map let the LAST column win. Every name and default bid was
+   therefore written into the read-only informational column, leaving the real one
+   blank, which Amazon reported as "Missing value for column: Campaign Name" and
+   "Missing value for columns: Ad Group Name, Ad Group Default Bid".
+
+   A fixed canonical header row has no duplicates, so the collision cannot happen.
+   findHeader() below is also now first-wins as a second line of defence. */
+const SP_LAUNCH_HEADERS = ["Product","Entity","Operation","Campaign ID","Ad Group ID","Portfolio ID","Ad ID","Keyword ID","Product Targeting ID","Campaign Name","Ad Group Name","Start Date","End Date","Targeting Type","State","Daily Budget","SKU","ASIN","Ad Group Default Bid","Bid","Keyword Text","Native Language Keyword","Native Language Locale","Match Type","Bidding Strategy","Placement","Percentage","Product Targeting Expression"];
+
+/* Columns Amazon validates as numbers. Writing these as text cells is the single
+   most common cause of "Invalid value: 'x' for column: 'Bid'" on upload. */
+const SP_NUMERIC_COLS = { "dailybudget": 2, "bid": 2, "adgroupdefaultbid": 2, "percentage": 0 };
+/* Columns that must stay text so Amazon never sees 1.23E+11 or an Excel serial. */
+const SP_TEXT_COLS = { "campaignid": 1, "adgroupid": 1, "adid": 1, "keywordid": 1, "producttargetingid": 1, "portfolioid": 1, "startdate": 1, "enddate": 1 };
+
+function launchHeaders(){
+  const cp=STATE.campaigns.find(c=>c.channel==="SP");
+  return {headers:SP_LAUNCH_HEADERS.slice(), sheet:(cp&&cp.sheet)||"Sponsored Products Campaigns"};
+}
+function findHeader(headers,names,loose){const map={};headers.forEach((h,i)=>{const k=normH(h);if(map[k]==null)map[k]=i;});return findCol(map,names,loose);}
+function money(v,dp){const n=Number(v);if(!isFinite(n))return "";return n.toFixed(dp==null?2:dp);}
+function launchRow(headers,vals){
+  const row=headers.map(()=>({v:"",num:false}));
+  Object.keys(vals).forEach(k=>{
+    const key=normH(k);
+    const i=findHeader(headers,[key]);              /* exact only — loose matching used to
+                                                       land "Bid" on "Ad Group Default Bid" */
+    if(i<0||vals[k]===""||vals[k]==null)return;
+    if(SP_NUMERIC_COLS[key]!=null){
+      const s=money(vals[k],SP_NUMERIC_COLS[key]);
+      if(s!=="")row[i]={v:s,num:true};
+    } else {
+      row[i]={v:String(vals[k]),num:false};
+    }
+  });
+  return row;
+}
+function exportLaunch(){
+  if(!LAUNCH.plans.length)launchPreview();
+  if(LAUNCH.errors&&LAUNCH.errors.length){ alert("Fix the launch validation errors before exporting."); return; }
+  if(!LAUNCH.plans.length)return;
+  const spec=launchHeaders(),H=spec.headers,rows=[H.map(h=>({v:h,num:false}))];
+  const kwText=s=>String(s||"").trim().replace(/\s+/g," ").toLowerCase();
+  const ptExpr=s=>'asin="'+String(s||"").trim().toUpperCase()+'"';
+  LAUNCH.plans.forEach((p,pi)=>{
+    const c=p.cfg, state=normState(c.state);
+    const dbid=num(c.defaultBid)||Math.max(0.02,...p.targets.map(t=>num(t.bid)));
+    const cid="TMP-C-"+String(pi+1).padStart(4,"0");
+    const agid="TMP-AG-"+String(pi+1).padStart(4,"0");
+    rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Campaign","Operation":"Create","Campaign ID":cid,"Campaign Name":p.cname,"Start Date":c.start,"End Date":c.end,"Targeting Type":"Manual","State":state,"Daily Budget":c.budget,"Bidding Strategy":normStrategy(c.strategy)}));
+    rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Ad Group","Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":p.cname,"Ad Group Name":p.agname,"State":state,"Ad Group Default Bid":dbid}));
+    p.asins.forEach(a=>rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Product Ad","Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":p.cname,"Ad Group Name":p.agname,"State":state,"SKU":a.sku,"ASIN":a.asin})));
+    p.targets.forEach(t=>{
+      if(p.kind==="pt") rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Product Targeting","Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":p.cname,"Ad Group Name":p.agname,"State":state,"Product Targeting Expression":ptExpr(t.text),"Bid":t.bid}));
+      else rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Keyword","Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":p.cname,"Ad Group Name":p.agname,"State":state,"Keyword Text":kwText(t.text),"Match Type":String(t.match||p.match).toLowerCase(),"Bid":t.bid}));
+    });
+    /* Bidding Adjustment is the one entity where State is legitimately blank. */
+    if(num(c.tos)>0)rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Bidding Adjustment","Operation":"Create","Campaign ID":cid,"Campaign Name":p.cname,"Bidding Strategy":normStrategy(c.strategy),"Placement":"Placement Top","Percentage":Math.round(num(c.tos))}));
+    if(num(c.ros)>0)rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Bidding Adjustment","Operation":"Create","Campaign ID":cid,"Campaign Name":p.cname,"Bidding Strategy":normStrategy(c.strategy),"Placement":"Placement Rest Of Search","Percentage":Math.round(num(c.ros))}));
+    if(num(c.pp)>0)rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Bidding Adjustment","Operation":"Create","Campaign ID":cid,"Campaign Name":p.cname,"Bidding Strategy":normStrategy(c.strategy),"Placement":"Placement Product Page","Percentage":Math.round(num(c.pp))}));
+    (p.negatives||[]).forEach(n=>{
+      if(n.type==="pt")rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Negative Product Targeting","Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":p.cname,"Ad Group Name":p.agname,"State":"enabled","Product Targeting Expression":ptExpr(n.text)}));
+      /* Negative keyword rows take negativeExact / negativePhrase. Writing plain
+         "exact" / "phrase" here is what Amazon rejected as an invalid Match Type. */
+      else rows.push(launchRow(H,{"Product":"Sponsored Products","Entity":"Negative Keyword","Operation":"Create","Campaign ID":cid,"Ad Group ID":agid,"Campaign Name":p.cname,"Ad Group Name":p.agname,"State":"enabled","Keyword Text":kwText(n.text),"Match Type":normalizeNegMatch(n.match)==="Negative Exact"?"negativeExact":"negativePhrase"}));
+    });
+  });
+  /* Last line of defence. Amazon's previous rejection was caused by values being
+     written into a column that looked right but was not, so confirm the required
+     cell for each entity actually holds something before handing over the file. */
+  const need={ "Campaign":["Campaign Name","Daily Budget","Targeting Type","State"],
+               "Ad Group":["Campaign Name","Ad Group Name","Ad Group Default Bid","State"],
+               "Product Ad":["Campaign Name","Ad Group Name","State"],
+               "Keyword":["Campaign Name","Ad Group Name","Keyword Text","Match Type","Bid","State"],
+               "Product Targeting":["Campaign Name","Ad Group Name","Product Targeting Expression","Bid","State"],
+               "Negative Keyword":["Campaign Name","Ad Group Name","Keyword Text","Match Type","State"],
+               "Negative Product Targeting":["Campaign Name","Ad Group Name","Product Targeting Expression","State"],
+               "Bidding Adjustment":["Campaign Name","Placement","Percentage"] };
+  const iOf={}; H.forEach((h,i)=>{const k=normH(h);if(iOf[k]==null)iOf[k]=i;});
+  const holes=[];
+  /* Amazon accepts only these literal values. "Fixed bids" (the wording used in
+     the ads console UI) is NOT one of them — the bulksheet value is "Fixed bid". */
+  const enums={ "biddingstrategy":["Dynamic bids - down only","Dynamic bids - up and down","Fixed bid"],
+                "targetingtype":["Manual","Auto"],
+                "state":["enabled","paused","archived"],
+                "operation":["Create","Update","Archive"],
+                "placement":["Placement Top","Placement Rest Of Search","Placement Product Page","Placement Amazon Business"],
+                "matchtype":["exact","phrase","broad","negativeExact","negativePhrase"] };
+  const cellOf=(r,k)=>{const i=iOf[k];return i==null?"":String((r[i]||{}).v||"").trim();};
+  rows.slice(1).forEach((r,ri)=>{
+    const ent=String((r[iOf["entity"]]||{}).v||"");
+    (need[ent]||[]).forEach(col=>{
+      const i=iOf[normH(col)];
+      if(i==null||!String((r[i]||{}).v||"").trim())holes.push("row "+(ri+2)+" ("+ent+"): "+col+" is empty");
+    });
+    Object.keys(enums).forEach(k=>{
+      const v=cellOf(r,k);
+      if(v&&!enums[k].some(x=>x.toLowerCase()===v.toLowerCase()))
+        holes.push("row "+(ri+2)+" ("+ent+"): "+v+" is not a value Amazon accepts for that column");
+    });
+  });
+  if(holes.length){
+    alert("Export stopped — the file would have been rejected by Amazon.\n\nEmpty required cells:\n"+holes.slice(0,15).join("\n")+(holes.length>15?"\n…and "+(holes.length-15)+" more.":""));
+    return;
+  }
+  const textCols=H.map((h,i)=>SP_TEXT_COLS[normH(h)]?i:-1).filter(i=>i>=0);
+  download(makeXlsx([{name:spec.sheet,rows,textCols}]),stamp("campaign-launch")+".xlsx");
+}
+function templateRows(){
+  const T=v=>({v:String(v==null?"":v),num:false});
+  const instructions=[["BULK CAMPAIGN LAUNCH INPUT TEMPLATE",""],["How it works","Use the same Launch ID across Campaigns, Advertised Products, Targets and Negatives. Launch ID is only a join key and never becomes part of the Amazon campaign name."],["Keywords","Target Type = Keyword. Match Type = Exact, Phrase or Broad. Bid is required. Structure can be Grouped, One per target, or All in one. If a final generated campaign contains exactly one positive keyword, its name uses 1KW and includes that actual keyword; multi-keyword campaigns use KW."],["Product targets","Target Type = Product Target. Target must be an ASIN. Match Type stays blank."],["Manual negatives","Use the Negatives tab. Negative Type can be Keyword or Product Target. Keyword negatives use Negative Exact or Negative Phrase; product negatives leave Match Type blank."],["Apply To","Manual negatives can be scoped to All Campaigns, Keyword Campaigns, Exact, Phrase, Broad, or Product Targeting Campaigns within the same Launch ID."],["Intent","Intent is selected manually. Use Generic, SELF or COMP in the Targets sheet. The launcher does not auto-classify intent."],["Multiple advertised ASINs","Repeat the Launch ID in Advertised Products. Separate ASIN Campaigns = Yes creates isolated campaigns per advertised ASIN."],["Placements","Top of Search, Rest of Search and Product Pages accept 0% to 900%."],["Naming","Campaign and ad group names are generated from the Naming Basis and ASIN Library after upload."],["Dates","Start Date and End Date are YYYYMMDD, for example 20260901. Those two columns are already formatted as Text so Excel will not convert them. A real Excel date is also accepted and converted on import. Amazon rejects a start date in the past, so set it to the upload day or later."],["Bids and budgets","Numbers only, no currency symbol and no thousands separator. Bids must be between 0.02 and 1000."],["Keywords","Up to 80 characters and 10 words, letters, numbers, spaces, apostrophes, ampersands, hyphens and full stops only."],["Important","Keep the four input sheet names unchanged."]].map(r=>r.map(T));
+  const campaigns=[["Launch ID","Marketplace","Account Type","Goal / Source","Daily Budget","Campaign State","Start Date","End Date","Bidding Strategy","Top of Search %","Rest of Search %","Product Pages %","Structure","Separate ASIN Campaigns","Existing Target Handling","Default Bid"],["001",BASIS.marketplace||"de","seller","H10","20","enabled",$("l_start").value,"","Dynamic bids - down only","0","0","0","Grouped","Yes","Warn","0.70"]].map(r=>r.map(T));
+  const products=[["Launch ID","Advertised ASIN","SKU"],["001","B0XXXXXXXX","YOUR-SKU"]].map(r=>r.map(T));
+  const targets=[["Launch ID","Target Type","Target","Match Type","Intent","Bid"],["001","Keyword","example keyword","Exact","Generic","0.70"],["001","Product Target","B0COMPET01","","COMP","0.80"]].map(r=>r.map(T));
+  const negatives=[["Launch ID","Negative Type","Negative Target","Match Type","Apply To"],["001","Keyword","cheap","Negative Phrase","Keyword Campaigns"],["001","Keyword","free","Negative Exact","Broad Campaigns"],["001","Product Target","B0NEGATV01","","Product Targeting Campaigns"]].map(r=>r.map(T));
+  const campaignValidations = [
+    {range:"B2:B1000",values:["us","ca","mx","br","uk","de","fr","it","es","nl","se","pl","be","tr","ae","eg","sa","in","jp","sg","au"]},
+    {range:"C2:C1000",values:["seller","vendor"]},
+    {range:"D2:D1000",values:["Ranking","STR","SQP","H10","STIS","POE"]},
+    {range:"F2:F1000",values:["enabled","paused"]},
+    {range:"I2:I1000",values:["Dynamic bids - down only","Dynamic bids - up and down","Fixed bid"]},
+    {range:"M2:M1000",values:["Grouped","One per target","All in one"]},
+    {range:"N2:N1000",values:["Yes","No"]},
+    {range:"O2:O1000",values:["Warn","Exclude","Allow"]},
+  ];
+  const targetValidations = [
+    {range:"B2:B5000",values:["Keyword","Product Target"]},
+    {range:"D2:D5000",values:["Exact","Phrase","Broad"]},
+    {range:"E2:E5000",values:["Generic","SELF","COMP"]}
+  ];
+  const negativeValidations = [
+    {range:"B2:B5000",values:["Keyword","Product Target"]},
+    {range:"D2:D5000",values:["Negative Exact","Negative Phrase"]},
+    {range:"E2:E5000",values:["All Campaigns","Keyword Campaigns","Exact Campaigns","Phrase Campaigns","Broad Campaigns","Product Targeting Campaigns"]}
+  ];
+  /* Start Date (G) and End Date (H) are zero-based columns 6 and 7. */
+  return [{name:"Instructions",rows:instructions},{name:"Campaigns",rows:campaigns,validations:campaignValidations,textCols:[6,7]},{name:"Advertised Products",rows:products},{name:"Targets",rows:targets,validations:targetValidations},{name:"Negatives",rows:negatives,validations:negativeValidations}];
+}
+function downloadLaunchTemplate(){ download(makeXlsx(templateRows()),"bulk-campaign-launch-input-template.xlsx"); }
+function sheetObjects(sh){
+  const rows=sh&&sh.rows||[]; let hi=-1; for(let i=0;i<Math.min(rows.length,20);i++){const vals=(rows[i]||[]).map(c=>String(c&&c.v||"").trim()); if(vals.filter(Boolean).length>=2){hi=i;break;}} if(hi<0)return [];
+  const hdr=(rows[hi]||[]).map(c=>String(c&&c.v||"").trim()); return rows.slice(hi+1).map(r=>{const o={};hdr.forEach((h,i)=>{if(!h)return;const k=normH(h);if(o[k]==null||String(o[k]).trim()==="")o[k]=cellv(r,i);});return o;}).filter(o=>Object.values(o).some(Boolean));
+}
+function field(o,names){for(const n of names){const k=normH(n);if(o[k]!=null&&String(o[k]).trim()!=="")return String(o[k]).trim();}return "";}
+async function loadLaunchTemplate(file){
+  const sheets=await readWorkbook(file), by={}; sheets.forEach(sh=>by[normH(sh.name)]=sh);
+  const campSh=by["campaigns"], prodSh=by["advertisedproducts"], tarSh=by["targets"], negSh=by["negatives"];
+  if(!campSh||!prodSh||!tarSh)throw new Error('Template needs sheets named "Campaigns", "Advertised Products" and "Targets". The current template also includes "Negatives" for manual exclusions.');
+  const camps=sheetObjects(campSh),prods=sheetObjects(prodSh),tars=sheetObjects(tarSh),negs=negSh?sheetObjects(negSh):[],groups=[];
+  const ids=camps.map((r,idx)=>field(r,["Launch ID","Launch Group"])||String(idx+1));
+  const dupIds=[...new Set(ids.filter((x,i)=>ids.indexOf(x)!==i))];
+  if(dupIds.length)throw new Error("Duplicate Launch ID(s) in Campaigns: "+dupIds.join(", ")+". Each Launch ID must appear only once in Campaigns.");
+  const known=new Set(ids);
+  const orphanP=[...new Set(prods.map(x=>field(x,["Launch ID","Launch Group"])).filter(x=>x&&!known.has(x)))];
+  const orphanT=[...new Set(tars.map(x=>field(x,["Launch ID","Launch Group"])).filter(x=>x&&!known.has(x)))];
+  const orphanN=[...new Set(negs.map(x=>field(x,["Launch ID","Launch Group"])).filter(x=>x&&!known.has(x)))];
+  if(orphanP.length||orphanT.length||orphanN.length)throw new Error("Found rows whose Launch ID does not exist in Campaigns: "+[...new Set(orphanP.concat(orphanT,orphanN))].join(", ")+".");
+  camps.forEach((r,idx)=>{
+    const id=ids[idx];
+    const cfg={marketplace:field(r,["Marketplace"]).toLowerCase(),account:(field(r,["Account Type"])||"seller").toLowerCase(),goal:field(r,["Goal / Source","Goal"]),budget:num(field(r,["Daily Budget","Budget"])),state:normState(field(r,["Campaign State","State"])),start:toYmd(field(r,["Start Date"])),end:toYmd(field(r,["End Date"])),strategy:normStrategy(field(r,["Bidding Strategy"])),tos:num(field(r,["Top of Search %","TOS"])),ros:num(field(r,["Rest of Search %","ROS","Rest of Search"])),pp:num(field(r,["Product Pages %","PP"])),structure:/one/i.test(field(r,["Structure"]))?"target":(/all|mixed/i.test(field(r,["Structure"]))?"mixed":"grouped"),separate:yes(field(r,["Separate ASIN Campaigns"]),true),dupes:(field(r,["Existing Target Handling"])||"warn").toLowerCase(),intent:"Generic",defaultBid:num(field(r,["Default Bid"]))};
+    if(!["warn","exclude","allow"].includes(cfg.dupes))cfg.dupes="warn";
+    const products=prods.filter(x=>field(x,["Launch ID","Launch Group"])===id).map(x=>({asin:field(x,["Advertised ASIN","ASIN"]).toUpperCase(),sku:field(x,["SKU"])})).filter(x=>/^B0[A-Z0-9]{8}$/.test(x.asin));
+    const targets=[]; tars.filter(x=>field(x,["Launch ID","Launch Group"])===id).forEach(x=>{
+      const type=field(x,["Target Type","Type"]).toLowerCase(),txt=field(x,["Target"]).trim(),bid=num(field(x,["Bid"])),intent=normIntent(field(x,["Intent"]));
+      if(type.includes("product")||type==="pt") targets.push({type:"pt",text:txt.toUpperCase(),bid,intent});
+      else {
+        const raw=field(x,["Match Type","Match"]);
+        const mt=raw?cap(raw):"";
+        targets.push({type:"kw",text:txt,bid,match:mt,intent});
+      }
+    });
+    const negatives=[]; negs.filter(x=>field(x,["Launch ID","Launch Group"])===id).forEach(x=>{
+      const type=field(x,["Negative Type","Type"]).toLowerCase(), txt=field(x,["Negative Target","Target"]).trim(), rawMatch=field(x,["Match Type","Match"]), scope=normalizeNegScope(field(x,["Apply To","Scope"]));
+      if(type.includes("product")||type==="pt") negatives.push({type:"pt",text:txt.toUpperCase(),match:"",scope});
+      else negatives.push({type:"kw",text:txt,match:normalizeNegMatch(rawMatch),scope});
+    });
+    groups.push({id,cfg,products,targets,negatives});
+  });
+  if(!groups.length)throw new Error("No campaign rows found in the Campaigns sheet.");
+  LAUNCH.imported={groups}; LAUNCH.importedFile=file.name; $("l_tpl_status").innerHTML='<span class="tag ok">Template loaded</span> <b>'+esc(file.name)+'</b> · '+groups.length+' Launch ID'+(groups.length===1?'':'s')+' · '+groups.reduce((s,g)=>s+g.products.length,0)+' advertised products · '+groups.reduce((s,g)=>s+g.targets.length,0)+' targets · '+groups.reduce((s,g)=>s+(g.negatives||[]).length,0)+' manual negatives. Build preview to validate.'; $("l_download").disabled=true;
+}
+function clearImportedLaunch(){LAUNCH.imported=null;LAUNCH.importedFile="";LAUNCH.errors=[];$("l_tpl_status").textContent="No launch template loaded. Manual entry below still works.";$("l_download").disabled=true;}
+
+/* =========================================================================
+   9. WIRING
+   ========================================================================= */
+function show(p) {
+  document.querySelectorAll(".panel").forEach(x => x.classList.toggle("on", x.id === "p-" + p));
+  document.querySelectorAll(".step").forEach(x => x.classList.toggle("on", x.dataset.panel === p));
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+document.querySelectorAll(".step").forEach(b => b.onclick = () => show(b.dataset.panel));
+document.querySelectorAll("#basisTabs .tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#basisTabs .tab").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".bpanel").forEach(p => p.style.display = p.id === "b-" + b.dataset.b ? "" : "none");
+});
+$("drop").onclick = () => $("file").click();
+$("drop").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } };
+["dragenter", "dragover"].forEach(ev => $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("hot"); }));
+["dragleave", "drop"].forEach(ev => $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("hot"); }));
+$("drop").addEventListener("drop", e => { if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+$("file").onchange = e => { if (e.target.files.length) handleFile(e.target.files[0]); };
+
+async function handleFile(f) {
+  $("filelist").innerHTML = "Reading " + esc(f.name) + " …";
+  try {
+    const sheets = await readWorkbook(f);
+    ingest(sheets, f.name);
+    $("filelist").innerHTML = "<div>" + esc(f.name) + " — " + sheets.length + " sheet" + (sheets.length === 1 ? "" : "s") + ", " + sheets.reduce((s, x) => s + x.rows.length, 0).toLocaleString() + " rows</div>";
+    rebuild();
+  } catch (err) {
+    $("filelist").innerHTML = '<div style="color:var(--flag)">Could not read that file: ' + esc(err.message) + "</div>";
+    console.error(err);
+  }
+}
+$("toBasis").onclick = () => show("basis");
+$("toReview").onclick = () => { rebuild(); show("review"); };
+$("btnRebuild").onclick = () => rebuild();
+["q", "fChannel", "fStatus", "fView", "fSort"].forEach(id => $(id).addEventListener("input", () => { STATE.limit = 200; renderReview(); }));
+$("btnMore").onclick = () => { STATE.limit += 200; renderReview(); };
+$("bGo").onclick = () => {
+  const f = $("bFind").value.trim(), r = $("bRepl").value;
+  if (!f) { bMsg("Type the text to find first."); return; }
+  const re = literalFindRe(f);
+  const rows = bulkTargets();
+  if (!rows.length) { bMsg("Nothing in that scope right now. Tick some rows, or widen the filters."); return; }
+  const newMatches = rows.filter(x => { re.lastIndex = 0; return re.test(String(x.neu || "")); });
+  if (!newMatches.length) {
+    const oldMatches = rows.filter(x => { re.lastIndex = 0; return re.test(String(x.old || "")); });
+    bMsg(oldMatches.length
+      ? 'Found "' + f + '" in ' + oldMatches.length + ' NOW name' + (oldMatches.length === 1 ? "" : "s") + ', but not in any NEW name. Find & Replace edits NEW names only.'
+      : 'No match for "' + f + '" in the NEW names in this scope.');
+    return;
+  }
+  bulkApply(n => { const rx = literalFindRe(f); return String(n || "").replace(rx, () => r); },
+    r ? 'replaced "' + f + '" with "' + r + '"' : 'removed "' + f + '"');
+};
+$("bDropPh").onclick = () => bulkApply(n => splitName(n).filter(x => x !== BASIS.placeholder).join(BASIS.sep), "empty markers dropped");
+$("bTidy").onclick = () => bulkApply(n => n, "tidied");
+$("bUpper").onclick = () => bulkApply(n => n.replace(/b0[a-z0-9]{8}/gi, m => m.toUpperCase()), "ASINs capitalised");
+$("bPre").onclick = () => { const p = prompt("Text to put at the front of each name"); if (p) bulkApply(n => p + BASIS.sep + n, "prefix added"); };
+$("bSuf").onclick = () => { const p = prompt("Text to put at the end of each name"); if (p) bulkApply(n => n + BASIS.sep + p, "suffix added"); };
+$("bRebuildTpl").onclick = () => {
+  const rows = bulkTargets().filter(r => r.t === "c");
+  if (!rows.length) { bMsg("No campaigns in that scope."); return; }
+  STATE.history.push(JSON.stringify(STATE.override));
+  rows.forEach(r => { STATE.forceRebuild[r.cp.key] = true; delete STATE.override[r.key]; });
+  rebuild();
+  bMsg(rows.length + " campaign" + (rows.length === 1 ? "" : "s") + " rewritten from the templates. Undo puts the repaired names back.");
+};
+$("bUndo").onclick = bulkUndo;
+$("bReset").onclick = () => {
+  const rows = bulkTargets();
+  STATE.history.push(JSON.stringify(STATE.override));
+  rows.forEach(r => delete STATE.override[r.key]);
+  rebuild(); bMsg(rows.length + " row" + (rows.length === 1 ? "" : "s") + " back on the rules.");
+};
+$("btnSaveSession").onclick = saveSession;
+$("btnLoadSession").onclick = () => $("sessionFile").click();
+$("sessionFile").onchange = async e => { if (e.target.files.length) loadSession(await e.target.files[0].text()); };
+$("btnExpand").onclick = () => { STATE.expandAll = !STATE.expandAll; renderReview(); };
+$("btnAll").onclick = () => { document.querySelectorAll(".selbox:not(:disabled)").forEach(b => STATE.selected[b.dataset.key] = true); renderReview(); };
+$("btnNone").onclick = () => { Object.keys(STATE.selected).forEach(k => STATE.selected[k] = false); renderReview(); };
+$("btnBulkGoal").onclick = () => {
+  const v = $("bulkGoal").value.trim(), seen = {};
+  document.querySelectorAll("#revBody .c[data-ck]").forEach(el => {
+    if (!seen[el.dataset.ck]) { seen[el.dataset.ck] = 1; STATE.goalOverride[el.dataset.ck] = v; }
+  });
+  rebuild();
+};
+$("btnClearEdits").onclick = () => { STATE.override = {}; rebuild(); };
+$("btnXlsx").onclick = exportBulk;
+$("btnFull").onclick = exportFull;
+$("btnMap").onclick = exportLog;
+$("btnPlan").onclick = exportPlan;
+$("btnSaveBasis").onclick = saveBasis;
+$("btnLoadBasis").onclick = () => $("basisFile").click();
+$("basisFile").onchange = async e => { if (e.target.files.length) await loadBasisAny(e.target.files[0]); };
+$("btnSaveBasisX").onclick = saveBasisXlsx;
+$("btnResetBasis").onclick = () => { const keep = BASIS.asins; BASIS = JSON.parse(JSON.stringify(DEFAULT_BASIS)); BASIS.asins = keep; basisToUi(); rebuild(); };
+$("btnApplyJson").onclick = () => loadBasisText($("jsonBox").value);
+$("mkt").onchange = () => { uiToBasis(); $("mktNote").textContent = BASIS.marketplace ? "Product names will be shortened with " + $("mkt").selectedOptions[0].textContent.split("—")[1].trim() + " filler words removed." : "Pick one so product names shorten correctly."; $("pStamp").textContent = BASIS.marketplace ? "Marketplace: " + BASIS.marketplace.toUpperCase() : $("pStamp").textContent; rebuild(); };
+$("descWords").onchange = () => { uiToBasis(); reshortenAll(); };
+$("btnReshort").onclick = reshortenAll;
+$("bsrSearch").addEventListener("input", renderBsr);
+$("bsrAll").onchange = applyBsrTitles;
+$("btnBsrPaste").onclick = () => {
+  const t = prompt("Paste rows as  ASIN <tab or comma> full product title  — one per line.");
+  if (!t) return;
+  let n = 0;
+  STATE.bsrTitles = STATE.bsrTitles || {};
+  t.split(/\r?\n/).forEach(l => {
+    const m = l.match(/(B0[A-Z0-9]{8})[\t,;|]+(.+)/i);
+    if (m) { STATE.bsrTitles[m[1].toUpperCase()] = m[2].trim(); n++; }
+  });
+  if (!n) { alert("Nothing recognised — each line needs an ASIN then a tab or comma then the title."); return; }
+  STATE.bsrFileName = STATE.bsrFileName || "pasted list";
+  applyBsrTitles();
+};
+$("btnBsrCsv").onclick = () => {
+  const rows = [["asin", "short_product_name", "full_title", "in_this_account"]];
+  Object.keys(STATE.bsrTitles || {}).forEach(a => rows.push([a, (BASIS.asins[a] || {}).desc || "", STATE.bsrTitles[a], STATE.asinAgg[a] ? "yes" : "no"]));
+  download(new Blob(["\uFEFF" + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\r\n")], { type: "text/csv" }), stamp("product-names") + ".csv");
+};
+$("l_preview").onclick = launchPreview;
+$("l_download").onclick = exportLaunch;
+$("l_tpl_download").onclick = downloadLaunchTemplate;
+$("l_tpl_upload").onclick = () => $("l_tpl_file").click();
+$("l_tpl_file").onchange = async e => { if(!e.target.files.length)return; $("l_tpl_status").textContent="Reading "+e.target.files[0].name+"…"; try{await loadLaunchTemplate(e.target.files[0]);}catch(err){clearImportedLaunch();$("l_tpl_status").innerHTML='<span class="tag flag">Template error</span> '+esc(err.message||err);} e.target.value=""; };
+$("l_mkt").onchange = () => { BASIS.marketplace = $("l_mkt").value; $("mkt").value = BASIS.marketplace; };
+["l_mkt","l_account","l_goal","l_state","l_budget","l_start","l_end","l_strategy","l_tos","l_pp","l_asins","l_kws","l_pts","l_bid","l_exact","l_phrase","l_broad","l_structure","l_dupes","l_separate","l_intent"].forEach(id => $(id).addEventListener("change", () => { if(LAUNCH.imported) clearImportedLaunch(); $("l_download").disabled = true; }));
+$("btnBsr").onclick = () => $("bsrFile").click();
+$("bsrFile").onchange = async e => {
+  if (!e.target.files.length) return;
+  $("bsrStatus").textContent = "Reading " + e.target.files[0].name + "…";
+  try { await ingestBsrFile(e.target.files[0]); }
+  catch (err) { $("bsrStatus").innerHTML = '<span class="tag flag">Could not read BSR</span> ' + esc(err.message || err); }
+  e.target.value = "";
+};
+$("asinSearch").addEventListener("input", renderAsins);
+$("btnAsinCsv").onclick = () => {
+  const rows = [["asin", "description", "parent", "tier", "own", "orders", "sales", "sku"]];
+  Object.keys(BASIS.asins).forEach(a => { const r = BASIS.asins[a], g = STATE.asinAgg[a] || {}; rows.push([a, r.desc || "", r.parent || "", r.tier || "", r.own !== false, Math.round(g.orders || 0), Math.round(g.sales || 0), g.sku || ""]); });
+  download(new Blob(["\uFEFF" + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\r\n")], { type: "text/csv" }), stamp("asin-library") + ".csv");
+};
+$("btnAsinPaste").onclick = () => {
+  const t = prompt("Paste rows as  ASIN<tab or comma>description  — one per line.");
+  if (!t) return;
+  t.split(/\r?\n/).forEach(l => {
+    const m = l.match(/(B0[A-Z0-9]{8})[\t,;]+(.+)/i);
+    if (m) { BASIS.asins[m[1].toUpperCase()] = Object.assign({ parent: "", tier: "", own: true }, BASIS.asins[m[1].toUpperCase()], { desc: m[2].trim() }); }
+  });
+  renderAsins(); rebuild();
+};
+document.querySelectorAll("#b-rules input, #b-rules select, #b-terms textarea").forEach(el => el.addEventListener("change", () => rebuild()));
+
+basisToUi();
+launchInit();
+renderAsins();
+renderReview();
+</script>
+</body>
+</html>
